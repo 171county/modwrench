@@ -1,0 +1,27 @@
+{
+  "name": "@mcpwrench/core",
+  "version": "0.0.1",
+  "description": "Shared core library for MCPwrench servers — auth, secrets, logging, errors.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@napi-rs/keyring": "^1.1.7",
+    "dotenv": "^16.4.5"
+  }
+}

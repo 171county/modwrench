@@ -1,0 +1,26 @@
+{
+  "name": "@modwrench/cli",
+  "version": "0.0.1",
+  "description": "ModWrench — one MCP entry, every mod platform. Bundles all installed @modwrench/* platform packages into a single combined MCP server.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "modwrench": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "clean": "rimraf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mcpwrench/core": "0.0.1",
+    "@modwrench/modio": "0.0.1",
+    "@modwrench/nexus": "0.0.1",
+    "@modelcontextprotocol/sdk": "^1.0.4"
+  }
+}
