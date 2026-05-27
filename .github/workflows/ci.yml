@@ -25,11 +25,15 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Typecheck
-        run: npm run typecheck
-
+      # Build before typecheck so each workspace's dist/*.d.ts exists
+      # when downstream packages try to resolve `@mcpwrench/core`,
+      # `@modwrench/nexus/register`, etc. Local dev didn't catch this
+      # because stale dist/ from prior builds was already present.
       - name: Build
         run: npm run build
+
+      - name: Typecheck
+        run: npm run typecheck
 
       - name: Test
         run: npm test
