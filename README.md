@@ -98,6 +98,8 @@ These are not promises. They are constraints baked into the code. PRs that viola
 
 You'll need [Node.js 20+](https://nodejs.org/) and an MCP-compatible client.
 
+> **🚧 Status: private alpha.** ModWrench isn't on the npm registry yet — the `npx @modwrench/cli` commands below will fail until we publish a 0.0.1 release. For now, install from source by cloning the repo, running `npm install && npm run build` at the workspace root, and pointing your MCP config at `node /absolute/path/to/modwrench/packages/cli/dist/index.js` instead of `npx -y @modwrench/cli`. The npm publish pipeline is on the [roadmap](ROADMAP.md). Track [GitHub releases](https://github.com/171county/modwrench/releases) for the announcement.
+
 ### Claude Desktop / Claude Code
 
 Add this to your MCP config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows, equivalent path on Linux):
@@ -265,12 +267,12 @@ If you build mods, you make the world more interesting. ModWrench's only job is 
 
 ## Status
 
-ModWrench is **early**. v1 works. v2 is in active development. v3 is sketched. The roadmap above is genuine intent, not a marketing document — but software is software and timelines slip.
+ModWrench is **early**. v1 shipped (Nexus + mod.io + Thunderstore platforms, 30 read-only tools). v2 shipped (workbench — local diagnostics, 5 tools, 55 tests). v2.5 (dynamic catalog) and v3 (multi-platform publishing) are designed but not yet built. See [ROADMAP.md](ROADMAP.md) for what's coming. The roadmap is genuine intent, not a marketing document — but software is software and timelines slip.
 
 Try it. Break it. Tell me. That's the whole loop.
 
 ---
 
 *ModWrench — built by Sean (and the AI assistants he was modding with at the time).*
-*MIT-style spirit, Apache 2.0 license, no telemetry, no lock-in.*
-*Project home: github.com/<your-username>/modwrench · MCP Registry: registry.modelcontextprotocol.io*
+*Apache 2.0 license, no telemetry, no lock-in.*
+*Project home: [github.com/171county/modwrench](https://github.com/171county/modwrench). MCP Registry submission planned once a 0.0.1 release ships to npm.*

@@ -35,3 +35,5 @@ desktop.ini
 *.tmp
 *.swp
 .cache/
+# Raw chat transcripts — kept local-only, not project artifacts
+research on modders.md

@@ -120,7 +120,7 @@ async function queryModMetadataInner(
     const client = tryCreateNexusClient();
     if (!client) {
       platformErrors["nexus"] =
-        "No Nexus credential configured. Run `modwrench-nexus auth login` " +
+        "No Nexus credential configured. Run `modwrench auth login nexus` " +
         "(OAuth) or set NEXUS_API_KEY in your .env.";
     } else {
       try {
@@ -142,7 +142,7 @@ async function queryModMetadataInner(
     const client = tryCreateModioClient();
     if (!client) {
       platformErrors["modio"] =
-        "No mod.io credential configured. Run `modwrench-modio auth login` " +
+        "No mod.io credential configured. Run `modwrench auth login modio` " +
         "(OAuth) or set MODIO_API_KEY in your .env.";
     } else {
       try {
@@ -164,7 +164,7 @@ async function queryModMetadataInner(
     const client = tryCreateModioClient();
     if (!client) {
       platformErrors["modio"] ??=
-        "No mod.io credential configured. Run `modwrench-modio auth login`.";
+        "No mod.io credential configured. Run `modwrench auth login modio`.";
     } else {
       try {
         const raw = await searchModioByName(
