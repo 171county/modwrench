@@ -97,6 +97,10 @@ export function log(
 
 export * from "./auth.js";
 
+// ─── Shared HTTP client ───────────────────────────────────────────────────────
+
+export * from "./http.js";
+
 // ─── Error type ───────────────────────────────────────────────────────────────
 
 /**

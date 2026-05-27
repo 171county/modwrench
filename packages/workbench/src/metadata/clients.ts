@@ -1,19 +1,23 @@
 import {
+  createHttpClient,
   getEnv,
   log,
   loadCredential,
   type Credential,
+  type HttpClient,
 } from "@mcpwrench/core";
 
 // Minimal HTTP clients for the platforms we already cover via dedicated MCP
-// packages. We re-implement the fetch helpers here rather than depending on
+// packages. We re-implement at this layer rather than depending on
 // @modwrench/nexus / @modwrench/modio because that would invert the dep
 // direction (workbench is supposed to be the leaner package, and the platform
 // packages don't need to know about workbench).
 //
-// Credentials are loaded best-effort at register time. If neither keychain
-// nor env var is set, the corresponding client is null and the metadata tool
-// surfaces a clear error pointing at `modwrench-<platform> auth login`.
+// Both clients use the shared @mcpwrench/core HTTP client for retry/backoff
+// /429 handling /concurrency cap — keeps behavior consistent with what the
+// platform packages do. Credentials are loaded best-effort at register time
+// via loadCredential; if neither keychain nor env is configured for a given
+// platform, the client is null and the metadata tool surfaces a clear error.
 
 const USER_AGENT = "ModWrench/0.0.1 (+https://mcpwrench.dev)";
 
@@ -36,29 +40,22 @@ export function tryCreateNexusClient(): NexusClient | null {
     return null;
   }
   const baseUrl = getEnv("NEXUS_BASE_URL", "https://api.nexusmods.com/v1");
+  const http: HttpClient = createHttpClient({
+    baseUrl,
+    userAgent: USER_AGENT,
+    errorCodePrefix: "nexus",
+    authHeaders: (): Record<string, string> => {
+      if (credential.source === "keychain") {
+        return { Authorization: `Bearer ${credential.accessToken}` };
+      }
+      return { apikey: credential.apiKey };
+    },
+  });
   return {
     baseUrl,
     async request<T>(path: string): Promise<T> {
-      const url = `${baseUrl}${path}`;
-      log("debug", "workbench.nexus.request", { url });
-      const auth: Record<string, string> =
-        credential.source === "keychain"
-          ? { Authorization: `Bearer ${credential.accessToken}` }
-          : { apikey: credential.apiKey };
-      const response = await fetch(url, {
-        headers: {
-          ...auth,
-          Accept: "application/json",
-          "User-Agent": USER_AGENT,
-        },
-      });
-      if (!response.ok) {
-        const body = await response.text().catch(() => "");
-        throw new Error(
-          `Nexus ${response.status} ${path}: ${body.slice(0, 200)}`
-        );
-      }
-      return (await response.json()) as T;
+      log("debug", "workbench.nexus.request", { path });
+      return http.request<T>(path);
     },
   };
 }
@@ -85,43 +82,38 @@ export function tryCreateModioClient(): ModioClient | null {
     return null;
   }
   const baseUrl = getEnv("MODIO_BASE_URL", "https://api.mod.io/v1");
+  const http: HttpClient = createHttpClient({
+    baseUrl,
+    userAgent: USER_AGENT,
+    errorCodePrefix: "modio",
+    authHeaders: (): Record<string, string> => {
+      if (credential.source === "keychain") {
+        return { Authorization: `Bearer ${credential.accessToken}` };
+      }
+      return {};
+    },
+  });
   return {
     baseUrl,
     async request<T>(
       path: string,
       query?: Record<string, string | number | undefined>
     ): Promise<T> {
-      const params = new URLSearchParams();
-      if (credential.source === "env") {
-        params.append("api_key", credential.apiKey);
-      }
-      if (query) {
-        for (const [k, v] of Object.entries(query)) {
-          if (v !== undefined && v !== null && v !== "") {
-            params.append(k, String(v));
-          }
-        }
-      }
-      const qs = params.toString();
-      const url = `${baseUrl}${path}${qs ? `?${qs}` : ""}`;
-      log("debug", "workbench.modio.request", {
-        url: url.replace(/api_key=[^&]+/, "api_key=***"),
-      });
-      const headers: Record<string, string> = {
-        Accept: "application/json",
-        "User-Agent": USER_AGENT,
+      const finalQuery: Record<string, string | number | undefined | null> = {
+        ...(query ?? {}),
       };
-      if (credential.source === "keychain") {
-        headers.Authorization = `Bearer ${credential.accessToken}`;
+      // mod.io's quirk: legacy API key goes on the query string, not as a
+      // header. OAuth tokens use the Authorization header (handled by
+      // authHeaders above).
+      if (credential.source === "env") {
+        finalQuery["api_key"] = credential.apiKey;
       }
-      const response = await fetch(url, { headers });
-      if (!response.ok) {
-        const body = await response.text().catch(() => "");
-        throw new Error(
-          `mod.io ${response.status} ${path}: ${body.slice(0, 200)}`
-        );
-      }
-      return (await response.json()) as T;
+      log("debug", "workbench.modio.request", {
+        path,
+        auth:
+          credential.source === "env" ? "api_key (query)" : "Bearer (header)",
+      });
+      return http.request<T>(path, { query: finalQuery });
     },
   };
 }
