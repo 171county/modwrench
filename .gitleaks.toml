@@ -1,0 +1,82 @@
+# ModWrench gitleaks configuration.
+#
+# Runs on every push and PR via .github/workflows/gitleaks.yml. Catches
+# credential-shaped strings before they land in the repo. Closes the gap
+# where GitHub's free secret scanning covers ~120 partner providers but
+# not Nexus Mods or mod.io.
+
+title = "ModWrench gitleaks config"
+
+# Inherit gitleaks' built-in default ruleset (catches AWS, GCP, Azure,
+# GitHub tokens, Stripe, OpenAI, Anthropic, ~150 known providers) and
+# layer our ModWrench-specific patterns on top.
+[extend]
+useDefault = true
+
+# ─── Custom rule: Nexus Mods Personal API Key ────────────────────────────
+# Nexus keys are ~100 char alphanumeric strings. Without context the
+# regex is too broad — anchoring via 'keywords' ensures the rule only
+# fires when one of the listed tokens appears near the match in the
+# same file region.
+[[rules]]
+id = "nexus-mods-api-key"
+description = "Nexus Mods Personal API Key"
+regex = '''[A-Za-z0-9_\-]{96,128}'''
+keywords = [
+  "NEXUS_API_KEY",
+  "nexusmods",
+  "nexus_api_key",
+]
+
+  [rules.allowlist]
+  description = "Allow npm lockfile SHA-512 integrity hashes and ModWrench's own crashlog fixtures"
+  paths = [
+    '''package-lock\.json''',
+    '''pnpm-lock\.yaml''',
+    '''yarn\.lock''',
+    '''packages/workbench/test/fixtures/.*''',
+  ]
+
+# ─── Custom rule: mod.io API Key ─────────────────────────────────────────
+# mod.io keys are 32 char lowercase hex. Bare 32-char hex shows up in
+# many benign places (git SHAs, npm integrity hashes, FormIDs in crash
+# logs), so 'keywords' is the critical filter.
+[[rules]]
+id = "modio-api-key"
+description = "mod.io API Key"
+regex = '''[a-f0-9]{32}'''
+keywords = [
+  "MODIO_API_KEY",
+  "modio_api_key",
+  "mod.io",
+]
+
+  [rules.allowlist]
+  description = "Allow lockfile hashes, crashlog fixture FormIDs, and known commit-SHA-shaped strings"
+  paths = [
+    '''package-lock\.json''',
+    '''pnpm-lock\.yaml''',
+    '''packages/workbench/test/fixtures/.*''',
+    '''docs/.*\.md''',
+  ]
+
+# ─── Global allowlist ────────────────────────────────────────────────────
+# Files and content that should never be scanned, regardless of which
+# rule matched. Used for documentation that intentionally contains
+# example-shaped strings.
+[allowlist]
+description = "Global skips: lockfile, build output, example docs with placeholder values"
+paths = [
+  '''node_modules/.*''',
+  '''dist/.*''',
+  '''.*\.tsbuildinfo''',
+  '''\.env\.example''',
+  '''\.env\.example\.txt''',
+]
+regexes = [
+  # Placeholder values used in docs and examples
+  '''your_nexus_personal_api_key_here''',
+  '''your_modio_api_key_here''',
+  '''YOUR_.*_HERE''',
+  '''<the\s+key>''',
+]

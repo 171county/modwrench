@@ -1,0 +1,39 @@
+name: Secret Scan
+
+# Runs gitleaks on every push and PR. Catches credential-shaped strings
+# (using both gitleaks' built-in detection for ~150 partner providers and
+# the custom Nexus / mod.io rules defined in .gitleaks.toml at the repo
+# root) before they ever land in the main branch.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Read-only permissions — gitleaks doesn't need to modify the repo.
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: Gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history for gitleaks)
+        uses: actions/checkout@v4
+        with:
+          # gitleaks scans the full commit history, not just the working
+          # tree — fetch-depth: 0 disables the default shallow clone.
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          # Required by gitleaks-action for PR comment posting and to
+          # check the org/repo license tier. For public repos this is
+          # all gitleaks-action needs and the action remains free.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Point at the repo-root config so our Nexus / mod.io rules
+          # are active in addition to the built-in defaults.
+          GITLEAKS_CONFIG: .gitleaks.toml
