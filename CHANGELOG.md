@@ -14,7 +14,7 @@ Everything since 0.0.1 is currently shipping to `main` without version tags. The
 
 ### Added
 
-- **Modrinth platform scaffold** ([packages/modrinth/](packages/modrinth/)) — placeholder package.json for the v3 expansion.
+- **Modrinth platform package** ([packages/modrinth/](packages/modrinth/)) — 7 read-only tools for the open-source Minecraft hub (mods, modpacks, plugins, datapacks, resourcepacks, shaders): `modrinth_search` with project-type/loader/game-version/category facets, `modrinth_get_project`, `modrinth_get_versions` (with loader and game-version filters), `modrinth_get_version`, `modrinth_list_categories`, `modrinth_list_loaders`, `modrinth_list_game_versions`. No credentials required — anonymous public REST API. Closes the platform-expansion second slot per ROADMAP.
 - **CurseForge platform scaffold** ([packages/curseforge/](packages/curseforge/)) — placeholder package.json for the v3 expansion.
 - **Thunderstore platform package** ([packages/thunderstore/](packages/thunderstore/)) — 7 read-only tools for Unity co-op modding (Lethal Company, Valheim, R.E.P.O., Risk of Rain 2, Dyson Sphere Program, BONEWORKS, and 270+ communities). No credentials required — anonymous public REST API.
 - **`@modwrench/workbench` package** — 5 atomic tools (`mw_detect_environment`, `mw_read_load_order`, `mw_parse_crashlog`, `mw_query_mod_metadata`, `mw_check_known_conflicts`) that compose with the v1 platform packages into a conversational diagnostic experience. Closes the v1→v2 chain end-to-end.

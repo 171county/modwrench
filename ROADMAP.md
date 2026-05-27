@@ -74,10 +74,12 @@ In recommended order:
    - Closes the loop with the existing r2modman load-order parser
    - 7 tools: list/get communities, list/get/search mods, version history, top mods
    - Read-only public API, no auth required
-2. **`@modwrench/modrinth`** — 📐 Scaffolded ([packages/modrinth/](packages/modrinth/))
+2. **`@modwrench/modrinth`** — ✅ Shipped ([packages/modrinth/](packages/modrinth/))
    - Minecraft, the largest modding community by raw user count
    - Best public REST API of any modding platform
    - Doing Modrinth before CurseForge signals values alignment to the Minecraft community
+   - 7 tools: search (with facets), get_project, version history, taxonomy lookups (categories / loaders / game versions)
+   - Read-only public API, no auth required
 3. **`@modwrench/curseforge`** — 📐 Scaffolded ([packages/curseforge/](packages/curseforge/))
    - Largest catalog (Minecraft + Sims 4 Mod Hub + WoW + ARK + 165k+ creators)
    - Rate-limited gated API; Overwolf trust deficit

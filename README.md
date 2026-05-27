@@ -12,14 +12,15 @@ Built by a tinkerer who didn't see this coming. The modding community deserves b
 
 ## What it does today
 
-ModWrench bridges three of the biggest modding platforms on Earth, plus a local workbench for diagnostics:
+ModWrench bridges four of the biggest modding platforms on Earth, plus a local workbench for diagnostics:
 
 - **Nexus Mods** — 50M+ users, the dominant home for Bethesda games (Skyrim, Fallout, Starfield), plus thousands of other titles
 - **mod.io** — the cross-platform UGC backbone for PC, console, and mobile, embedded in hundreds of games
 - **Thunderstore** — 270+ communities, the home of Unity co-op modding (Lethal Company, Valheim, R.E.P.O., Risk of Rain 2, Dyson Sphere Program, BONEWORKS, and more)
+- **Modrinth** — the open-source Minecraft hub (mods, modpacks, plugins, datapacks, resourcepacks, shaders). 75% of ad revenue to creators, REST API with no auth needed
 - **Workbench** — local-filesystem awareness: which games are installed, which mod manager you use, what your load order looks like, and what your crashlog actually says
 
-Each capability is a separate MCP package (`@modwrench/nexus`, `@modwrench/modio`, `@modwrench/thunderstore`, `@modwrench/workbench`). Install one, some, or all — same wrench, your choice of attachments. The CLI meta-server (`@modwrench/cli`) composes whichever you've configured into a single MCP entry.
+Each capability is a separate MCP package (`@modwrench/nexus`, `@modwrench/modio`, `@modwrench/thunderstore`, `@modwrench/modrinth`, `@modwrench/workbench`). Install one, some, or all — same wrench, your choice of attachments. The CLI meta-server (`@modwrench/cli`) composes whichever you've configured into a single MCP entry.
 
 ### Available tools
 
@@ -40,6 +41,13 @@ Each capability is a separate MCP package (`@modwrench/nexus`, `@modwrench/modio
 - `thunderstore_search_mods` — substring search by name
 - `thunderstore_mod_versions` — full version history with downloads + dependencies
 - `thunderstore_top_mods` — highest-rated mods in a community
+
+**Modrinth (platform tools — read-only public API, no auth required):**
+
+- `modrinth_search` — full-text search with facets (project_type, loader, game_version, category)
+- `modrinth_get_project` — single mod/modpack/plugin/datapack/resourcepack/shader by ID or slug
+- `modrinth_get_versions` / `modrinth_get_version` — version history + specific-version details
+- `modrinth_list_categories` / `modrinth_list_loaders` / `modrinth_list_game_versions` — taxonomy lookups for filtering
 
 **Workbench (local diagnostics — no credentials required, except `mw_query_mod_metadata`):**
 
@@ -187,7 +195,7 @@ Initial targets:
 
 - Nexus Mods + mod.io (already integrated read-side; adding write paths)
 - Thunderstore (Unity co-op) — read-side ✅ shipped in [packages/thunderstore/](packages/thunderstore/); write path planned
-- Modrinth (Minecraft, open source, modder-respected) — [packages/modrinth/](packages/modrinth/) scaffolded
+- Modrinth (Minecraft, open source, modder-respected) — read-side ✅ shipped in [packages/modrinth/](packages/modrinth/); write path planned
 - CurseForge (largest catalog: Minecraft + Sims 4 Mod Hub + WoW + ARK) — [packages/curseforge/](packages/curseforge/) scaffolded
 - Bethesda Creations / Verified Creator — deferred (politically sensitive; only if a specific creator-side case justifies it)
 
