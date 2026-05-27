@@ -215,7 +215,7 @@ export async function authStatus(): Promise<void> {
   const stored = getStoredToken(SERVICE);
   if (!stored) {
     process.stderr.write(
-      "Not signed in. Run: modwrench-nexus auth login\n"
+      "Not signed in. Run: modwrench auth login nexus\n"
     );
     process.exit(1);
   }
@@ -228,7 +228,7 @@ export async function authStatus(): Promise<void> {
   });
   if (!res.ok) {
     process.stderr.write(
-      `Token rejected by Nexus (${res.status}). Run: modwrench-nexus auth login\n`
+      `Token rejected by Nexus (${res.status}). Run: modwrench auth login nexus\n`
     );
     process.exit(1);
   }

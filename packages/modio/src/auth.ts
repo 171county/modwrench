@@ -101,7 +101,7 @@ export async function authLogin(): Promise<void> {
 export async function authStatus(): Promise<void> {
   const stored = getStoredToken(SERVICE);
   if (!stored) {
-    process.stderr.write("Not signed in. Run: modwrench-modio auth login\n");
+    process.stderr.write("Not signed in. Run: modwrench auth login modio\n");
     process.exit(1);
   }
 
@@ -113,7 +113,7 @@ export async function authStatus(): Promise<void> {
   });
   if (!res.ok) {
     process.stderr.write(
-      `Token rejected by mod.io (${res.status}). Run: modwrench-modio auth login\n`
+      `Token rejected by mod.io (${res.status}). Run: modwrench auth login modio\n`
     );
     process.exit(1);
   }

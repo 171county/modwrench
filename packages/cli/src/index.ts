@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadCredential, log, type Credential } from "@mcpwrench/core";
@@ -17,9 +20,13 @@ import { registerWorkbenchTools } from "@modwrench/workbench/register";
 const [, , subcmd, action, platform] = process.argv;
 
 if (subcmd === "--version" || subcmd === "-v") {
-  // Version is the meta-server's package version. Pinned in package.json and
-  // mirrored in the McpServer initialize below — keep both in sync.
-  process.stdout.write("0.0.1\n");
+  // Read directly from this package's package.json so version stays in sync
+  // automatically — no hardcoded duplicate to forget on release.
+  const here = dirname(fileURLToPath(import.meta.url));
+  const pkgJson = JSON.parse(
+    readFileSync(resolve(here, "..", "package.json"), "utf8")
+  ) as { version: string };
+  process.stdout.write(`${pkgJson.version}\n`);
   process.exit(0);
 }
 
@@ -102,7 +109,7 @@ const platforms: PlatformRegistration[] = [
     envVar: "NEXUS_API_KEY",
     service: "nexus",
     authHint:
-      "Run `modwrench-nexus auth login` (OAuth) or set NEXUS_API_KEY in your .env.",
+      "Run `modwrench auth login nexus` (OAuth) or set NEXUS_API_KEY in your .env.",
   },
   {
     name: "modio",
@@ -111,7 +118,7 @@ const platforms: PlatformRegistration[] = [
     envVar: "MODIO_API_KEY",
     service: "modio",
     authHint:
-      "Run `modwrench-modio auth login` (OAuth) or set MODIO_API_KEY in your .env.",
+      "Run `modwrench auth login modio` (OAuth) or set MODIO_API_KEY in your .env.",
   },
   {
     name: "thunderstore",
