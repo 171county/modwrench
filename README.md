@@ -12,36 +12,33 @@ Built by a tinkerer who didn't see this coming. The modding community deserves b
 
 ## What it does today
 
-ModWrench currently bridges two of the biggest modding platforms on Earth:
+ModWrench bridges two of the biggest modding platforms on Earth, plus a local workbench for diagnostics:
 
 - **Nexus Mods** — 50M+ users, the dominant home for Bethesda games (Skyrim, Fallout, Starfield), plus thousands of other titles
 - **mod.io** — the cross-platform UGC backbone for PC, console, and mobile, embedded in hundreds of games
+- **Workbench** — local-filesystem awareness: which games are installed, which mod manager you use, what your load order looks like, and what your crashlog actually says
 
-Each platform has its own MCP package (`@modwrench/nexus`, `@modwrench/modio`). Install one, both, or all — same wrench, your choice of attachments.
+Each capability is a separate MCP package (`@modwrench/nexus`, `@modwrench/modio`, `@modwrench/workbench`). Install one, two, or all three — same wrench, your choice of attachments. The CLI meta-server (`@modwrench/cli`) composes whichever you've configured into a single MCP entry.
 
 ### Available tools
 
-**Shared across both platforms:**
+**Nexus + mod.io (platform tools — read-only API clients):**
 
 - Search mods by game, query, or tag
-- List supported games
-- Pull mod details (description, author, version, downloads, screenshots)
+- List supported games and tag taxonomies
+- Pull mod details (description, author, version, downloads, screenshots, permissions)
 - Read changelogs for any version
 - Check a mod's dependencies
-- Browse mods by category or popularity
-- Resolve mod authors (find every mod by a given creator)
+- Browse mods by category, popularity, or trending
+- Nexus-only: archive content preview before download, MD5 reverse-lookup, full file metadata, top-games ranking on mod.io
 
-**Nexus-specific:**
+**Workbench (local diagnostics — no credentials required, except `mw_query_mod_metadata`):**
 
-- Preview the archive contents of a mod file before downloading
-- Read full file metadata (size, version, upload date, virus scan status)
-- Surface a mod's permissions (modification, conversion, asset reuse, DP eligibility)
-
-**mod.io-specific:**
-
-- Show the tag taxonomy for any mod.io game (each game has its own)
-- Get mod dependencies as a resolved graph
-- Surface the mod's monetization status (free / premium / subscription)
+- `mw_detect_environment` — find the user's games, mod managers, mod loaders, Proton versions
+- `mw_read_load_order` — normalize the load order across MO2 / r2modman / Vortex (best-effort)
+- `mw_parse_crashlog` — structured parse of Crash Logger SSE, Buffout 4, NetScriptFramework, BepInEx, and Minecraft crash-reports
+- `mw_query_mod_metadata` — cross-platform mod lookup with mandatory attribution preserved
+- `mw_check_known_conflicts` — pairwise conflict checks against LOOT + community database
 
 The LLM picks the right tool based on what you ask. You don't have to remember which tool does what — just talk.
 
@@ -124,9 +121,9 @@ Add to `.cursor/mcp.json` or your client's equivalent:
 }
 ```
 
-### ChatGPT (Responses API / Connectors)
+### ChatGPT (Responses API / Connectors) — planned
 
-ModWrench can run as a remote MCP via Streamable HTTP. See `docs/remote-deployment.md` for the Cloudflare Workers walkthrough (zero infrastructure cost up to a meaningful free tier).
+ChatGPT requires a remote MCP server (Streamable HTTP transport) rather than the stdio path the clients above use. That deployment shape is on the roadmap but not yet implemented — see [docs/remote-deployment.md](docs/remote-deployment.md) for the target architecture (Cloudflare Workers, per-user OAuth at the MCP layer, free-tier-friendly) and what's still missing. Subscribe to the v2.5+ tracking issue if you want to know when this ships.
 
 ### Manual install
 
@@ -157,33 +154,43 @@ ModWrench is structured around three growing waves of capability. v1 is shipped.
 
 mod.io + Nexus Mods. 12 Nexus tools + 11 mod.io tools — 23 total, exposed through one MCP entry via `@modwrench/cli` (or as two isolated processes if you prefer). Read-side coverage of discovery, search, metadata, changelogs, archive previews, and reverse-lookup-by-hash on the Nexus side; popular/trending/dependencies/tags on the mod.io side. OAuth shipped on both platforms (read scopes only); writes deferred until the v3 publishing phase.
 
-### v2 — The compound modder copilot (in progress)
+### v2 — The compound modder workbench (shipped)
 
-A small set of atomic tools that compose into a conversational diagnostic experience:
+Five atomic tools (`@modwrench/workbench`) that compose under LLM reasoning into a conversational diagnostic experience. All read-only:
 
-- `mw_detect_environment` — auto-detect your OS, game, mod manager (Vortex / MO2 / r2modman / Thunderstore MM / CurseForge App), and mod loader (SKSE / F4SE / BepInEx / Forge / Fabric)
-- `mw_read_load_order` — normalize your installed mod list across mod managers
-- `mw_parse_crashlog` — parse Crash Logger SSE, Buffout 4, BepInEx exceptions, Minecraft crash reports
-- `mw_query_mod_metadata` — wrap the v1 tools with a unified cross-platform shape
-- `mw_check_known_conflicts` — read LOOT's masterlist plus community-curated conflict data
+- `mw_detect_environment` — detect OS, Steam Deck status, Steam libraries, mod-friendly games (Skyrim SE/LE/VR, Fallout 3/NV/4/4VR, Starfield, Oblivion, Lethal Company, Valheim, R.E.P.O., Risk of Rain 2, Dyson Sphere Program, BONEWORKS, Sims 4), mod managers (Vortex / MO2 / r2modman / CurseForge App), mod loaders (SKSE / F4SE / SFSE / NVSE / FOSE / OBSE / BepInEx 5 / BepInEx 6 IL2CPP / MelonLoader), and Proton versions on Linux
+- `mw_read_load_order` — normalize the user's installed mod list across managers. MO2 (full: `modlist.txt` + `plugins.txt` + active-profile discovery from `ModOrganizer.ini`) and r2modman (full: `mods.yml` with author + version preserved) are first-class; Vortex is best-effort folder scan, with an honest `warning` field because its LevelDB state isn't parsed yet
+- `mw_parse_crashlog` — structured parsing (no diagnosis — that's the LLM's job) of Crash Logger SSE, Buffout 4, NetScriptFramework, BepInEx exception traces, and Minecraft crash-reports. Extracts exception type/address, call stack, registers, loaded plugins, and FormID-based suspected refs
+- `mw_query_mod_metadata` — normalized cross-platform mod lookup with **mandatory** attribution (author + sourcePlatform + pageUrl on every result). Nexus + mod.io live today; Thunderstore + CurseForge planned for v3+
+- `mw_check_known_conflicts` — pairwise conflict checks against LOOT's live masterlist (Bethesda games) and ModWrench's bundled community-curated database (`data/conflicts/<gameId>.json` — see [packages/workbench/data/conflicts/README.md](packages/workbench/data/conflicts/README.md) for the contribution schema)
 
-The LLM orchestrates these into the compound experience: *"My game keeps crashing, here's the log"* → diagnosis with your specific load order considered.
+The LLM orchestrates these into the compound experience: *"My Skyrim keeps crashing on the bridge to Whiterun"* → detect environment, read load order, parse the crashlog, look up suspect plugins on Nexus, cross-reference against LOOT's masterlist, return a diagnosis with attribution preserved end-to-end.
+
+The wiring-prompt's sixth tool (`mw_explain`) was intentionally not built — the LLM formats responses natively and the wiring prompt explicitly marks it optional.
 
 ### v3 — Multi-platform publishing (planned)
 
-The creator side. One mod definition fans out to:
+The creator side. One mod definition fans out across platforms in a single conversational command. Inspired by [MC-Publish](https://github.com/Kir-Antipov/mc-publish) (the Minecraft GitHub Action), but conversational rather than CI/CD-bound — because most modders outside the Minecraft community don't write GitHub Actions YAML for a living. Permission discipline is non-negotiable: a mod flagged "no asset reuse" on its source platform never gets republished elsewhere by ModWrench.
 
-- Nexus Mods
-- mod.io
-- (later) CurseForge
-- (later) Thunderstore
-- (later) Bethesda Verified Creator
+Initial targets:
 
-Inspired by [MC-Publish](https://github.com/Kir-Antipov/mc-publish) (the Minecraft GitHub Action), but conversational rather than CI/CD — because most modders outside the Minecraft community don't live in GitHub Actions YAML.
+- Nexus Mods + mod.io (already integrated read-side; adding write paths)
+- Thunderstore (Unity co-op) — [packages/thunderstore/](packages/thunderstore/) scaffolded
+- Modrinth (Minecraft, open source, modder-respected) — [packages/modrinth/](packages/modrinth/) scaffolded
+- CurseForge (largest catalog: Minecraft + Sims 4 Mod Hub + WoW + ARK) — [packages/curseforge/](packages/curseforge/) scaffolded
+- Bethesda Creations / Verified Creator — deferred (politically sensitive; only if a specific creator-side case justifies it)
 
-### v4 and beyond — Adjacent universes
+### v2.5 — Dynamic catalog architecture (planned)
 
-CurseForge, Thunderstore, then Roblox and UEFN. Each lane has its own community, its own API, its own culture. ModWrench expands respectfully or not at all.
+As the platform count grows, the tool catalog gets large. ModWrench's answer: boot-time auto-activation of platforms based on what's actually installed on the user's machine, plus an `mw_activate_platform` meta-tool for runtime opt-in. A Skyrim modder sees ~18 tools sized for their setup; a Lethal Company modder sees ~16 sized for theirs — not the union of every platform ModWrench could ever support.
+
+One MCP entry, personalized catalog per user. Full architecture spec: [docs/dynamic-catalog-architecture.md](docs/dynamic-catalog-architecture.md).
+
+### Sibling product — StudioWrench (planned, separate brand)
+
+UGC platforms with creator economies (Roblox, UEFN / Fortnite Creative) don't match modder culture. Different vocabulary, different trust expectations, different competitors. Rather than bolt them onto ModWrench, they get their own product under the MCPwrench umbrella: **StudioWrench**. Same engineering foundation (shared `@mcpwrench/core`), separate audience, separate brand.
+
+See [ROADMAP.md](ROADMAP.md) for the canonical roadmap including sibling products, deferred items, and out-of-scope commitments.
 
 ---
 

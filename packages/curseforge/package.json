@@ -1,0 +1,7 @@
+{
+  "name": "@modwrench/curseforge",
+  "version": "0.0.0-placeholder",
+  "private": true,
+  "description": "CurseForge platform support — scaffolded for v3+, not yet implemented. See ../../ROADMAP.md.",
+  "type": "module"
+}

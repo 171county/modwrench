@@ -1,8 +1,8 @@
-# Wiring Prompt: ModWrench — The Modder Copilot Compound Tool
+# Wiring Prompt: ModWrench — The Modder Workbench Compound Tool
 
 ## What This Is
 
-The orchestration layer for ModWrench's flagship user-side feature: a conversational "modder copilot" that diagnoses crashes, explains load-order conflicts, validates mod compatibility, and respects Linux/Steam-Deck environments — all from inside the user's normal AI client (Claude Desktop, Claude Code, Cursor, ChatGPT via remote MCP).
+The orchestration layer for ModWrench's flagship user-side feature: a conversational "modder workbench" that diagnoses crashes, explains load-order conflicts, validates mod compatibility, and respects Linux/Steam-Deck environments — all from inside the user's normal AI client (Claude Desktop, Claude Code, Cursor, ChatGPT via remote MCP).
 
 This is NOT one tool. It is a small set of atomic MCP tools that compose under the LLM's reasoning. The "compound feel" comes from the orchestration the LLM does naturally, not from a workflow hardcoded into the server. This is the Code Mode pattern: expose primitives, let the model write the workflow.
 
@@ -45,7 +45,7 @@ interface DetectEnvironmentOutput {
 }
 ```
 
-**Why this matters:** The modding tool universe is wildly different across Bethesda / Unity-co-op / Minecraft / Sims. The compound copilot has to know which universe it's in before it can be useful. On Steam Deck, this also flags Proton-specific issues (force-proton workarounds, etc.) that wouldn't apply on bare Windows.
+**Why this matters:** The modding tool universe is wildly different across Bethesda / Unity-co-op / Minecraft / Sims. The compound workbench has to know which universe it's in before it can be useful. On Steam Deck, this also flags Proton-specific issues (force-proton workarounds, etc.) that wouldn't apply on bare Windows.
 
 **Implementation notes:**
 - On Windows: scan Steam's `libraryfolders.vdf`, registry, plus standard Bethesda Launcher / GOG paths
@@ -84,7 +84,7 @@ interface ReadLoadOrderOutput {
 }
 ```
 
-**Why this matters:** The compound copilot can't reason about "your load order" without reading it. The normalized format means downstream tools don't care whether the user is on Vortex, MO2, or r2modman. Attribution (`author`, `sourcePlatform`, `sourceModId`) is mandatory in every entry — this is the trust position made concrete.
+**Why this matters:** The compound workbench can't reason about "your load order" without reading it. The normalized format means downstream tools don't care whether the user is on Vortex, MO2, or r2modman. Attribution (`author`, `sourcePlatform`, `sourceModId`) is mandatory in every entry — this is the trust position made concrete.
 
 **Implementation notes:**
 - Vortex: parse `%APPDATA%/Vortex/state.v2/persistent.json` (JSON)
@@ -181,7 +181,7 @@ interface QueryModMetadataOutput {
 }
 ```
 
-**Why this matters:** The compound copilot frequently needs to ask "what is this mod, who made it, what's it known to conflict with?" This is the answer-source. **Critically, this tool surfaces author and permissions metadata on every reply** — that's how trust gets baked into the chain.
+**Why this matters:** The compound workbench frequently needs to ask "what is this mod, who made it, what's it known to conflict with?" This is the answer-source. **Critically, this tool surfaces author and permissions metadata on every reply** — that's how trust gets baked into the chain.
 
 **Implementation notes:**
 - Hits the Nexus / mod.io / Thunderstore / CurseForge APIs your existing 14 tools already wrap. Just normalize the response shape.
@@ -301,7 +301,7 @@ Each step is shippable on its own. After step 3, you already have something nobo
 
 ## Linux / Steam Deck Considerations
 
-This is a real audience and growing. The compound copilot has to behave correctly on these systems or the Steam Deck modding subreddit will rage at you on day one.
+This is a real audience and growing. The compound workbench has to behave correctly on these systems or the Steam Deck modding subreddit will rage at you on day one.
 
 - **Path detection** must handle Proton prefix paths (`compatdata/<appid>/pfx/drive_c/...`) not just native Windows paths
 - **Mod manager preference** on Linux skews to r2modman (native AppImage build) — Vortex doesn't run cleanly. Don't assume Vortex exists.
@@ -328,8 +328,8 @@ These are not optional. If ModWrench violates any of these, the community will n
 
 After this compound tool ships:
 
-- ModWrench is no longer "a Nexus and mod.io MCP." It's "the AI modding copilot."
-- The category name shifts. You're not competing with Vortex (a mod manager); you're competing with the *absence* of a modder copilot. There is no competitor in that space.
+- ModWrench is no longer "a Nexus and mod.io MCP." It's "the AI modding workbench."
+- The category name shifts. You're not competing with Vortex (a mod manager); you're competing with the *absence* of a modder workbench. There is no competitor in that space.
 - Layer 3 features (multi-platform publishing, Patreon-aware tooling, paid/free conflict resolution) become natural extensions of the same conversational surface.
 - Steam Deck / Linux modders get a first-class experience that Vortex doesn't offer them.
 - A user's first interaction with ModWrench answers a real, painful question on the first conversation. That's how word-of-mouth happens in modding communities — the GamerPoets YouTube channel will mention you, and that's the inflection point.
@@ -338,14 +338,9 @@ After this compound tool ships:
 
 ## Naming the Compound Tool
 
-The MCP server doesn't need a "compound tool" name from a code perspective. From a *marketing* perspective, this is what people talk about. Some options:
+**Decision (May 2026):** the v2 package is `@modwrench/workbench`. The word "Copilot" was the original working title but was retired before any public push due to active Microsoft trademark enforcement on "Copilot" branding across AI tooling. Workbench reads cleanly with the wrench/tools aesthetic, names a *place where work happens* rather than an AI personality, and stays defensible as descriptive use if ever challenged.
 
-- **The Wrench** — "ask The Wrench" — simple, on-brand, no extra cognitive load
-- **Forge Mode** — connects to the "forge" lineage (Minecraft Forge, NeoForge) without colliding with it as a product name
-- **The Copilot** — most descriptive, lowest creative
-- **Just don't name it** — users describe it however they want, you don't impose a name. The conversation does the marketing.
-
-My vote: **don't name it.** The atomic tools are named; the *experience* doesn't need a brand label. Users will call it "ModWrench" in casual usage and that's exactly right.
+From a *marketing* perspective, users still don't need to learn the package name. The atomic tools (`mw_detect_environment` etc.) are internal; the *experience* doesn't need a brand label. Users will call it "ModWrench" in casual usage and that's exactly right — "Workbench" is the engineering label, "ModWrench" is the product.
 
 ---
 
@@ -361,4 +356,4 @@ My vote: **don't name it.** The atomic tools are named; the *experience* doesn't
 
 ---
 
-*Wiring prompt for ModWrench's compound modder-copilot tool. Atomic tools + LLM orchestration = compound experience. Style-matched to existing WIRING-PROMPT_* files in the ModWrench project.*
+*Wiring prompt for ModWrench's compound modder-workbench tool. Atomic tools + LLM orchestration = compound experience. Style-matched to existing WIRING-PROMPT_* files in the ModWrench project.*
