@@ -8,6 +8,7 @@ import { loadCredential, log, type Credential } from "@mcpwrench/core";
 import { registerNexusTools } from "@modwrench/nexus/register";
 import { registerModioTools } from "@modwrench/modio/register";
 import { registerThunderstoreTools } from "@modwrench/thunderstore/register";
+import { registerModrinthTools } from "@modwrench/modrinth/register";
 import { registerWorkbenchTools } from "@modwrench/workbench/register";
 
 // ─── Subcommand dispatch ─────────────────────────────────────────────────────
@@ -124,6 +125,11 @@ const platforms: PlatformRegistration[] = [
     name: "thunderstore",
     kind: "local",
     register: registerThunderstoreTools,
+  },
+  {
+    name: "modrinth",
+    kind: "local",
+    register: registerModrinthTools,
   },
   {
     name: "workbench",
