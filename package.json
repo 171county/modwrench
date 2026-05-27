@@ -8,6 +8,7 @@
     "packages/core",
     "packages/nexus",
     "packages/modio",
+    "packages/thunderstore",
     "packages/workbench",
     "packages/cli"
   ],

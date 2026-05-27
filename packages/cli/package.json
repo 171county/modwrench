@@ -21,6 +21,7 @@
     "@mcpwrench/core": "0.0.1",
     "@modwrench/modio": "0.0.1",
     "@modwrench/nexus": "0.0.1",
+    "@modwrench/thunderstore": "0.0.1",
     "@modwrench/workbench": "0.0.1",
     "@modelcontextprotocol/sdk": "^1.0.4"
   }

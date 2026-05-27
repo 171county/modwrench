@@ -4,6 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { loadCredential, log, type Credential } from "@mcpwrench/core";
 import { registerNexusTools } from "@modwrench/nexus/register";
 import { registerModioTools } from "@modwrench/modio/register";
+import { registerThunderstoreTools } from "@modwrench/thunderstore/register";
 import { registerWorkbenchTools } from "@modwrench/workbench/register";
 
 // ─── Subcommand dispatch ─────────────────────────────────────────────────────
@@ -88,7 +89,7 @@ type CredentialedRegistration = {
 type LocalRegistration = {
   name: string;
   kind: "local";
-  register: (server: McpServer) => { toolCount: number };
+  register: (server: McpServer) => { toolCount: number; baseUrl?: string };
 };
 
 type PlatformRegistration = CredentialedRegistration | LocalRegistration;
@@ -111,6 +112,11 @@ const platforms: PlatformRegistration[] = [
     service: "modio",
     authHint:
       "Run `modwrench-modio auth login` (OAuth) or set MODIO_API_KEY in your .env.",
+  },
+  {
+    name: "thunderstore",
+    kind: "local",
+    register: registerThunderstoreTools,
   },
   {
     name: "workbench",

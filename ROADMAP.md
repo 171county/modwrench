@@ -69,10 +69,11 @@ Wiring prompt for v3 is the next design doc to draft.
 
 In recommended order:
 
-1. **`@modwrench/thunderstore`** — 📐 Scaffolded ([packages/thunderstore/](packages/thunderstore/))
+1. **`@modwrench/thunderstore`** — ✅ Shipped ([packages/thunderstore/](packages/thunderstore/))
    - Unlocks the entire Unity co-op community
    - Closes the loop with the existing r2modman load-order parser
-   - Smallest API surface; easiest first add
+   - 7 tools: list/get communities, list/get/search mods, version history, top mods
+   - Read-only public API, no auth required
 2. **`@modwrench/modrinth`** — 📐 Scaffolded ([packages/modrinth/](packages/modrinth/))
    - Minecraft, the largest modding community by raw user count
    - Best public REST API of any modding platform
