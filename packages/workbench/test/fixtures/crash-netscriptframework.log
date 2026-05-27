@@ -1,0 +1,17 @@
+NetScriptFramework Crash Log
+
+Crash Reason: AccessViolationException reading address 0x0
+Application: SkyrimSE.exe
+Version: 1.5.97.0
+Crashed thread is main thread: True
+
+Call Stack:
+(0) 0x7FF7B3D2A3F0 (SkyrimSE.exe+1AA3A3F0)
+(1) 0x7FF7B3D2B1A0 (SkyrimSE.exe+1AA3B1A0)
+(2) 0x7FFF12345678 (SomeMod.dll+12345)
+
+Loaded Plugins:
+(00) Skyrim.esm
+(01) Update.esm
+(02) Dawnguard.esm
+(10) SkyUI.esp

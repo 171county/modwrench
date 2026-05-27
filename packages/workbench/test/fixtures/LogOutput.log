@@ -1,0 +1,14 @@
+[Message:   BepInEx] BepInEx 5.4.21.0 - Lethal Company (1/15/2024 2:30:00 PM)
+[Info   :   BepInEx] Running under Unity v2022.3.9
+[Info   :   BepInEx] Loading [LethalConfig 1.4.2]
+[Info   :   BepInEx] Loading [BetterEmotes 1.4.0]
+[Info   :   BepInEx] Loading [MoreCompany 1.7.4]
+[Info   :   BepInEx] Chainloader startup complete
+[Warning: Unity Log] Some warning about a texture
+[Error  : Unity Log] NullReferenceException: Object reference not set to an instance of an object
+   at MoreCompany.PlayerListener.UpdateCosmetics (MoreCompany.Cosmetics.CosmeticInstance ci) [0x00000] in <00000000000000000000000000000000>:0
+   at MoreCompany.PlayerListener.LateUpdate () [0x00000] in <00000000000000000000000000000000>:0
+   at UnityEngine.MonoBehaviour.LateUpdate () [0x00000] in <00000000000000000000000000000000>:0
+[Fatal  : Unity Log] InvalidOperationException: Collection was modified
+   at System.Collections.Generic.Dictionary`2.Enumerator.MoveNext () [0x00000] in <00000000000000000000000000000000>:0
+   at LethalConfig.ConfigEntries.SyncAll () [0x00000] in <00000000000000000000000000000000>:0

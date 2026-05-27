@@ -1,7 +1,7 @@
 {
-  "name": "@modwrench/nexus",
+  "name": "@modwrench/workbench",
   "version": "0.0.1",
-  "description": "ModWrench — Nexus Mods MCP server. Search, browse, and inspect mods on Nexus directly from any MCP-compatible AI client.",
+  "description": "ModWrench — the modder workbench. Atomic MCP tools for environment detection, load-order parsing, crashlog analysis, and known-conflict lookups.",
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
@@ -12,28 +12,30 @@
     "./register": {
       "types": "./dist/register.d.ts",
       "import": "./dist/register.js"
-    },
-    "./auth": {
-      "types": "./dist/auth.d.ts",
-      "import": "./dist/auth.js"
     }
   },
   "bin": {
-    "modwrench-nexus": "./dist/index.js"
+    "modwrench-workbench": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "data"
   ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "clean": "rimraf dist",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test \"test/**/*.test.ts\""
   },
   "dependencies": {
     "@mcpwrench/core": "0.0.1",
     "@modelcontextprotocol/sdk": "^1.0.4",
+    "js-yaml": "^4.1.0",
     "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9"
   }
 }

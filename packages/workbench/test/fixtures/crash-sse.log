@@ -1,0 +1,41 @@
+Skyrim SSE v1.6.640.0
+CrashLoggerSSE v1-12-1
+Unhandled exception "EXCEPTION_ACCESS_VIOLATION" at 0x7FF7B3D2A3F0 SkyrimSE.exe+1AA3A3F0
+
+SETTINGS:
+[CrashLogger]
+WaitForKey: false
+
+SYSTEM SPECS:
+OS: Microsoft Windows 11 Pro v10.0.22000
+CPU: AMD Ryzen 9 5900X
+GPU #1: NVIDIA GeForce RTX 3080
+
+PROBABLE CALL STACK:
+[0] 0x7FF7B3D2A3F0 SkyrimSE.exe+1AA3A3F0 -> 0
+[1] 0x7FF7B3D2B1A0 SkyrimSE.exe+1AA3B1A0 -> 1
+[2] 0x7FFF12345678 JKsWhiterunOutskirts.dll+12345
+[3] 0x7FFF87654321 CitiesOfTheNorth.dll+5678
+
+REGISTERS:
+RAX 0x7FF7B3D2A3F0 (size_t)
+RBX 0x000000003FE00000 (void*)
+RCX 0x0000000000000000 (size_t)
+
+POSSIBLE RELEVANT OBJECTS:
+[ 0]   0x000165A8     JKs Whiterun Outskirts.esp -> Whiterun
+[ 1]   0x0001A2B3     Cities of the North - Whiterun.esp
+
+MODULES:
+0x7FF7B2080000 SkyrimSE.exe v1.6.640
+0x7FFF12340000 JKsWhiterunOutskirts.dll v1.0.0
+
+PLUGINS:
+[00]     Skyrim.esm
+[01]     Update.esm
+[02]     Dawnguard.esm
+[03]     HearthFires.esm
+[04]     Dragonborn.esm
+[10]     SkyUI_SE.esp
+[FE 001] SomeESL.esl
+[FE 002] AnotherESL.esl

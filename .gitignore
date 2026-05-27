@@ -14,6 +14,8 @@ build/
 # Logs
 *.log
 npm-debug.log*
+# Exception: crashlog test fixtures must be tracked
+!packages/workbench/test/fixtures/*.log
 
 # OS junk
 .DS_Store

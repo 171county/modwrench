@@ -1,0 +1,19 @@
+Fallout 4 v1.10.984
+Buffout 4 v1.36.0
+Unhandled exception "EXCEPTION_ACCESS_VIOLATION" at 0x7FF6A1234567 Fallout4.exe+1234567
+
+SYSTEM SPECS:
+OS: Microsoft Windows 11 Pro
+
+PROBABLE CALL STACK:
+[0] 0x7FF6A1234567 Fallout4.exe+1234567 -> 0
+[1] 0x7FFF9876ABCD SomeMod.dll+ABCD
+
+REGISTERS:
+RAX 0x0000000000000000 (size_t)
+
+PLUGINS:
+[00]     Fallout4.esm
+[01]     DLCRobot.esm
+[02]     DLCworkshop01.esm
+[FE 000] SomeESL.esl

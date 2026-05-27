@@ -5,13 +5,18 @@
   "description": "MCPwrench — a workshop of MCP servers. First product: ModWrench, an MCP toolkit for modders.",
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/core",
+    "packages/nexus",
+    "packages/modio",
+    "packages/workbench",
+    "packages/cli"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "dev": "npm run dev --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
   },
   "engines": {
     "node": ">=20.0.0"
