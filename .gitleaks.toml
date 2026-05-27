@@ -63,15 +63,20 @@ keywords = [
 # ─── Global allowlist ────────────────────────────────────────────────────
 # Files and content that should never be scanned, regardless of which
 # rule matched. Used for documentation that intentionally contains
-# example-shaped strings.
+# example-shaped strings, plus test fixtures with deliberately fake keys.
 [allowlist]
-description = "Global skips: lockfile, build output, example docs with placeholder values"
+description = "Global skips: lockfile, build output, examples, and test files with deliberately fake credentials"
 paths = [
   '''node_modules/.*''',
   '''dist/.*''',
   '''.*\.tsbuildinfo''',
   '''\.env\.example''',
   '''\.env\.example\.txt''',
+  # Test files use obviously-fake credential strings ("test-api-key-12345",
+  # "modio-test-key", "oauth-token-67890") to verify auth-header routing.
+  # These are not real secrets — but gitleaks' generic-api-key rule pattern
+  # matches the surrounding `apiKey: "..."` shape regardless. Skip them.
+  '''packages/.*/test/.*''',
 ]
 regexes = [
   # Placeholder values used in docs and examples
@@ -79,4 +84,9 @@ regexes = [
   '''your_modio_api_key_here''',
   '''YOUR_.*_HERE''',
   '''<the\s+key>''',
+  # Obvious test fixture strings — explicit deny-list so we never flag them
+  # even if they leak into a non-test file by mistake.
+  '''test-api-key-\d+''',
+  '''modio-test-key''',
+  '''oauth-token-\d+''',
 ]
