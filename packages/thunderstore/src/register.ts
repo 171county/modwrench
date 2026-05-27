@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { getEnv, log, McpwrenchError } from "@mcpwrench/core";
+import { createHttpClient, getEnv, log, McpwrenchError } from "@mcpwrench/core";
 
 /**
  * Register all Thunderstore tools on the given MCP server.
@@ -18,28 +18,19 @@ export function registerThunderstoreTools(server: McpServer): {
   baseUrl: string;
 } {
   const BASE_URL = getEnv("THUNDERSTORE_BASE_URL", "https://thunderstore.io");
-  const USER_AGENT = "ModWrench/0.0.1 (+https://mcpwrench.dev)";
+
+  // Uses the shared @mcpwrench/core HTTP client for retry/backoff/429 handling
+  // and concurrency cap. No authHeaders callback — Thunderstore's public read
+  // API is anonymous.
+  const httpClient = createHttpClient({
+    baseUrl: BASE_URL,
+    userAgent: "ModWrench/0.0.1 (+https://mcpwrench.dev)",
+    errorCodePrefix: "thunderstore",
+  });
 
   async function thunderstoreRequest<T>(path: string): Promise<T> {
-    const url = `${BASE_URL}${path}`;
-    log("debug", "thunderstore.request", { url });
-
-    const response = await fetch(url, {
-      headers: {
-        Accept: "application/json",
-        "User-Agent": USER_AGENT,
-      },
-    });
-
-    if (!response.ok) {
-      const body = await response.text().catch(() => "<no body>");
-      throw new McpwrenchError(
-        "thunderstore_http_error",
-        `Thunderstore API returned ${response.status} for ${path}`,
-        { status: response.status, meta: { body: body.slice(0, 500) } }
-      );
-    }
-    return (await response.json()) as T;
+    log("debug", "thunderstore.request", { path });
+    return httpClient.request<T>(path);
   }
 
   // ─── Tools ──────────────────────────────────────────────────────────────────

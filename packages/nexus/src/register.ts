@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
+  createHttpClient,
   getEnv,
   log,
   McpwrenchError,
@@ -23,37 +24,30 @@ export function registerNexusTools(
     "NEXUS_BASE_URL",
     "https://api.nexusmods.com/v1"
   );
-  const USER_AGENT = "ModWrench/0.0.1 (+https://mcpwrench.dev)";
 
   // ─── HTTP helper ────────────────────────────────────────────────────────────
+  // Uses the shared @mcpwrench/core HTTP client for retry/backoff/429 handling
+  // /concurrency cap. The auth-header callback keeps the Bearer-vs-apikey
+  // discriminator in this package (where the credential type lives), while the
+  // client handles transport-level concerns.
+
+  const USER_AGENT = "ModWrench/0.0.1 (+https://mcpwrench.dev)";
+
+  const httpClient = createHttpClient({
+    baseUrl: NEXUS_BASE_URL,
+    userAgent: USER_AGENT,
+    errorCodePrefix: "nexus",
+    authHeaders: (): Record<string, string> => {
+      if (credential.source === "keychain") {
+        return { Authorization: `Bearer ${credential.accessToken}` };
+      }
+      return { apikey: credential.apiKey };
+    },
+  });
 
   async function nexusRequest<T>(path: string): Promise<T> {
-    const url = `${NEXUS_BASE_URL}${path}`;
-    log("debug", "nexus.request", { url });
-
-    const authHeaders: Record<string, string> =
-      credential.source === "keychain"
-        ? { Authorization: `Bearer ${credential.accessToken}` }
-        : { apikey: credential.apiKey };
-
-    const response = await fetch(url, {
-      headers: {
-        ...authHeaders,
-        Accept: "application/json",
-        "User-Agent": USER_AGENT,
-      },
-    });
-
-    if (!response.ok) {
-      const body = await response.text().catch(() => "<no body>");
-      throw new McpwrenchError(
-        "nexus_http_error",
-        `Nexus API returned ${response.status} for ${path}`,
-        { status: response.status, meta: { body: body.slice(0, 500) } }
-      );
-    }
-
-    return (await response.json()) as T;
+    log("debug", "nexus.request", { path });
+    return httpClient.request<T>(path);
   }
 
   // ─── Tools ──────────────────────────────────────────────────────────────────

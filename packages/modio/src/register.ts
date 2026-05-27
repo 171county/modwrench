@@ -1,9 +1,9 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
+  createHttpClient,
   getEnv,
   log,
-  McpwrenchError,
   type Credential,
 } from "@mcpwrench/core";
 
@@ -20,7 +20,6 @@ export function registerModioTools(
   credential: Credential
 ): { toolCount: number; baseUrl: string } {
   const MODIO_BASE_URL = getEnv("MODIO_BASE_URL", "https://api.mod.io/v1");
-  const USER_AGENT = "ModWrench/0.0.1 (+https://mcpwrench.dev)";
 
   // mod.io wraps list endpoints in this envelope. Single-item GETs return the
   // object directly without a wrapper.
@@ -33,49 +32,39 @@ export function registerModioTools(
   };
 
   // ─── HTTP helper ────────────────────────────────────────────────────────────
+  // Uses the shared @mcpwrench/core HTTP client. mod.io's quirk: the legacy
+  // API key authenticates via the api_key QUERY parameter (not a header),
+  // whereas OAuth tokens go in the Authorization header. We inject the
+  // api_key into the query at this layer and let the client handle the
+  // OAuth header via authHeaders.
+
+  const httpClient = createHttpClient({
+    baseUrl: MODIO_BASE_URL,
+    userAgent: "ModWrench/0.0.1 (+https://mcpwrench.dev)",
+    errorCodePrefix: "modio",
+    authHeaders: (): Record<string, string> => {
+      if (credential.source === "keychain") {
+        return { Authorization: `Bearer ${credential.accessToken}` };
+      }
+      return {};
+    },
+  });
 
   async function modioRequest<T>(
     path: string,
     query?: Record<string, string | number | undefined>
   ): Promise<T> {
-    const params = new URLSearchParams();
-    // Read-only API key goes on the query string; OAuth bearer goes in a header.
-    if (credential.source === "env") {
-      params.append("api_key", credential.apiKey);
-    }
-    if (query) {
-      for (const [k, v] of Object.entries(query)) {
-        if (v !== undefined && v !== null && v !== "") {
-          params.append(k, String(v));
-        }
-      }
-    }
-    const qs = params.toString();
-    const url = `${MODIO_BASE_URL}${path}${qs ? `?${qs}` : ""}`;
-    log("debug", "modio.request", {
-      url: url.replace(/api_key=[^&]+/, "api_key=***"),
-    });
-
-    const headers: Record<string, string> = {
-      Accept: "application/json",
-      "User-Agent": USER_AGENT,
+    const finalQuery: Record<string, string | number | undefined | null> = {
+      ...(query ?? {}),
     };
-    if (credential.source === "keychain") {
-      headers.Authorization = `Bearer ${credential.accessToken}`;
+    if (credential.source === "env") {
+      finalQuery["api_key"] = credential.apiKey;
     }
-
-    const response = await fetch(url, { headers });
-
-    if (!response.ok) {
-      const body = await response.text().catch(() => "<no body>");
-      throw new McpwrenchError(
-        "modio_http_error",
-        `mod.io API returned ${response.status} for ${path}`,
-        { status: response.status, meta: { body: body.slice(0, 500) } }
-      );
-    }
-
-    return (await response.json()) as T;
+    log("debug", "modio.request", {
+      path,
+      auth: credential.source === "env" ? "api_key (query)" : "Bearer (header)",
+    });
+    return httpClient.request<T>(path, { query: finalQuery });
   }
 
   // ─── Tools ──────────────────────────────────────────────────────────────────
