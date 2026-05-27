@@ -1,24 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { log } from "@mcpwrench/core";
-import {
-  detectOs,
-  detectSteamDeck,
-  detectGameMode,
-} from "./detect/os.js";
-import {
-  findSteamRoot,
-  findSteamLibraries,
-  findInstalledApp,
-  listProtonTools,
-  detectProtonForApp,
-} from "./detect/steam.js";
-import { KNOWN_GAMES } from "./detect/games.js";
-import { detectModLoader } from "./detect/loader.js";
-import {
-  detectInstalledManagers,
-  inferManagerForGame,
-} from "./detect/manager.js";
+import { detectEnvironment } from "./detect/environment.js";
 import { readLoadOrder } from "./loadorder/index.js";
 import { parseCrashlog } from "./crashlog/index.js";
 import { queryModMetadata } from "./metadata/index.js";
@@ -46,62 +29,13 @@ export function registerWorkbenchTools(server: McpServer): {
     "Auto-detect the user's modding environment: OS, Steam Deck, installed mod-friendly games (Bethesda / Unity co-op / Sims / Minecraft), per-game mod loaders (SKSE / F4SE / BepInEx / etc.), installed mod managers (Vortex / MO2 / r2modman / CurseForge App), and Proton versions on Linux. Read-only — touches no files outside known config/save locations.",
     {},
     async () => {
-      const os = detectOs();
-      const isSteamDeck = detectSteamDeck();
-      const isGameMode = detectGameMode();
-      const steamRoot = findSteamRoot();
-      const managers = detectInstalledManagers();
-
-      const detectedGames: Array<{
-        gameId: string;
-        gameName: string;
-        installPath: string;
-        modManager: string;
-        modLoader: string;
-        protonVersion?: string;
-      }> = [];
-
-      if (steamRoot) {
-        const libraries = findSteamLibraries(steamRoot);
-        for (const game of KNOWN_GAMES) {
-          const app = findInstalledApp(libraries, game.steamAppId);
-          if (!app) continue;
-          const loader = detectModLoader(app.installDir, game);
-          const manager = inferManagerForGame(game, managers) ?? "none";
-          const proton = detectProtonForApp(steamRoot, game.steamAppId);
-          detectedGames.push({
-            gameId: game.gameId,
-            gameName: app.name,
-            installPath: app.installDir,
-            modManager: manager,
-            modLoader: loader,
-            ...(proton ? { protonVersion: proton } : {}),
-          });
-        }
-      }
-
-      const protonTools =
-        os === "linux" && steamRoot ? listProtonTools(steamRoot) : [];
-
-      const result = {
-        os,
-        isSteamDeck,
-        ...(isSteamDeck ? { steamDeckMode: isGameMode ? "game" : "desktop" } : {}),
-        steamRoot: steamRoot ?? null,
-        installedModManagers: managers.map((m) => ({
-          name: m.name,
-          dataPath: m.dataPath,
-          ...(m.managedGameIds ? { managedGameIds: m.managedGameIds } : {}),
-        })),
-        detectedGames,
-        ...(protonTools.length > 0 ? { availableProton: protonTools } : {}),
-      };
+      const result = detectEnvironment();
 
       log("debug", "workbench.detect_environment", {
-        os,
-        isSteamDeck,
-        games: detectedGames.length,
-        managers: managers.length,
+        os: result.os,
+        isSteamDeck: result.isSteamDeck,
+        games: result.detectedGames.length,
+        managers: result.installedModManagers.length,
       });
 
       return {

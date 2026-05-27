@@ -41,15 +41,22 @@ Test suite: 55 tests, ~0.4s, runs in CI on every PR. See [packages/workbench/tes
 
 ## On the active path
 
-### v2.5 — Dynamic catalog architecture 🔜 Planned
+### v2.5 — Dynamic catalog architecture ✅ Foundation shipped
 
-As the platform count grows (v3+), the tool catalog gets large. Modern LLM clients pay context cost for tools/list, and a Skyrim modder shouldn't see Lethal Company tools cluttering their picker.
+The `MetaCatalog` abstraction in `@modwrench/cli` is live. Platforms register through the catalog rather than inline; the catalog tracks active vs failed state and emits `notifications/tools/list_changed` to MCP clients on activation.
 
-The solution: boot-time auto-activation of platforms based on workbench detection, plus an `mw_activate_platform` meta-tool for runtime opt-in. One MCP entry, personalized catalog per user.
+Shipped in this round:
+- `MetaCatalog` class managing platform activation lifecycle
+- `mw_activate_platform` meta-tool letting the LLM activate dormant platforms at runtime (e.g. after the user adds credentials post-boot)
+- `listChanged: true` capability declared on the meta-server so clients re-fetch
+- Idempotent activation, failed-state tracking with reason, retry on subsequent calls
+- 13 catalog-orchestration tests + smoke-tested end-to-end against live API
+
+Planned next (v2.5.x):
+- **Auto-activation policy** — currently `activateAll()` tries every platform at boot. The v2.5.1 refinement uses workbench's `detectEnvironment()` (already wired via the new `./detect` export) to choose only platforms relevant to the user's setup, reducing tool-catalog noise for users with focused setups.
+- **Per-tool unregistration** — would let `mw_deactivate_platform` actually remove tools rather than just dropping platform state. Requires each platform's register function to return tool names; deferred until there's clear demand.
 
 Full architecture spec: [docs/dynamic-catalog-architecture.md](docs/dynamic-catalog-architecture.md).
-
-**Build trigger:** when the 4th platform lands and catalog noise becomes a real concern.
 
 ### v3 — Multi-platform publishing 🔜 Planned
 

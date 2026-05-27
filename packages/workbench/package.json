@@ -12,6 +12,10 @@
     "./register": {
       "types": "./dist/register.d.ts",
       "import": "./dist/register.js"
+    },
+    "./detect": {
+      "types": "./dist/detect/environment.d.ts",
+      "import": "./dist/detect/environment.js"
     }
   },
   "bin": {

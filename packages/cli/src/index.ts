@@ -4,12 +4,14 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { loadCredential, log, type Credential } from "@mcpwrench/core";
+import { z } from "zod";
+import { log } from "@mcpwrench/core";
 import { registerNexusTools } from "@modwrench/nexus/register";
 import { registerModioTools } from "@modwrench/modio/register";
 import { registerThunderstoreTools } from "@modwrench/thunderstore/register";
 import { registerModrinthTools } from "@modwrench/modrinth/register";
 import { registerWorkbenchTools } from "@modwrench/workbench/register";
+import { MetaCatalog, type PlatformDef } from "./catalog.js";
 
 // ─── Subcommand dispatch ─────────────────────────────────────────────────────
 // Must run before the MCP boot block below. Two routes today:
@@ -69,42 +71,23 @@ if (subcmd === "auth") {
   process.exit(0);
 }
 
-// ─── Meta-server boot ─────────────────────────────────────────────────────────
-// The CLI bundles every installed @modwrench/* platform package and exposes
-// them as one MCP entry. Two registration shapes coexist:
+// ─── Meta-server boot — v2.5 dynamic catalog architecture ────────────────────
+// The catalog tracks which platforms are active. Each platform's register
+// function is called via the catalog rather than inline, which lets us:
 //
-//   - Credentialed platforms (Nexus, mod.io): need an API token from the
-//     keychain or env. A platform whose credentials can't be resolved is
-//     skipped (warn-and-continue) rather than fatal.
-//   - Local platforms (Workbench): no credential needed; always loaded. These
-//     read local filesystem state only.
+//   - Activate platforms at boot (the static-catalog equivalent — current
+//     behavior; every available platform tries to register)
+//   - Re-activate later via the mw_activate_platform meta-tool, e.g. after
+//     the user runs `modwrench auth login` in another terminal and wants
+//     to pull the platform in without restarting the server
+//   - Notify clients via notifications/tools/list_changed whenever the
+//     catalog changes (listChanged capability declared below)
 //
-// Subcommands like `auth login` stay on the per-platform bins (modwrench-nexus,
-// modwrench-modio) since the auth UX differs by platform.
+// See docs/dynamic-catalog-architecture.md for the full design.
 
-type CredentialedRegistration = {
-  name: string;
-  kind: "credentialed";
-  register: (server: McpServer, credential: Credential) => {
-    toolCount: number;
-    baseUrl: string;
-  };
-  envVar: string;
-  service: string;
-  authHint: string;
-};
-
-type LocalRegistration = {
-  name: string;
-  kind: "local";
-  register: (server: McpServer) => { toolCount: number; baseUrl?: string };
-};
-
-type PlatformRegistration = CredentialedRegistration | LocalRegistration;
-
-const platforms: PlatformRegistration[] = [
+const platforms: PlatformDef[] = [
   {
-    name: "nexus",
+    id: "nexus",
     kind: "credentialed",
     register: registerNexusTools,
     envVar: "NEXUS_API_KEY",
@@ -113,7 +96,7 @@ const platforms: PlatformRegistration[] = [
       "Run `modwrench auth login nexus` (OAuth) or set NEXUS_API_KEY in your .env.",
   },
   {
-    name: "modio",
+    id: "modio",
     kind: "credentialed",
     register: registerModioTools,
     envVar: "MODIO_API_KEY",
@@ -122,56 +105,77 @@ const platforms: PlatformRegistration[] = [
       "Run `modwrench auth login modio` (OAuth) or set MODIO_API_KEY in your .env.",
   },
   {
-    name: "thunderstore",
+    id: "thunderstore",
     kind: "local",
     register: registerThunderstoreTools,
   },
   {
-    name: "modrinth",
+    id: "modrinth",
     kind: "local",
     register: registerModrinthTools,
   },
   {
-    name: "workbench",
+    id: "workbench",
     kind: "local",
     register: registerWorkbenchTools,
   },
 ];
 
-const server = new McpServer({
-  name: "modwrench",
-  version: "0.0.1",
-});
-
-const loaded: Array<{ name: string; toolCount: number; baseUrl?: string }> = [];
-const skipped: Array<{ name: string; reason: string }> = [];
-
-for (const p of platforms) {
-  try {
-    if (p.kind === "credentialed") {
-      const credential = loadCredential({
-        service: p.service,
-        envVar: p.envVar,
-        authHint: p.authHint,
-      });
-      const { toolCount, baseUrl } = p.register(server, credential);
-      loaded.push({ name: p.name, toolCount, baseUrl });
-    } else {
-      const { toolCount } = p.register(server);
-      loaded.push({ name: p.name, toolCount });
-    }
-  } catch (err) {
-    skipped.push({
-      name: p.name,
-      reason: err instanceof Error ? err.message : String(err),
-    });
+const server = new McpServer(
+  {
+    name: "modwrench",
+    version: "0.0.1",
+  },
+  {
+    // listChanged advertises to MCP clients that the tool catalog can change
+    // at runtime. The McpServer's sendToolListChanged() (called by
+    // MetaCatalog.activate) emits notifications/tools/list_changed which
+    // tells the client to re-fetch via tools/list. Without this capability
+    // declared, runtime activation still works but clients may not refresh.
+    capabilities: { tools: { listChanged: true } },
   }
-}
+);
 
-if (loaded.length === 0) {
+const catalog = new MetaCatalog(server, platforms);
+
+// Boot-time activation: try every platform. Credentialed platforms whose
+// credentials are missing land in catalog.listFailed() and stay dormant
+// until mw_activate_platform retries them.
+await catalog.activateAll();
+
+// Register the mw_activate_platform meta-tool. Always available — even when
+// the user runs the meta-CLI with zero active platforms (no creds anywhere),
+// this tool gives the LLM a programmatic way to surface the right "go run
+// modwrench auth login X" hint and retry activation when credentials are
+// added.
+server.tool(
+  "mw_activate_platform",
+  "Activate an additional platform's tool set without restarting the meta-server. Use this when the user adds credentials or asks about a platform that wasn't loaded at boot. After activation, the new tools appear in the catalog and become callable. Returns the activation result (success with toolCount + baseUrl, or failure with reason — usually a missing-credential hint pointing at `modwrench auth login <platform>`).",
+  {
+    platform_id: z
+      .enum(catalog.knownIds() as [string, ...string[]])
+      .describe(
+        "Platform identifier. Idempotent — activating an already-active platform returns alreadyActive: true with no side effects."
+      ),
+  },
+  async ({ platform_id }) => {
+    const result = await catalog.activate(platform_id);
+    log("debug", "catalog.activate", { platform_id, status: result.status });
+    return {
+      content: [
+        { type: "text", text: JSON.stringify(result, null, 2) },
+      ],
+    };
+  }
+);
+
+const activeAtBoot = catalog.listActive();
+const failedAtBoot = catalog.listFailed();
+
+if (activeAtBoot.length === 0) {
   log("error", "modwrench.fatal", {
-    message: "No platforms could load.",
-    skipped,
+    message: "No platforms could activate.",
+    failed: failedAtBoot,
   });
   process.exit(1);
 }
@@ -180,13 +184,15 @@ async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   log("info", "modwrench.started", {
-    loaded: loaded.map((p) => ({
-      platform: p.name,
+    loaded: activeAtBoot.map((p) => ({
+      platform: p.platformId,
       tools: p.toolCount,
       ...(p.baseUrl ? { base_url: p.baseUrl } : {}),
     })),
-    skipped: skipped.map((p) => p.name),
-    total_tools: loaded.reduce((sum, p) => sum + p.toolCount, 0),
+    skipped: failedAtBoot.map((p) => p.platformId),
+    total_tools:
+      activeAtBoot.reduce((sum, p) => sum + p.toolCount, 0) + 1, // +1 for mw_activate_platform
+    catalog_dynamic: true,
   });
 }
 
