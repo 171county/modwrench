@@ -18,7 +18,14 @@ import { getEnv, log } from "@mcpwrench/core";
 // Other LOOT fields (after, req, msg, group, etc.) aren't used by this tool
 // — they're for load-order optimization, not incompatibility detection.
 
-const LOOT_BRANCH = getEnv("LOOT_BRANCH", "master");
+// Pinned to a stable LOOT version branch rather than `master` so an upstream
+// schema change can't silently break our parser. v0.26 is the current
+// maintenance branch as of 2026 — community conflict entries keep flowing
+// into it via PRs while the schema stays frozen until v0.27.
+//
+// Bump this default deliberately after verifying the masterlist YAML still
+// parses against parseLootMasterlist below. Users can override via env var.
+const LOOT_BRANCH = getEnv("LOOT_BRANCH", "v0.26");
 
 // Per-game LOOT repo names. Only Bethesda games have LOOT masterlists.
 const LOOT_REPOS: Record<string, string> = {
