@@ -141,7 +141,7 @@ Tool implementations should:
 - Use the shared `core` package's auth chain rather than reading tokens directly
 - Surface attribution metadata in outputs that reference mods
 - Return clear, structured errors rather than throwing in unexpected ways
-- Respect platform rate limits — the `core` package has rate-limit-aware helpers
+- Respect platform rate limits — for now this means failing politely on `429` responses and not retrying aggressively. A shared rate-limit-aware HTTP client in `@mcpwrench/core` is on the roadmap (see [ROADMAP.md](ROADMAP.md)); until it lands, each platform package handles its own `fetch` and should respect any `Retry-After` header it sees
 
 ### Testing manually with Claude Desktop or Claude Code
 
@@ -218,7 +218,7 @@ Reports of code-of-conduct issues can be sent privately to the maintainer (conta
 
 ## Recognition
 
-Contributors are listed in the project's `CONTRIBUTORS.md` file (auto-generated from commits using [all-contributors](https://allcontributors.org/) or similar). Substantial contributions are credited in release notes.
+Contributors are credited in commit history (every merged PR appears under your name in `git log`) and in release notes once we ship to npm. A standalone `CONTRIBUTORS.md` will be added when the contributor count makes it useful — likely via [all-contributors](https://allcontributors.org/) automation. For now `git shortlog -sne` is the source of truth.
 
 If you contributed something significant and don't see your name, file an issue — it's an oversight, not a slight.
 
