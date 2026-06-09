@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { createHttpClient, getEnv, log } from "@mcpwrench/core";
+import { createHttpClient, getEnv, log } from "@modwrench/core";
 
 /**
  * Register all Modrinth tools on the given MCP server.
@@ -22,10 +22,10 @@ export function registerModrinthTools(server: McpServer): {
 
   // Modrinth's terms of service ask consumers to send a meaningful
   // User-Agent including a contact URL. The MCPwrench convention satisfies
-  // that ("ModWrench/<version> (+https://mcpwrench.dev)").
+  // that ("ModWrench/<version> (+https://github.com/171county/modwrench)").
   const httpClient = createHttpClient({
     baseUrl: BASE_URL,
-    userAgent: "ModWrench/0.0.1 (+https://mcpwrench.dev)",
+    userAgent: "ModWrench/0.0.1 (+https://github.com/171county/modwrench)",
     errorCodePrefix: "modrinth",
   });
 

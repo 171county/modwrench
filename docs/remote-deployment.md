@@ -46,9 +46,9 @@ Other valid targets (AWS Lambda, Vercel Functions, Fly.io, a plain Node + nginx 
 
 To ship remote ModWrench, this work needs to land. Rough order of dependency:
 
-1. **Streamable HTTP transport adapter** in `@mcpwrench/core` or a new `@mcpwrench/remote` package. Wraps the MCP server's request/response loop in a single POST endpoint with optional SSE upgrade.
+1. **Streamable HTTP transport adapter** in `@modwrench/core` or a new `@modwrench/remote` package. Wraps the MCP server's request/response loop in a single POST endpoint with optional SSE upgrade.
 2. **Per-platform OAuth in a remote-friendly shape.** The current OAuth flows in `@modwrench/nexus` and `@modwrench/modio` assume a local loopback callback (`http://127.0.0.1:<port>/callback`). Remote deployment needs a stable callback URL (`https://modwrench.example.com/oauth/<platform>/callback`) and server-side credential storage instead of the OS keychain.
-3. **Credential adapter abstraction.** `loadCredential` in `@mcpwrench/core` currently reads from keychain + env. It needs a third source: a per-request credential resolver that pulls the active user's token from server-side storage.
+3. **Credential adapter abstraction.** `loadCredential` in `@modwrench/core` currently reads from keychain + env. It needs a third source: a per-request credential resolver that pulls the active user's token from server-side storage.
 4. **Per-user session model.** The MCP spec supports session ids; we need to actually thread one through every tool call so the credential resolver knows which user it's serving.
 5. **Workers deployment scaffold.** `wrangler.toml`, the Worker entry, KV namespace setup, OAuth callback routes, and a small admin UI for revoking tokens.
 6. **Rate limiting.** Hosted ModWrench needs to be a polite citizen on Nexus and mod.io's API quotas, which means per-user rate caps server-side, not just trust in the upstream limits.

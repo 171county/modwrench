@@ -1,7 +1,7 @@
 {
-  "name": "@mcpwrench/core",
+  "name": "@modwrench/core",
   "version": "0.0.1",
-  "description": "Shared core library for MCPwrench servers — auth, secrets, logging, errors.",
+  "description": "Shared core library for ModWrench servers — auth, secrets, logging, errors.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

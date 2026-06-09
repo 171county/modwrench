@@ -67,6 +67,6 @@ Initial public release on GitHub. Single squashed commit (`2d46d24`) after orpha
 - `@modwrench/nexus` — 12 read-only tools for Nexus Mods. OAuth (PKCE) + API key fallback.
 - `@modwrench/modio` — 11 read-only tools for mod.io. OAuth (email code) + API key fallback.
 - `@modwrench/cli` — meta-server composing every installed platform under one MCP entry.
-- `@mcpwrench/core` — shared library: keychain integration via `@napi-rs/keyring`, env helpers, structured logger to stderr, credential resolution chain (keychain → env → fail-with-hint), `McpwrenchError` envelope.
+- `@modwrench/core` — shared library: keychain integration via `@napi-rs/keyring`, env helpers, structured logger to stderr, credential resolution chain (keychain → env → fail-with-hint), `ModWrenchError` envelope.
 - `LICENSE` (Apache 2.0), `CONTRIBUTING.md` (DCO sign-off model), three GitHub issue templates, PR template, basic CI workflow on Node 20 + 22.
 - Trust posture documented in README: six non-negotiables (no telemetry, no personal data, attribution preserved, permissions respected, rate limits honored, read-only default).

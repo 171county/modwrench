@@ -33,7 +33,7 @@
     "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {
-    "@mcpwrench/core": "0.0.1",
+    "@modwrench/core": "0.0.1",
     "@modwrench/modio": "0.0.1",
     "@modwrench/modrinth": "0.0.1",
     "@modwrench/nexus": "0.0.1",

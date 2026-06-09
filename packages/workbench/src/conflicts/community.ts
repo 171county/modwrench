@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { log } from "@mcpwrench/core";
+import { log } from "@modwrench/core";
 import { pathExists } from "../detect/os.js";
 import type { ConflictSeverity, KnownConflict } from "./types.js";
 

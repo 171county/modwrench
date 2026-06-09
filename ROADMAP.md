@@ -20,7 +20,7 @@ Status definitions used below:
 - **`@modwrench/nexus`** — 12 tools, OAuth (PKCE) + API-key fallback, full read coverage
 - **`@modwrench/modio`** — 11 tools, OAuth (email code) + API-key fallback, full read coverage
 - **`@modwrench/cli`** — meta-server composing every installed platform under one MCP entry; `auth` subcommand dispatcher
-- **`@mcpwrench/core`** — shared infrastructure (keychain, env, logging, error envelope, credential resolution)
+- **`@modwrench/core`** — shared infrastructure (keychain, env, logging, error envelope, credential resolution)
 
 ### v2 — The compound modder workbench ✅ Shipped
 

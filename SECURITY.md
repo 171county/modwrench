@@ -25,10 +25,10 @@ We will acknowledge receipt within 72 hours. We will not threaten legal action a
 
 In scope:
 
-- The `@modwrench/*` and `@mcpwrench/*` npm packages
+- The `@modwrench/*` npm packages
 - The MCP servers' protocol surface (anything reachable via stdio / Streamable HTTP)
 - Credential handling, especially the OAuth flows in `@modwrench/nexus` and `@modwrench/modio`
-- The OS keychain integration in `@mcpwrench/core`
+- The OS keychain integration in `@modwrench/core`
 - The CLI binaries (`modwrench`, `modwrench-nexus`, `modwrench-modio`, `modwrench-thunderstore`, `modwrench-workbench`)
 - The bundled GitHub Actions workflows in this repo
 

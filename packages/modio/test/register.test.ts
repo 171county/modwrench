@@ -1,7 +1,7 @@
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { registerModioTools } from "../src/register.js";
-import type { Credential } from "@mcpwrench/core";
+import type { Credential } from "@modwrench/core";
 
 // Mock server pattern — same shape used in nexus + thunderstore tests.
 type ToolHandler = (args: Record<string, unknown>) => Promise<{

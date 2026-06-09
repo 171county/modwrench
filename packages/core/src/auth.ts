@@ -115,7 +115,7 @@ export function setStoredToken(name: string, token: StoredToken): void {
     if (classifyKeychainError(err) === "unavailable") {
       keychainStatus = "unavailable";
       throw new Error(
-        `[mcpwrench/core] Cannot save credential: OS keychain unavailable. ` +
+        `[modwrench/core] Cannot save credential: OS keychain unavailable. ` +
           `This is common on Steam Deck Game Mode, headless Linux, or systems ` +
           `without libsecret/D-Bus. Use the legacy API-key path instead — set ` +
           `the platform's API_KEY env var in your .env. ` +
@@ -189,7 +189,7 @@ export function loadCredential(opts: {
       ? "OS keychain is unavailable on this system (likely libsecret/D-Bus missing — common on Steam Deck Game Mode or headless Linux). "
       : "Tried OS keychain and ";
   throw new Error(
-    `[mcpwrench/core] No credential found for "${opts.service}". ` +
+    `[modwrench/core] No credential found for "${opts.service}". ` +
       `${keychainNote}env var ${opts.envVar} is not set. ` +
       opts.authHint
   );

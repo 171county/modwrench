@@ -46,7 +46,7 @@ export function getSecret(name: string): string {
   const value = process.env[name];
   if (!value || value.trim() === "") {
     throw new Error(
-      `[mcpwrench/core] Missing required secret: ${name}. ` +
+      `[modwrench/core] Missing required secret: ${name}. ` +
         `Check your .env file at the workspace root (${WORKSPACE_ROOT}).`
     );
   }
@@ -137,9 +137,9 @@ export * from "./http.js";
 // ─── Error type ───────────────────────────────────────────────────────────────
 
 /**
- * Error type used across MCPwrench servers for predictable error envelopes.
+ * Error type used across ModWrench servers for predictable error envelopes.
  */
-export class McpwrenchError extends Error {
+export class ModWrenchError extends Error {
   public readonly code: string;
   public readonly status?: number;
   public readonly meta?: Record<string, unknown>;
@@ -150,7 +150,7 @@ export class McpwrenchError extends Error {
     options?: { status?: number; meta?: Record<string, unknown>; cause?: unknown }
   ) {
     super(message, options?.cause ? { cause: options.cause } : undefined);
-    this.name = "McpwrenchError";
+    this.name = "ModWrenchError";
     this.code = code;
     this.status = options?.status;
     this.meta = options?.meta;

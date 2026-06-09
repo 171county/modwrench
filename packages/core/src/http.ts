@@ -8,7 +8,7 @@
 //   - User-Agent injection
 //   - Caller-supplied auth-header callback (keeps Bearer vs apikey routing
 //     decisions in the platform package, not in core)
-//   - Structured McpwrenchError on non-retryable failures
+//   - Structured ModWrenchError on non-retryable failures
 //
 // Design rule: this client is the "polite citizen" tier. It reacts to 429s
 // and 5xxs but does NOT do proactive rate-limit window tracking via
@@ -16,7 +16,7 @@
 // those and that's a v2 concern. The current 429-reactive behavior is what
 // keeps us off blocklists.
 
-import { McpwrenchError } from "./index.js";
+import { ModWrenchError } from "./index.js";
 
 export type RetryConfig = {
   /** Total request attempts (1 = no retry). Default 3. */
@@ -45,7 +45,7 @@ export type HttpClientOptions = {
   /** Optional default headers attached to every request (besides UA + auth). */
   defaultHeaders?: Record<string, string>;
   /**
-   * Optional override for the error-code prefix in thrown McpwrenchErrors.
+   * Optional override for the error-code prefix in thrown ModWrenchErrors.
    * Defaults to "http". Set to e.g. "nexus" so callers see codes like
    * "nexus_http_error" rather than "http_error".
    */
@@ -217,7 +217,7 @@ export function createHttpClient(opts: HttpClientOptions): HttpClient {
             await sleep(computeBackoff(attempt, initialDelayMs, maxDelayMs));
             continue;
           }
-          throw new McpwrenchError(
+          throw new ModWrenchError(
             `${errorPrefix}_network_error`,
             `Network error contacting ${safeUrl}: ${err instanceof Error ? err.message : String(err)}`,
             { cause: err }
@@ -260,7 +260,7 @@ export function createHttpClient(opts: HttpClientOptions): HttpClient {
 
         // Non-retryable HTTP error. Read body for diagnostics and throw.
         const body = await response.text().catch(() => "<no body>");
-        throw new McpwrenchError(
+        throw new ModWrenchError(
           `${errorPrefix}_http_error`,
           `HTTP ${response.status} for ${method} ${path}`,
           {
@@ -273,7 +273,7 @@ export function createHttpClient(opts: HttpClientOptions): HttpClient {
       // Exhausted retries on the retryable path (429 / 5xx that never
       // recovered). The last response's body isn't useful here so we keep
       // it generic.
-      throw new McpwrenchError(
+      throw new ModWrenchError(
         `${errorPrefix}_retries_exhausted`,
         `Exhausted ${maxAttempts} attempts for ${method} ${path}`,
         { cause: lastError }

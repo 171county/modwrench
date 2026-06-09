@@ -25,7 +25,7 @@ If any of these are uncertain, open an issue first describing the platform and t
 - **OAuth (PKCE)**: required if the platform supports it. Mirror `@modwrench/nexus`'s flow.
 - **OAuth (email-code or other non-PKCE)**: case by case. Mirror `@modwrench/modio`'s email-code flow if the shape fits.
 
-Credentials must end up in the OS keychain via `@mcpwrench/core`'s `setStoredToken`. We don't ship credentials to disk in plain files, and we don't keep them in process memory longer than the request that uses them.
+Credentials must end up in the OS keychain via `@modwrench/core`'s `setStoredToken`. We don't ship credentials to disk in plain files, and we don't keep them in process memory longer than the request that uses them.
 
 ---
 
@@ -78,7 +78,7 @@ Match the existing platform packages exactly. The fields that matter most:
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mcpwrench/core": "0.0.1",
+    "@modwrench/core": "0.0.1",
     "@modelcontextprotocol/sdk": "^1.0.4",
     "zod": "^3.23.8"
   }
@@ -136,16 +136,16 @@ import { z } from "zod";
 import {
   getEnv,
   log,
-  McpwrenchError,
+  ModWrenchError,
   type Credential,
-} from "@mcpwrench/core";
+} from "@modwrench/core";
 
 export function registerXTools(
   server: McpServer,
   credential: Credential
 ): { toolCount: number; baseUrl: string } {
   const BASE_URL = getEnv("X_BASE_URL", "https://api.example.com/v1");
-  const USER_AGENT = "ModWrench/0.0.1 (+https://mcpwrench.dev)";
+  const USER_AGENT = "ModWrench/0.0.1 (+https://github.com/171county/modwrench)";
 
   async function xRequest<T>(path: string): Promise<T> {
     const url = `${BASE_URL}${path}`;
@@ -165,7 +165,7 @@ export function registerXTools(
     });
     if (!response.ok) {
       const body = await response.text().catch(() => "<no body>");
-      throw new McpwrenchError(
+      throw new ModWrenchError(
         "x_http_error",
         `X API returned ${response.status} for ${path}`,
         { status: response.status, meta: { body: body.slice(0, 500) } }
@@ -216,7 +216,7 @@ Avoid platform-agnostic names — the LLM picks tools by name and a generic `get
 - Use `zod` for input schemas. The MCP SDK reads them and exposes a JSON Schema to the client automatically.
 - Constrain numeric ids with `.int().positive()`.
 - Describe every field.
-- Validate aggressively in zod; throw cleanly in handlers (the `McpwrenchError` envelope formats nicely).
+- Validate aggressively in zod; throw cleanly in handlers (the `ModWrenchError` envelope formats nicely).
 
 ---
 
@@ -228,7 +228,7 @@ Avoid platform-agnostic names — the LLM picks tools by name and a generic `get
 #!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { loadCredential, log } from "@mcpwrench/core";
+import { loadCredential, log } from "@modwrench/core";
 import { authLogin, authStatus, authLogout } from "./auth.js";
 import { registerXTools } from "./register.js";
 
@@ -289,7 +289,7 @@ For non-PKCE OAuth (e.g. email-code), mirror [`packages/modio/src/auth.ts`](../p
 Token storage:
 
 ```typescript
-import { setStoredToken } from "@mcpwrench/core";
+import { setStoredToken } from "@modwrench/core";
 
 setStoredToken("x", {
   access_token: tokenData.access_token,

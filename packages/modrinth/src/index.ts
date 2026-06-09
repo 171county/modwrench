@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { log } from "@mcpwrench/core";
+import { log } from "@modwrench/core";
 import { registerModrinthTools } from "./register.js";
 
 // Standalone bin. Modrinth's public read API is anonymous so no auth

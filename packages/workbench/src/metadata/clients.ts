@@ -5,7 +5,7 @@ import {
   loadCredential,
   type Credential,
   type HttpClient,
-} from "@mcpwrench/core";
+} from "@modwrench/core";
 
 // Minimal HTTP clients for the platforms we already cover via dedicated MCP
 // packages. We re-implement at this layer rather than depending on
@@ -13,13 +13,13 @@ import {
 // direction (workbench is supposed to be the leaner package, and the platform
 // packages don't need to know about workbench).
 //
-// Both clients use the shared @mcpwrench/core HTTP client for retry/backoff
+// Both clients use the shared @modwrench/core HTTP client for retry/backoff
 // /429 handling /concurrency cap — keeps behavior consistent with what the
 // platform packages do. Credentials are loaded best-effort at register time
 // via loadCredential; if neither keychain nor env is configured for a given
 // platform, the client is null and the metadata tool surfaces a clear error.
 
-const USER_AGENT = "ModWrench/0.0.1 (+https://mcpwrench.dev)";
+const USER_AGENT = "ModWrench/0.0.1 (+https://github.com/171county/modwrench)";
 
 // ─── Nexus ────────────────────────────────────────────────────────────────────
 
