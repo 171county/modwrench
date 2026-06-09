@@ -7,7 +7,7 @@ labels: platform-request
 
 ## Which platform
 
-<!-- e.g. CurseForge, Thunderstore, Bethesda Verified Creator, Steam Workshop, The Sims Resource, GameBanana, ... -->
+<!-- e.g. CurseForge, Thunderstore, Modrinth, Nexus Mods, mod.io, ... -->
 
 ## Why it matters to your modding workflow
 

@@ -2,6 +2,16 @@
   "name": "@modwrench/modio",
   "version": "0.0.1",
   "description": "ModWrench — mod.io MCP server. Search, browse, and inspect mods on mod.io directly from any MCP-compatible AI client.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/171county/modwrench.git",
+    "directory": "packages/modio"
+  },
+  "homepage": "https://github.com/171county/modwrench#readme",
+  "bugs": {
+    "url": "https://github.com/171county/modwrench/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
@@ -19,11 +29,14 @@
     }
   },
   "bin": {
-    "modwrench-modio": "./dist/index.js"
+    "modwrench-modio": "dist/index.js"
   },
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/index.ts",

@@ -1,6 +1,6 @@
 # Security Policy
 
-ModWrench handles API tokens. We take that seriously — the project's [trust posture](README.md#trust-posture-the-six-things-modwrench-will-never-do) is engineered into the code, not just stated in marketing copy. If you've found a vulnerability or believe the trust posture is being violated, this document tells you how to reach us privately.
+ModWrench handles API tokens. We take that seriously — the project's [trust posture](README.md#trust-posture-the-six-rules) is engineered into the code, not just stated in marketing copy. If you've found a vulnerability or believe the trust posture is being violated, this document tells you how to reach us privately.
 
 ## Reporting a vulnerability
 
@@ -32,7 +32,7 @@ In scope:
 - The CLI binaries (`modwrench`, `modwrench-nexus`, `modwrench-modio`, `modwrench-thunderstore`, `modwrench-workbench`)
 - The bundled GitHub Actions workflows in this repo
 
-Out of scope (please report to the relevant project, not us):
+Reports for upstream projects:
 
 - Vulnerabilities in the upstream platforms themselves (Nexus Mods, mod.io, Thunderstore, GitHub)
 - Vulnerabilities in `@modelcontextprotocol/sdk` (report to Anthropic)

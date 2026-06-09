@@ -3,6 +3,15 @@
   "version": "0.0.1",
   "private": true,
   "description": "MCPwrench — a workshop of MCP servers. First product: ModWrench, an MCP toolkit for modders.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/171county/modwrench.git"
+  },
+  "homepage": "https://github.com/171county/modwrench#readme",
+  "bugs": {
+    "url": "https://github.com/171county/modwrench/issues"
+  },
   "type": "module",
   "workspaces": [
     "packages/core",

@@ -150,6 +150,32 @@ function buildUrl(
   return full.includes("?") ? `${full}&${qs}` : `${full}?${qs}`;
 }
 
+const SENSITIVE_QUERY_KEYS = new Set([
+  "access_token",
+  "api_key",
+  "apikey",
+  "authorization",
+  "client_secret",
+  "password",
+  "refresh_token",
+  "secret",
+  "token",
+]);
+
+function redactUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    for (const key of Array.from(url.searchParams.keys())) {
+      if (SENSITIVE_QUERY_KEYS.has(key.toLowerCase())) {
+        url.searchParams.set(key, "[redacted]");
+      }
+    }
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
 // ─── Public factory ────────────────────────────────────────────────────────
 
 export function createHttpClient(opts: HttpClientOptions): HttpClient {
@@ -163,6 +189,7 @@ export function createHttpClient(opts: HttpClientOptions): HttpClient {
 
   async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const url = buildUrl(opts.baseUrl, path, init.query);
+    const safeUrl = redactUrl(url);
     const method = init.method ?? "GET";
     const auth = opts.authHeaders?.() ?? {};
     const headers: Record<string, string> = {
@@ -192,7 +219,7 @@ export function createHttpClient(opts: HttpClientOptions): HttpClient {
           }
           throw new McpwrenchError(
             `${errorPrefix}_network_error`,
-            `Network error contacting ${url}: ${err instanceof Error ? err.message : String(err)}`,
+            `Network error contacting ${safeUrl}: ${err instanceof Error ? err.message : String(err)}`,
             { cause: err }
           );
         }
@@ -238,7 +265,7 @@ export function createHttpClient(opts: HttpClientOptions): HttpClient {
           `HTTP ${response.status} for ${method} ${path}`,
           {
             status: response.status,
-            meta: { body: body.slice(0, 500), url },
+            meta: { body: body.slice(0, 500), url: safeUrl },
           }
         );
       }

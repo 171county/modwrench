@@ -330,7 +330,7 @@ After this compound tool ships:
 
 - ModWrench is no longer "a Nexus and mod.io MCP." It's "the AI modding workbench."
 - The category name shifts. You're not competing with Vortex (a mod manager); you're competing with the *absence* of a modder workbench. There is no competitor in that space.
-- Layer 3 features (multi-platform publishing, Patreon-aware tooling, paid/free conflict resolution) become natural extensions of the same conversational surface.
+- Later features (multi-platform publishing, richer local tool integrations, profile-safe write actions) become natural extensions of the same conversational surface.
 - Steam Deck / Linux modders get a first-class experience that Vortex doesn't offer them.
 - A user's first interaction with ModWrench answers a real, painful question on the first conversation. That's how word-of-mouth happens in modding communities — the GamerPoets YouTube channel will mention you, and that's the inflection point.
 

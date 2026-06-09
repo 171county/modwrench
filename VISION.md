@@ -19,7 +19,7 @@ Never in repo-local files. Never in logs. Never echoed in tool responses. Never 
 
 ### 2. Lean tool surfaces.
 
-Each server exposes only the endpoints modders actually use. We don't mirror every API endpoint a platform publishes — comments, monetization, multipart uploads, service-to-service routes, and similar "fluff" stay out of the default surface. They can be added per-installation if someone wants them.
+Each server exposes only the endpoints modders actually use. The default surface stays focused on discovery, metadata, versioning, diagnostics, and workflow steps that make sense inside an AI conversation.
 
 When in doubt, ask: *would a modder, mid-conversation with an AI, plausibly want this?* If no, leave it out.
 
