@@ -106,7 +106,7 @@ These are not promises. They are constraints baked into the code. PRs that viola
 
 You'll need [Node.js 20+](https://nodejs.org/) and an MCP-compatible client.
 
-> **🚧 Status: private alpha.** ModWrench isn't on the npm registry yet — the `npx @modwrench/cli` commands below will fail until we publish a 0.0.1 release. For now, install from source by cloning the repo, running `npm install && npm run build` at the workspace root, and pointing your MCP config at `node /absolute/path/to/modwrench/packages/cli/dist/index.js` instead of `npx -y @modwrench/cli`. The npm publish pipeline is on the [roadmap](ROADMAP.md). Track [GitHub releases](https://github.com/171county/modwrench/releases) for the announcement.
+ModWrench is published on npm as `@modwrench/cli`. The command below pulls the current public package and starts the stdio MCP server.
 
 ### Claude Desktop / Claude Code
 
@@ -291,4 +291,4 @@ Try it. Break it. Tell me. That's the whole loop.
 
 *ModWrench — built by Sean (and the AI assistants he was modding with at the time).*
 *Apache 2.0 license, no telemetry, no lock-in.*
-*Project home: [github.com/171county/modwrench](https://github.com/171county/modwrench). MCP Registry submission planned once a 0.0.1 release ships to npm.*
+*Project home: [github.com/171county/modwrench](https://github.com/171county/modwrench). MCP Registry metadata lives in [server.json](server.json).*
