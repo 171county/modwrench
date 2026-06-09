@@ -76,9 +76,7 @@ Strong candidate platforms (in rough order of community demand):
 
 - CurseForge (largest catalog, well-documented API)
 - Thunderstore (Unity co-op community, simple API)
-- Modrinth (open-source-friendly Minecraft platform)
-- Bethesda Creations / Verified Creator (politically sensitive — discuss in an issue first)
-- GameBanana (fighting game / Source engine communities)
+- Modrinth (open-source-friendly platform, shipped read-side)
 
 ### 6. Improve docs
 

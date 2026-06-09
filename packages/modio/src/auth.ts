@@ -4,6 +4,7 @@ import {
   setStoredToken,
   getStoredToken,
   deleteStoredToken,
+  redactSensitiveText,
 } from "@mcpwrench/core";
 
 const MODIO_BASE = "https://api.mod.io/v1";
@@ -42,7 +43,7 @@ export async function authLogin(): Promise<void> {
   if (!reqRes.ok) {
     const body = await reqRes.text().catch(() => "");
     process.stderr.write(
-      `mod.io rejected the email request (${reqRes.status}): ${body.slice(0, 300)}\n`
+      `mod.io rejected the email request (${reqRes.status}): ${redactSensitiveText(body).slice(0, 300)}\n`
     );
     process.exit(1);
   }
@@ -62,7 +63,7 @@ export async function authLogin(): Promise<void> {
   if (!exchRes.ok) {
     const body = await exchRes.text().catch(() => "");
     process.stderr.write(
-      `Token exchange failed (${exchRes.status}): ${body.slice(0, 300)}\n`
+      `Token exchange failed (${exchRes.status}): ${redactSensitiveText(body).slice(0, 300)}\n`
     );
     process.exit(1);
   }

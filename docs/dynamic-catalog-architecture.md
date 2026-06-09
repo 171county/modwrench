@@ -23,7 +23,7 @@ This works well at small catalog sizes. It scales poorly:
 The naive solutions:
 
 - **Split into multiple MCPs** (`modwrench-bethesda`, `modwrench-unity`, ...) — works, but moves the burden of "which one do I install?" onto the user, fragments cross-platform features like `mw_query_mod_metadata`, and multiplies the configs modders have to maintain in `claude_desktop_config.json`
-- **Filter tools client-side** — out of scope for the protocol; clients don't expose hooks for this and shouldn't have to
+- **Filter tools client-side** — not available at the protocol layer; clients don't expose hooks for this and shouldn't have to
 
 The right move is server-side: ModWrench should expose *a personalized catalog per user*, sized to that user's actual setup, with a programmatic way to expand it on demand when the LLM needs more.
 
@@ -89,7 +89,7 @@ if detected_mod_managers includes "curseforge" or
    any detected_game.family == "minecraft":
   activate("modrinth")
   activate("curseforge")
-if Patreon/mod.io credential is configured in env or keychain:
+if mod.io credential is configured in env or keychain:
   activate("modio")
 ```
 
@@ -305,7 +305,7 @@ A few things beyond the obvious context-cost win:
 
 3. **A natural foundation for federation.** Once ModWrench has dynamic catalog support, third parties can build platform-specific extensions (`@<contributor>/skyrim-modlist-export`) that the meta-server can also activate. The activation pattern becomes a community surface, not just a ModWrench-internal mechanic. (This is deferred — security and review story needs careful thought first.)
 
-4. **Easier onboarding of niche platforms.** GameBanana, Bethesda Creations (if ever), or anything specialty can ship as an installed-but-dormant package. Only users who explicitly need it pay the catalog cost.
+4. **Easier onboarding of package-specific platforms.** A platform can ship as an installed-but-dormant package. Only users who explicitly need it pay the catalog cost.
 
 ---
 

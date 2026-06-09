@@ -22,11 +22,18 @@ npm-debug.log*
 Thumbs.db
 desktop.ini
 
-# Editor folders
+# Editor and local AI-tool folders
 .vscode/
 .idea/
 .cursor/
 .claude/
+.codex/
+.continue/
+.cline/
+.roo/
+.roo-code/
+.windsurf/
+.aider*
 
 # Local-only workspace files (paths, prefs)
 *.code-workspace

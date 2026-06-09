@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.171county/modwrench",
+  "title": "ModWrench",
+  "description": "One MCP server for mod platforms and local modding diagnostics. No data kept.",
+  "version": "0.0.1",
+  "repository": {
+    "url": "https://github.com/171county/modwrench",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@modwrench/cli",
+      "version": "0.0.1",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
