@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { log } from "@mcpwrench/core";
+import { log } from "@modwrench/core";
 import { detectEnvironment } from "./detect/environment.js";
 import { readLoadOrder } from "./loadorder/index.js";
 import { parseCrashlog } from "./crashlog/index.js";

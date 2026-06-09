@@ -139,7 +139,7 @@ Tool implementations should:
 - Use the shared `core` package's auth chain rather than reading tokens directly
 - Surface attribution metadata in outputs that reference mods
 - Return clear, structured errors rather than throwing in unexpected ways
-- Respect platform rate limits — for now this means failing politely on `429` responses and not retrying aggressively. A shared rate-limit-aware HTTP client in `@mcpwrench/core` is on the roadmap (see [ROADMAP.md](ROADMAP.md)); until it lands, each platform package handles its own `fetch` and should respect any `Retry-After` header it sees
+- Respect platform rate limits — for now this means failing politely on `429` responses and not retrying aggressively. A shared rate-limit-aware HTTP client in `@modwrench/core` is on the roadmap (see [ROADMAP.md](ROADMAP.md)); until it lands, each platform package handles its own `fetch` and should respect any `Retry-After` header it sees
 
 ### Testing manually with Claude Desktop or Claude Code
 

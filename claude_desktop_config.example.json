@@ -1,5 +1,5 @@
 {
-  "_comment": "Drop this into %APPDATA%\\Claude\\claude_desktop_config.json (Windows) or ~/Library/Application Support/Claude/claude_desktop_config.json (macOS). If the file already exists, merge the 'mcpServers' entries in. Adjust the absolute paths to match where you cloned mcpwrench. API keys / OAuth tokens are read from the workspace .env or OS keychain via @mcpwrench/core's loadCredential — they do NOT belong in this file.",
+  "_comment": "Drop this into %APPDATA%\\Claude\\claude_desktop_config.json (Windows) or ~/Library/Application Support/Claude/claude_desktop_config.json (macOS). If the file already exists, merge the 'mcpServers' entries in. Adjust the absolute paths to match where you cloned mcpwrench. API keys / OAuth tokens are read from the workspace .env or OS keychain via @modwrench/core's loadCredential — they do NOT belong in this file.",
   "_recommended": "The single 'modwrench' entry below uses the @modwrench/cli meta-server, which bundles every installed platform package (currently nexus + modio) into one MCP entry. To run platforms as isolated processes instead, replace the entry with separate 'modwrench-nexus' and 'modwrench-modio' entries pointing at packages/nexus/dist/index.js and packages/modio/dist/index.js respectively.",
   "mcpServers": {
     "modwrench": {

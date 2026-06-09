@@ -5,7 +5,7 @@ import {
   getStoredToken,
   deleteStoredToken,
   redactSensitiveText,
-} from "@mcpwrench/core";
+} from "@modwrench/core";
 
 const MODIO_BASE = "https://api.mod.io/v1";
 const SERVICE = "modio";

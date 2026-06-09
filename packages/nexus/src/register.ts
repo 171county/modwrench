@@ -4,9 +4,9 @@ import {
   createHttpClient,
   getEnv,
   log,
-  McpwrenchError,
+  ModWrenchError,
   type Credential,
-} from "@mcpwrench/core";
+} from "@modwrench/core";
 
 /**
  * Register all Nexus Mods tools on the given MCP server. Returns metadata
@@ -26,12 +26,12 @@ export function registerNexusTools(
   );
 
   // ─── HTTP helper ────────────────────────────────────────────────────────────
-  // Uses the shared @mcpwrench/core HTTP client for retry/backoff/429 handling
+  // Uses the shared @modwrench/core HTTP client for retry/backoff/429 handling
   // /concurrency cap. The auth-header callback keeps the Bearer-vs-apikey
   // discriminator in this package (where the credential type lives), while the
   // client handles transport-level concerns.
 
-  const USER_AGENT = "ModWrench/0.0.1 (+https://mcpwrench.dev)";
+  const USER_AGENT = "ModWrench/0.0.1 (+https://github.com/171county/modwrench)";
 
   const httpClient = createHttpClient({
     baseUrl: NEXUS_BASE_URL,
@@ -341,7 +341,7 @@ export function registerNexusTools(
         `/games/${game_domain}/mods/${mod_id}/files/${file_id}.json`
       );
       if (!file.content_preview_link) {
-        throw new McpwrenchError(
+        throw new ModWrenchError(
           "nexus_no_preview",
           `No content preview available for file ${file_id} (mod ${mod_id}, ${game_domain}).`
         );
@@ -350,7 +350,7 @@ export function registerNexusTools(
         headers: { "User-Agent": USER_AGENT },
       });
       if (!previewRes.ok) {
-        throw new McpwrenchError(
+        throw new ModWrenchError(
           "nexus_preview_fetch_error",
           `Failed to fetch content preview (${previewRes.status}).`,
           { status: previewRes.status }

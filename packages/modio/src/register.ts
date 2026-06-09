@@ -5,7 +5,7 @@ import {
   getEnv,
   log,
   type Credential,
-} from "@mcpwrench/core";
+} from "@modwrench/core";
 
 /**
  * Register all mod.io tools on the given MCP server. Returns metadata
@@ -32,7 +32,7 @@ export function registerModioTools(
   };
 
   // ─── HTTP helper ────────────────────────────────────────────────────────────
-  // Uses the shared @mcpwrench/core HTTP client. mod.io's quirk: the legacy
+  // Uses the shared @modwrench/core HTTP client. mod.io's quirk: the legacy
   // API key authenticates via the api_key QUERY parameter (not a header),
   // whereas OAuth tokens go in the Authorization header. We inject the
   // api_key into the query at this layer and let the client handle the
@@ -40,7 +40,7 @@ export function registerModioTools(
 
   const httpClient = createHttpClient({
     baseUrl: MODIO_BASE_URL,
-    userAgent: "ModWrench/0.0.1 (+https://mcpwrench.dev)",
+    userAgent: "ModWrench/0.0.1 (+https://github.com/171county/modwrench)",
     errorCodePrefix: "modio",
     authHeaders: (): Record<string, string> => {
       if (credential.source === "keychain") {
