@@ -1,5 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { loadCredential, log, type Credential } from "@mcpwrench/core";
+import { loadCredential, log, type Credential } from "@modwrench/core";
 
 // ─── Platform identity & registration shapes ─────────────────────────────────
 

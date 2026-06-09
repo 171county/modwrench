@@ -8,7 +8,7 @@ The first product line — **ModWrench** — wraps Nexus Mods and mod.io so a mo
 
 ### 1. The wrench holds tools, not keys.
 
-**MCPwrench servers never persist secrets to disk.** Credentials are either:
+**ModWrench servers never persist secrets to disk.** Credentials are either:
 
 - **(a)** supplied at process start by the MCP client's secure config — environment variables passed by Claude Desktop, Cursor, etc.; or
 - **(b)** held in the OS-native keychain (Windows Credential Manager, macOS Keychain, libsecret on Linux) after an OAuth flow.
@@ -29,7 +29,7 @@ Missing config errors clearly at boot — never silently. HTTP errors from upstr
 
 ### 4. Small shared core, no premature abstraction.
 
-`@mcpwrench/core` provides only what every server actually needs: secret loading, env helpers, structured logging, a shared error type. New utilities go in only when a second server proves they're shared — not on speculation.
+`@modwrench/core` provides only what every server actually needs: secret loading, env helpers, structured logging, a shared error type. New utilities go in only when a second server proves they're shared — not on speculation.
 
 ## Authentication roadmap
 
@@ -58,7 +58,7 @@ Servers check the keychain first at boot, then fall back to the env-var API key 
 
 | Package | Purpose | Tools | Auth |
 |---|---|---|---|
-| `@mcpwrench/core` | Workshop-level shared helpers (secrets, env, logging, errors, keychain) | — | — |
+| `@modwrench/core` | Workshop-level shared helpers (secrets, env, logging, errors, keychain) | — | — |
 | `@modwrench/nexus` | Nexus Mods MCP server | 12 | API key + OAuth (PKCE auth-code) |
 | `@modwrench/modio` | mod.io MCP server | 11 | API key + OAuth (email magic-code) |
 | `@modwrench/cli` | Meta-server: bundles every installed `@modwrench/*` platform into one MCP entry | 23 (sum) | Delegates to each platform's credential chain |

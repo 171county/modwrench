@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { loadCredential, log } from "@mcpwrench/core";
+import { loadCredential, log } from "@modwrench/core";
 import { authLogin, authStatus, authLogout } from "./auth.js";
 import { registerModioTools } from "./register.js";
 

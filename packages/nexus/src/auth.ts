@@ -8,7 +8,7 @@ import {
   getStoredToken,
   deleteStoredToken,
   redactSensitiveText,
-} from "@mcpwrench/core";
+} from "@modwrench/core";
 
 const NEXUS_AUTH_BASE = "https://users.nexusmods.com";
 const NEXUS_API_BASE = "https://api.nexusmods.com/v1";

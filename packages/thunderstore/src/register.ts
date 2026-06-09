@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { createHttpClient, getEnv, log, McpwrenchError } from "@mcpwrench/core";
+import { createHttpClient, getEnv, log, ModWrenchError } from "@modwrench/core";
 
 /**
  * Register all Thunderstore tools on the given MCP server.
@@ -19,12 +19,12 @@ export function registerThunderstoreTools(server: McpServer): {
 } {
   const BASE_URL = getEnv("THUNDERSTORE_BASE_URL", "https://thunderstore.io");
 
-  // Uses the shared @mcpwrench/core HTTP client for retry/backoff/429 handling
+  // Uses the shared @modwrench/core HTTP client for retry/backoff/429 handling
   // and concurrency cap. No authHeaders callback — Thunderstore's public read
   // API is anonymous.
   const httpClient = createHttpClient({
     baseUrl: BASE_URL,
-    userAgent: "ModWrench/0.0.1 (+https://mcpwrench.dev)",
+    userAgent: "ModWrench/0.0.1 (+https://github.com/171county/modwrench)",
     errorCodePrefix: "thunderstore",
   });
 
@@ -137,7 +137,7 @@ export function registerThunderstoreTools(server: McpServer): {
         }
       }
 
-      throw new McpwrenchError(
+      throw new ModWrenchError(
         "thunderstore_community_not_found",
         `Community "${identifier}" not found. Use thunderstore_list_communities to see all available identifiers.`
       );
@@ -325,7 +325,7 @@ export function registerThunderstoreTools(server: McpServer): {
       const fullName = `${namespace}-${name}`;
       const mod = mods.find((m) => m.full_name === fullName);
       if (!mod) {
-        throw new McpwrenchError(
+        throw new ModWrenchError(
           "thunderstore_mod_not_found",
           `Mod ${fullName} not found in community ${community}. Try thunderstore_get_mod first to confirm which communities list this mod.`
         );
