@@ -36,6 +36,12 @@ Test suite: 55 tests, ~0.4s, runs in CI on every PR. See [packages/workbench/tes
 
 `mw_explain` was intentionally not built — the LLM formats responses natively and the wiring prompt marked it optional.
 
+### Remote MCP MVP - Shipped
+
+`@modwrench/remote` provides a Streamable HTTP MCP server at `/mcp` for remote-capable clients such as ChatGPT developer-mode apps and API workflows. The MVP exposes only remote-safe public read tools: Modrinth and Thunderstore. Nexus, mod.io, and workbench filesystem tools remain local-only until the remote auth/session/storage design is implemented.
+
+Docs: [docs/remote-deployment.md](docs/remote-deployment.md).
+
 ---
 
 ## On the active path
@@ -154,9 +160,9 @@ In recommended order:
 
 Not blocking — every Vortex response surfaces an honest `warning` field about the gap. Worth doing eventually; not urgent.
 
-### Remote MCP deployment (Cloudflare Workers)
+### Full remote MCP deployment (Cloudflare Workers / hosted OAuth)
 
-Streamable-HTTP transport for clients like ChatGPT that don't support stdio. Architecture documented in [docs/remote-deployment.md](docs/remote-deployment.md). Significant work (transport adapter, per-user OAuth at MCP layer, credential adapter, sessions, Workers scaffold, rate limiting). Trust story shifts (server-side token storage instead of OS keychain), so it deserves its own design conversation.
+The Streamable HTTP transport MVP is shipped in `@modwrench/remote`, but the full hosted product remains deferred. Remaining work: Worker-safe package split, per-user OAuth at the MCP layer, encrypted token storage, session-aware credential resolution, hosted deployment automation, and rate limiting. Trust story shifts once Nexus/mod.io tokens live server-side, so this deserves its own design conversation.
 
 ---
 
