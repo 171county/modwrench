@@ -23,7 +23,7 @@ Everything since 0.0.1 is currently shipping to `main` without version tags. The
 - **Shared HTTP client** ([packages/core/src/http.ts](packages/core/src/http.ts)) — `createHttpClient()` factory with 429 + Retry-After handling, exponential backoff on 5xx, per-client concurrency cap (default 4), and structured error envelopes. Refactored every platform package and workbench's metadata clients to use it.
 - **`modwrench` meta-CLI** with `auth <action> <platform>` subcommand routing and `--version` / `-v` flags. Composes every installed `@modwrench/*` platform into one MCP entry.
 - **`SECURITY.md`** — vulnerability disclosure policy, scope, credential-handling rules, 90-day coordinated disclosure timeline.
-- **`ROADMAP.md`** — canonical "where this is going" doc covering v2.5 dynamic catalog, v3 publishing, sibling product (StudioWrench), deferred items, and out-of-scope commitments.
+- **`ROADMAP.md`** — canonical "where this is going" doc covering v2.5 dynamic catalog, v2.6 local toolchain integrations, v3 publishing, and deferred items.
 - **Dynamic catalog architecture spec** ([docs/dynamic-catalog-architecture.md](docs/dynamic-catalog-architecture.md)) — design for boot-time auto-activation of platforms based on workbench detection, plus an `mw_activate_platform` meta-tool for runtime opt-in. Trigger for build is the 4th platform.
 - **Contributor walkthrough** ([docs/adding-a-platform.md](docs/adding-a-platform.md)) — step-by-step guide for adding a new `@modwrench/<platform>` package, with trust-posture non-negotiables.
 - **Remote deployment planning** ([docs/remote-deployment.md](docs/remote-deployment.md)) — honest "planned, not yet implemented" doc for Cloudflare Workers / Streamable HTTP transport for ChatGPT-compatible clients.
@@ -35,13 +35,13 @@ Everything since 0.0.1 is currently shipping to `main` without version tags. The
 
 ### Changed
 
-- **Sibling product renamed** from `Copilot` to `Workbench` then `CreatorWrench` to `StudioWrench` (Microsoft trademark enforcement on "Copilot" branding; "Studio" maps better to Roblox Studio / UEFN audience).
+- **Public docs narrowed to ModWrench scope** so README and ROADMAP focus on the current product, shipped packages, and planned ModWrench toolchains.
 - **Workspace order** in root `package.json` made explicit (not glob-based) so each workspace's dependencies build before their dependents.
 - **README** repositioned to surface workbench diagnostics alongside platform tools; v2 marked shipped; ChatGPT support clarified as planned; install section now carries a "private alpha — install from source" callout until the npm publish pipeline lands.
 - **CONTRIBUTING.md** false claim about `core` having rate-limit-aware helpers corrected; `CONTRIBUTORS.md` auto-generation softened to "git shortlog as source of truth for now."
 - **Auth hint messages** unified to the meta-CLI form (`modwrench auth login <platform>`) across every user-facing string.
 - **LOOT masterlist branch** pinned from `master` to `v0.26` (stable maintenance branch — community entries continue to flow, schema stays frozen).
-- **Design docs reorganized** out of the repo root: `WIRING-PROMPT_MCP-ModWrench-Workbench.md` → `docs/wiring-prompts/workbench.md`, `ModWrench-Comms-Playbook.md` → `docs/comms-playbook.md`, `Modder-Ecosystem-Research_2026-05-17.md` → `docs/research/modder-ecosystem-2026-05.md`. All renames via `git mv` so history follows.
+- **Workbench wiring prompt reorganized** out of the repo root: `WIRING-PROMPT_MCP-ModWrench-Workbench.md` → `docs/wiring-prompts/workbench.md`.
 
 ### Fixed
 

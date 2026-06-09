@@ -7,6 +7,7 @@ import {
   setStoredToken,
   getStoredToken,
   deleteStoredToken,
+  redactSensitiveText,
 } from "@mcpwrench/core";
 
 const NEXUS_AUTH_BASE = "https://users.nexusmods.com";
@@ -170,7 +171,7 @@ export async function authLogin(): Promise<void> {
   if (!tokenRes.ok) {
     const body = await tokenRes.text().catch(() => "");
     process.stderr.write(
-      `Token exchange failed (${tokenRes.status}): ${body.slice(0, 300)}\n`
+      `Token exchange failed (${tokenRes.status}): ${redactSensitiveText(body).slice(0, 300)}\n`
     );
     process.exit(1);
   }

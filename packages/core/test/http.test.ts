@@ -187,6 +187,60 @@ test("createHttpClient: 4xx (non-429) does NOT retry", async () => {
   assert.equal(attempts, 1);
 });
 
+test("createHttpClient: HTTP errors redact credential query params", async () => {
+  globalThis.fetch = async () => new Response("bad request", { status: 400 });
+  const client = createHttpClient({
+    baseUrl: "https://api.example.com",
+    userAgent: "test/0",
+    retry: { maxAttempts: 1 },
+    errorCodePrefix: "test",
+  });
+
+  await assert.rejects(
+    () =>
+      client.request("/x", {
+        query: {
+          api_key: "super-secret",
+          q: "lighting",
+        },
+      }),
+    (err: Error & { meta?: Record<string, unknown> }) => {
+      const url = String(err.meta?.url ?? "");
+      return (
+        url.includes("q=lighting") &&
+        url.includes("api_key=%5Bredacted%5D") &&
+        !url.includes("super-secret")
+      );
+    }
+  );
+});
+
+test("createHttpClient: network errors redact credential query params", async () => {
+  globalThis.fetch = async () => {
+    throw new TypeError("fetch failed");
+  };
+  const client = createHttpClient({
+    baseUrl: "https://api.example.com",
+    userAgent: "test/0",
+    retry: { maxAttempts: 1 },
+    errorCodePrefix: "test",
+  });
+
+  await assert.rejects(
+    () =>
+      client.request("/x", {
+        query: {
+          access_token: "oauth-secret",
+          q: "lighting",
+        },
+      }),
+    (err: Error) =>
+      err.message.includes("q=lighting") &&
+      err.message.includes("access_token=%5Bredacted%5D") &&
+      !err.message.includes("oauth-secret")
+  );
+});
+
 test("createHttpClient: retries exhausted throws structured error", async () => {
   let attempts = 0;
   globalThis.fetch = async () => {

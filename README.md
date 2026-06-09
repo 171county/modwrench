@@ -89,7 +89,7 @@ The conversation is the interface. Tool names are internal.
 
 ---
 
-## Trust posture (the six things ModWrench will never do)
+## Trust posture (the six rules)
 
 1. **No telemetry.** ModWrench does not phone home. Ever.
 2. **No personal data stored.** Your API tokens go straight to the OS keychain (Windows Credential Manager, macOS Keychain, Linux libsecret). The tokens never touch ModWrench's process memory longer than the API call that uses them.
@@ -167,7 +167,7 @@ ModWrench never asks for your password. Only for the API keys, which you can rev
 
 ## Roadmap
 
-ModWrench is structured around three growing waves of capability. v1 is shipped. v2 is the next set of work. v3 is the longer-term vision.
+ModWrench is structured around several growing waves of capability. v1 and v2 are shipped. The next waves add smarter catalogs, local toolchain awareness, and creator-side publishing.
 
 ### v1 — Platform bridge (shipped)
 
@@ -187,17 +187,49 @@ The LLM orchestrates these into the compound experience: *"My Skyrim keeps crash
 
 The wiring-prompt's sixth tool (`mw_explain`) was intentionally not built — the LLM formats responses natively and the wiring prompt explicitly marks it optional.
 
+### v2.6 - Local toolchain integrations (planned)
+
+The next workbench layer connects ModWrench to the tools serious modders already keep open. These start read-only wherever possible: detect installed tools, parse their project/profile state, surface clear next steps, and only write when a toolchain has a safe, explicit confirmation path.
+
+**Bethesda toolchain:**
+
+- xEdit family: xEdit, SSEEdit, FO4Edit, SF1Edit
+- Creation Kit
+- LOOT
+- BodySlide / Outfit Studio
+- NifSkope
+- DynDOLOD, TexGen, xLODGen
+- Wrye Bash and Synthesis
+- Nemesis and Pandora
+
+**Unity / BepInEx toolchain:**
+
+- BepInEx 5 and 6
+- ILSpy and dnSpyEx
+- UnityExplorer
+- AssetStudio and AssetRipper
+- ThunderKit
+
+**REDengine toolchain:**
+
+- WolvenKit
+- REDmod
+- RED4ext
+- ArchiveXL
+- TweakXL
+
+Cyberpunk 2077 is the lead target for this lane. The Witcher side is worth exploring after Cyberpunk workflows are proven, but the first pass stays cheap to prototype and easy to back out of if the maintenance cost gets weird.
+
 ### v3 — Multi-platform publishing (planned)
 
-The creator side. One mod definition fans out across platforms in a single conversational command. Inspired by [MC-Publish](https://github.com/Kir-Antipov/mc-publish) (the Minecraft GitHub Action), but conversational rather than CI/CD-bound — because most modders outside the Minecraft community don't write GitHub Actions YAML for a living. Permission discipline is non-negotiable: a mod flagged "no asset reuse" on its source platform never gets republished elsewhere by ModWrench.
+The creator side. One mod definition fans out across platforms in a single conversational command. Permission discipline is non-negotiable: a mod flagged "no asset reuse" on its source platform never gets republished elsewhere by ModWrench.
 
 Initial targets:
 
 - Nexus Mods + mod.io (already integrated read-side; adding write paths)
 - Thunderstore (Unity co-op) — read-side ✅ shipped in [packages/thunderstore/](packages/thunderstore/); write path planned
-- Modrinth (Minecraft, open source, modder-respected) — read-side ✅ shipped in [packages/modrinth/](packages/modrinth/); write path planned
-- CurseForge (largest catalog: Minecraft + Sims 4 Mod Hub + WoW + ARK) — [packages/curseforge/](packages/curseforge/) scaffolded
-- Bethesda Creations / Verified Creator — deferred (politically sensitive; only if a specific creator-side case justifies it)
+- Modrinth — read-side ✅ shipped in [packages/modrinth/](packages/modrinth/); write path planned
+- CurseForge — [packages/curseforge/](packages/curseforge/) scaffolded
 
 ### v2.5 — Dynamic catalog architecture (planned)
 
@@ -205,35 +237,11 @@ As the platform count grows, the tool catalog gets large. ModWrench's answer: bo
 
 One MCP entry, personalized catalog per user. Full architecture spec: [docs/dynamic-catalog-architecture.md](docs/dynamic-catalog-architecture.md).
 
-### Sibling product — StudioWrench (planned, separate brand)
-
-UGC platforms with creator economies (Roblox, UEFN / Fortnite Creative) don't match modder culture. Different vocabulary, different trust expectations, different competitors. Rather than bolt them onto ModWrench, they get their own product under the MCPwrench umbrella: **StudioWrench**. Same engineering foundation (shared `@mcpwrench/core`), separate audience, separate brand.
-
-See [ROADMAP.md](ROADMAP.md) for the canonical roadmap including sibling products, deferred items, and out-of-scope commitments.
-
----
-
 ## Linux & Steam Deck
 
 ModWrench is built in TypeScript on Node.js. It runs natively on Linux and Steam Deck Desktop Mode with no Windows-specific dependencies. v2's environment detection (`mw_detect_environment`) explicitly handles Proton prefix paths and flags Steam Deck Game Mode limitations.
 
 If you mod on Linux or Steam Deck, ModWrench is for you. File issues with Linux-specific behavior — those are a priority, not an edge case.
-
----
-
-## What ModWrench is NOT
-
-This is the section that prevents surprises later.
-
-**Not a mod manager.** Use Vortex, MO2, r2modman, Thunderstore Mod Manager, or CurseForge App. ModWrench *talks to* the platforms those tools install from. It doesn't replace any of them.
-
-**Not a mod generator.** ModWrench does not write mods, generate art, generate voices, or use generative AI to produce content of any kind. The LLM you connect ModWrench to may do those things on its own; ModWrench provides no tools to assist in that. Your work is your work.
-
-**Not an Overwolf product.** ModWrench is independent, Apache 2.0, no parent company. The "no data kept" rule is non-negotiable in part because it cannot be true under most commercial structures.
-
-**Not a paid-mods enabler.** ModWrench respects whatever monetization a platform allows, but it does not advocate for paid mods. It will publish your free mod, your donation-supported mod, your Patreon-early-access mod, or your Bethesda Verified Creator mod with equal happiness.
-
-**Not a Nexus Mods Premium replacement.** Nexus Premium gets you faster downloads and other site features. ModWrench is a read API client; for serious downloading volume, you still want Premium.
 
 ---
 

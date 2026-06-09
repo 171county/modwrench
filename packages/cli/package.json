@@ -1,15 +1,29 @@
 {
   "name": "@modwrench/cli",
   "version": "0.0.1",
+  "mcpName": "io.github.171county/modwrench",
   "description": "ModWrench — one MCP entry, every mod platform. Bundles all installed @modwrench/* platform packages into a single combined MCP server.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/171county/modwrench.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/171county/modwrench#readme",
+  "bugs": {
+    "url": "https://github.com/171county/modwrench/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
-    "modwrench": "./dist/index.js"
+    "modwrench": "dist/index.js"
   },
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/index.ts",

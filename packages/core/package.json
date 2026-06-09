@@ -2,6 +2,16 @@
   "name": "@mcpwrench/core",
   "version": "0.0.1",
   "description": "Shared core library for MCPwrench servers — auth, secrets, logging, errors.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/171county/modwrench.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/171county/modwrench#readme",
+  "bugs": {
+    "url": "https://github.com/171county/modwrench/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,6 +24,9 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",

@@ -10,7 +10,6 @@ Status definitions used below:
 - **Scaffolded** — placeholder directory exists in the monorepo; no implementation yet
 - **Planned** — design intent, no code or scaffold yet
 - **Deferred** — intentionally not on the active path; may revisit later
-- **Out of scope** — won't happen under this project
 
 ---
 
@@ -58,9 +57,64 @@ Planned next (v2.5.x):
 
 Full architecture spec: [docs/dynamic-catalog-architecture.md](docs/dynamic-catalog-architecture.md).
 
+### v2.6 - Local toolchain integrations - Planned
+
+This is the next layer that makes ModWrench feel like a real modder workbench instead of only a platform bridge. The first pass is read-only and local-first: detect installed tools, parse project/profile state, summarize what the tools already know, and leave writes behind explicit confirmations.
+
+#### Bethesda toolchain
+
+High priority. This is the deepest expert-workflow lane and the clearest place for ModWrench to save users from tab-hopping between tools.
+
+- **xEdit family** - xEdit, SSEEdit, FO4Edit, SF1Edit
+  - Planned use: detect installs, invoke safe scripts, summarize record-level conflicts, explain what changed without editing plugins by default.
+- **Creation Kit**
+  - Planned use: detect installation and project context, surface common setup/version issues, help prepare publishable metadata without taking over authoring.
+- **LOOT**
+  - Planned use: wrap local CLI runs when present, compare local sort output with live masterlist data, explain load-order moves in plain language.
+- **BodySlide / Outfit Studio**
+  - Planned use: detect presets/projects and explain missing output, path, or dependency problems.
+- **NifSkope**
+  - Planned use: inspect asset references and common mesh/material path issues.
+- **DynDOLOD, TexGen, xLODGen**
+  - Planned use: read logs/config outputs and identify common generation failures.
+- **Wrye Bash and Synthesis**
+  - Planned use: read patch state, surface stale generated patches, and explain dependency chains.
+- **Nemesis and Pandora**
+  - Planned use: parse behavior-generation logs and connect failures back to installed animation mods.
+
+#### Unity / BepInEx toolchain
+
+High priority. This follows the Thunderstore/r2modman lane already in the workbench.
+
+- **BepInEx 5 and 6**
+  - Planned use: deepen current log parsing, detect chainloader/config issues, and explain plugin load failures.
+- **ILSpy and dnSpyEx**
+  - Planned use: detect tool availability and prepare guided inspection workflows; no binary patching by default.
+- **UnityExplorer**
+  - Planned use: document-assisted troubleshooting for object/component inspection workflows.
+- **AssetStudio and AssetRipper**
+  - Planned use: inspect asset projects and catch missing bundle/reference problems.
+- **ThunderKit**
+  - Planned use: read project metadata, package manifests, and common export/publish failure logs.
+
+#### REDengine toolchain
+
+Medium priority, high flair. Cyberpunk 2077 is the lead target because the tool ecosystem is active and visually recognizable. The Witcher side is a research follow-up after Cyberpunk workflows prove stable.
+
+- **WolvenKit**
+  - Planned use: detect projects, read logs/manifests, summarize export/cook/package failures, and connect mod metadata to Nexus/mod.io-style platform records where possible.
+- **REDmod**
+  - Planned use: inspect local mod deployment state and explain load/deploy failures.
+- **RED4ext**
+  - Planned use: parse loader logs and dependency/version mismatches.
+- **ArchiveXL and TweakXL**
+  - Planned use: detect dependency presence, parse config/log failures, and explain common load-order or version mismatches.
+
+The REDengine lane is intentionally cheap to prototype: mostly file/log readers first, no heroic reverse engineering. If it wins attention, expand it. If maintenance gets heavy, it can stay a sharp read-only diagnostic lane.
+
 ### v3 — Multi-platform publishing 🔜 Planned
 
-The creator-side killer feature. One mod definition fans out to multiple platforms with a single conversational command. Inspired by [MC-Publish](https://github.com/Kir-Antipov/mc-publish) (Minecraft GitHub Action), but conversational rather than CI/CD-bound because most modders outside the Minecraft community don't live in GitHub Actions YAML.
+The creator-side killer feature. One mod definition fans out to multiple platforms with a single conversational command.
 
 Targets, in roughly this order:
 
@@ -82,57 +136,17 @@ In recommended order:
    - 7 tools: list/get communities, list/get/search mods, version history, top mods
    - Read-only public API, no auth required
 2. **`@modwrench/modrinth`** — ✅ Shipped ([packages/modrinth/](packages/modrinth/))
-   - Minecraft, the largest modding community by raw user count
    - Best public REST API of any modding platform
-   - Doing Modrinth before CurseForge signals values alignment to the Minecraft community
    - 7 tools: search (with facets), get_project, version history, taxonomy lookups (categories / loaders / game versions)
    - Read-only public API, no auth required
 3. **`@modwrench/curseforge`** — 📐 Scaffolded ([packages/curseforge/](packages/curseforge/))
-   - Largest catalog (Minecraft + Sims 4 Mod Hub + WoW + ARK + 165k+ creators)
-   - Rate-limited gated API; Overwolf trust deficit
-   - Added after Modrinth so the positioning is "we serve users wherever the mods live"
-4. **`@modwrench/gamebanana`** — Planned (no scaffold yet)
-   - Source engine mods, Smash mods, retro communities
-   - Opportunistic — do this when those communities ask
-
----
-
-## Sibling product
-
-### StudioWrench 🔜 Planned (separate product, separate brand)
-
-The MCPwrench umbrella covers multiple products. ModWrench is the first; **StudioWrench** is the second.
-
-StudioWrench targets UGC platforms with creator economies that don't match modder culture:
-
-- Roblox (Open Cloud API, $1B+ paid to creators March 2024–March 2025)
-- UEFN / Fortnite Creative (Verse-based programmatic publishing as of January 2026, 58+ creator-millionaires)
-
-Why separate from ModWrench:
-
-- Different audience (Roblox/UEFN creators vs. game modders)
-- Different vocabulary ("experiences" / "islands" vs. "mods")
-- Different trust expectations (Roblox/Epic have moderation models; modder culture is no-data / no-AI-generation)
-- Different competitors (Roblox Studio plugins, UEFN Verse tooling — these are full IDEs)
-- Different economics (the paid-tier playbook works for Roblox creators; it would destroy ModWrench's modder trust)
-
-**Reservation status:**
-
-- npm scope `@studiowrench` — claim recommended at the user's earliest convenience
-- GitHub org `studiowrench` — claim the name on GitHub even before creating the repo
-- Domain `studiowrench.dev` — optional, ~$15/year
-
-No code, no scaffold yet. When work starts, StudioWrench will mirror ModWrench's architecture (`@mcpwrench/core` shared, per-platform packages, meta-server, workbench-style local tooling where applicable) but live under its own brand.
+   - Large multi-game catalog
+   - Rate-limited gated API
+   - Implement once API access, auth shape, and terms are pinned down
 
 ---
 
 ## Deferred
-
-### Bethesda Creations / Verified Creator Program
-
-The Verified Creator program carries the 25% creator-share number from the 2015 paid-mods drama and bans generative AI in content. The community treats this program as the canonical "studio trying to capture value they didn't create" story.
-
-ModWrench will not add Creations support purely for completeness. The trigger to revisit is a specific creator-side case where the integration genuinely serves the creator (not the platform). Even then, the positioning must be defensive: "we publish where you publish, we don't endorse the rate."
 
 ### LevelDB reader for Vortex
 
@@ -143,21 +157,6 @@ Not blocking — every Vortex response surfaces an honest `warning` field about 
 ### Remote MCP deployment (Cloudflare Workers)
 
 Streamable-HTTP transport for clients like ChatGPT that don't support stdio. Architecture documented in [docs/remote-deployment.md](docs/remote-deployment.md). Significant work (transport adapter, per-user OAuth at MCP layer, credential adapter, sessions, Workers scaffold, rate limiting). Trust story shifts (server-side token storage instead of OS keychain), so it deserves its own design conversation.
-
----
-
-## Out of scope
-
-These are commitments to *not* do certain things. Each one is the answer to a specific community wound.
-
-- **Steam Workshop integration** — Valve's terms restrict third-party API clients; embedded in the Steam client itself; not an open ecosystem.
-- **Bethesda.net direct integration** — largely subsumed by Creations now; that path is deferred (see above).
-- **Patreon integration** — Patreon is not a modding platform; it's a creator income channel. Adding it would invite "ModWrench helps you maximize Patreon" interpretations that conflict with the no-monetization-advocacy posture.
-- **Tiered "Pro" version of ModWrench** — instant SaaS-ification signal; modder trust evaporates immediately. ModWrench stays free and complete for users, always. Revenue flows through adjacent layers (studio engagements, hosted-managed, StudioWrench paid tiers, career capital) — never through gating the modder-facing product.
-- **Ads in the product** — the Overwolf trap. Not negotiable.
-- **Telemetry / usage analytics** — none, ever, even "anonymized." The README's six trust rules are firm.
-- **AI-generated mod content** — ModWrench is firmly on the workflow-AI side, not the content-generation side. Crash analysis = yes. Generated textures or dialogue = no.
-- **Acquisition by Overwolf or any party with a hostile-to-modders reputation** — pre-committed refusal. The community has watched too many projects die this way.
 
 ---
 
@@ -178,7 +177,5 @@ Other active areas:
 If you're a modder considering whether to use ModWrench: read the [v1 / v2 Shipped](#current-state) sections, that's what's available today.
 
 If you're a contributor looking for where to help: read the [Platform expansions](#platform-expansions--planned---scaffolded) and [Active contribution opportunities](#active-contribution-opportunities) sections.
-
-If you're a studio or partner thinking about ModWrench's direction: read the [Out of scope](#out-of-scope) section first — that's the durable shape. Then the [Sibling product](#sibling-product) section if you're StudioWrench-curious.
 
 If you found a bug or want a new feature: open an issue. The roadmap is a plan, not a wall — community input shifts priorities and adds items.

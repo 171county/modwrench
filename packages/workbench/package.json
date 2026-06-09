@@ -2,6 +2,16 @@
   "name": "@modwrench/workbench",
   "version": "0.0.1",
   "description": "ModWrench — the modder workbench. Atomic MCP tools for environment detection, load-order parsing, crashlog analysis, and known-conflict lookups.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/171county/modwrench.git",
+    "directory": "packages/workbench"
+  },
+  "homepage": "https://github.com/171county/modwrench#readme",
+  "bugs": {
+    "url": "https://github.com/171county/modwrench/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
@@ -19,12 +29,15 @@
     }
   },
   "bin": {
-    "modwrench-workbench": "./dist/index.js"
+    "modwrench-workbench": "dist/index.js"
   },
   "files": [
     "dist",
     "data"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/index.ts",

@@ -61,6 +61,39 @@ export function getEnv(name: string, fallback: string): string {
   return value && value.trim() !== "" ? value : fallback;
 }
 
+const SENSITIVE_TEXT_KEYS = [
+  "access_token",
+  "api_key",
+  "apikey",
+  "authorization",
+  "client_secret",
+  "password",
+  "refresh_token",
+  "secret",
+  "security_code",
+  "token",
+];
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function redactSensitiveText(value: string): string {
+  let redacted = value;
+  for (const key of SENSITIVE_TEXT_KEYS) {
+    const escaped = escapeRegExp(key);
+    redacted = redacted.replace(
+      new RegExp(`("${escaped}"\\s*:\\s*")([^"]*)(")`, "gi"),
+      "$1[redacted]$3"
+    );
+    redacted = redacted.replace(
+      new RegExp(`(\\b${escaped}\\b\\s*[=:]\\s*)([^&\\s"']+)`, "gi"),
+      "$1[redacted]"
+    );
+  }
+  return redacted;
+}
+
 // ─── Logging ──────────────────────────────────────────────────────────────────
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
