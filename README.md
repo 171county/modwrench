@@ -291,4 +291,4 @@ Try it. Break it. Tell me. That's the whole loop.
 
 *ModWrench — built by Sean (and the AI assistants he was modding with at the time).*
 *Apache 2.0 license, no telemetry, no lock-in.*
-*Project home: [github.com/171county/modwrench](https://github.com/171county/modwrench). MCP Registry metadata lives in [server.json](server.json).*
+*Project home: [github.com/171county/modwrench](https://github.com/171county/modwrench). Published in the MCP Registry as `io.github.171county/modwrench`.*
