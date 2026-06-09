@@ -140,9 +140,18 @@ Add to `.cursor/mcp.json` or your client's equivalent:
 }
 ```
 
-### ChatGPT (Responses API / Connectors) — planned
+### ChatGPT (Responses API / Connectors) - remote MVP
 
-ChatGPT requires a remote MCP server (Streamable HTTP transport) rather than the stdio path the clients above use. That deployment shape is on the roadmap but not yet implemented — see [docs/remote-deployment.md](docs/remote-deployment.md) for the target architecture (Cloudflare Workers, per-user OAuth at the MCP layer, free-tier-friendly) and what's still missing. Subscribe to the v2.5+ tracking issue if you want to know when this ships.
+ChatGPT requires a remote MCP server (Streamable HTTP transport) rather than the stdio path the clients above use. ModWrench now includes `@modwrench/remote`, a first remote-safe MVP for public read-only tools: Modrinth + Thunderstore. It does **not** expose Nexus/mod.io credentials or local workbench filesystem tools.
+
+From source:
+
+```bash
+npm run build --workspace @modwrench/remote
+npm run start --workspace @modwrench/remote
+```
+
+Connect remote-capable clients to `/mcp` on the hosted server, for example `https://your-host.example/mcp`. See [docs/remote-deployment.md](docs/remote-deployment.md) for scope, host settings, and what remains before credentialed remote tools are safe.
 
 ### Manual install
 
