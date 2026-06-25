@@ -1,4 +1,4 @@
-﻿{
+{
     "name":  "@modwrench/core",
     "version":  "0.0.1",
     "description":  "Shared core library for ModWrench servers â€” auth, secrets, logging, errors.",

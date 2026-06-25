@@ -1,4 +1,4 @@
-﻿{
+{
     "name":  "@modwrench/remote",
     "version":  "0.0.1",
     "description":  "ModWrench remote Streamable HTTP MCP server for remote-capable clients.",
