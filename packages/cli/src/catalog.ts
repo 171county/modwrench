@@ -6,6 +6,7 @@ import { loadCredential, log, type Credential } from "@modwrench/core";
 export type PlatformId =
   | "nexus"
   | "modio"
+  | "curseforge"
   | "thunderstore"
   | "workbench";
 

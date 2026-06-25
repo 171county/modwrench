@@ -8,6 +8,7 @@ import { z } from "zod";
 import { log } from "@modwrench/core";
 import { registerNexusTools } from "@modwrench/nexus/register";
 import { registerModioTools } from "@modwrench/modio/register";
+import { registerCurseForgeTools } from "@modwrench/curseforge/register";
 import { registerThunderstoreTools } from "@modwrench/thunderstore/register";
 import { registerWorkbenchTools } from "@modwrench/workbench/register";
 import { MetaCatalog, type PlatformDef } from "./catalog.js";
@@ -102,6 +103,15 @@ const platforms: PlatformDef[] = [
     service: "modio",
     authHint:
       "Run `modwrench auth login modio` (OAuth) or set MODIO_API_KEY in your .env.",
+  },
+  {
+    id: "curseforge",
+    kind: "credentialed",
+    register: registerCurseForgeTools,
+    envVar: "CURSEFORGE_API_KEY",
+    service: "curseforge",
+    authHint:
+      "Set CURSEFORGE_API_KEY in your .env (get a key at https://console.curseforge.com).",
   },
   {
     id: "thunderstore",
