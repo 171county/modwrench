@@ -43,7 +43,6 @@
                 },
     "dependencies":  {
                          "@modwrench/core":  "0.0.1",
-                         "@modwrench/modrinth":  "0.0.1",
                          "@modwrench/thunderstore":  "0.0.1",
                          "@modelcontextprotocol/sdk":  "^1.0.4"
                      },

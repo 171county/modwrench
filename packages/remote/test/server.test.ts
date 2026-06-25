@@ -54,7 +54,6 @@ test("streamable HTTP endpoint lists remote-safe tools", async () => {
     const toolNames = result.tools.map((tool) => tool.name);
 
     assert.equal(result.tools.length, REMOTE_TOOL_COUNT);
-    assert.ok(toolNames.includes("modrinth_search"));
     assert.ok(toolNames.includes("thunderstore_list_communities"));
     assert.ok(!toolNames.some((name) => name.startsWith("nexus_")));
     assert.ok(!toolNames.some((name) => name.startsWith("modio_")));

@@ -18,7 +18,6 @@
                        "packages/nexus",
                        "packages/modio",
                        "packages/thunderstore",
-                       "packages/modrinth",
                        "packages/workbench",
                        "packages/remote",
                        "packages/cli"
