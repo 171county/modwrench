@@ -7,7 +7,7 @@ workflows that connect to remote MCP servers.
 
 This first cut is intentionally narrow:
 
-- **Included:** Modrinth and Thunderstore public read-only tools.
+- **Included:** Thunderstore public read-only tools (7 tools).
 - **Excluded:** Nexus and mod.io credentialed tools.
 - **Excluded:** Workbench local filesystem tools.
 - **Authentication:** none in the MVP. Only anonymous public API reads are exposed.
@@ -27,7 +27,7 @@ user's machine.
 
 Remote MCP is a different trust story. Once a server is reachable over the
 Internet, anything credentialed needs a real user/session/auth model. The MVP
-therefore exposes only platforms whose read APIs are public:
+therefore exposes only Thunderstore, whose read API is public and needs no credentials:
 
 | Area | Local `@modwrench/cli` | Remote `@modwrench/remote` |
 | --- | --- | --- |
@@ -35,7 +35,6 @@ therefore exposes only platforms whose read APIs are public:
 | Nexus | yes, with local credentials | no |
 | mod.io | yes, with local credentials | no |
 | Thunderstore | yes | yes |
-| Modrinth | yes | yes |
 | Workbench files | yes, local only | no |
 | Token storage | OS keychain | none |
 

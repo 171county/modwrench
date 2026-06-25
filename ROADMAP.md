@@ -38,7 +38,7 @@ Test suite: 55 tests, ~0.4s, runs in CI on every PR. See [packages/workbench/tes
 
 ### Remote MCP MVP - Shipped
 
-`@modwrench/remote` provides a Streamable HTTP MCP server at `/mcp` for remote-capable clients such as ChatGPT developer-mode apps and API workflows. The MVP exposes only remote-safe public read tools: Modrinth and Thunderstore. Nexus, mod.io, and workbench filesystem tools remain local-only until the remote auth/session/storage design is implemented.
+`@modwrench/remote` provides a Streamable HTTP MCP server at `/mcp` for remote-capable clients such as ChatGPT developer-mode apps and API workflows. The MVP exposes only remote-safe public read tools: Thunderstore (7 tools). Nexus, mod.io, and workbench filesystem tools remain local-only until the remote auth/session/storage design is implemented.
 
 Docs: [docs/remote-deployment.md](docs/remote-deployment.md).
 
@@ -125,7 +125,7 @@ The creator-side killer feature. One mod definition fans out to multiple platfor
 Targets, in roughly this order:
 
 - Nexus + mod.io first (already integrated read-side; adding write paths)
-- Thunderstore + Modrinth next (clean APIs, low political baggage)
+- Thunderstore next (clean API, low political baggage)
 - CurseForge after that (largest catalog, requires careful positioning)
 
 Permission discipline is non-negotiable: a mod that's flagged "no asset reuse" on Nexus does not get republished anywhere else by ModWrench. Read-the-permissions, refuse-when-blocked is baked into the tool's contract.
@@ -141,14 +141,12 @@ In recommended order:
    - Closes the loop with the existing r2modman load-order parser
    - 7 tools: list/get communities, list/get/search mods, version history, top mods
    - Read-only public API, no auth required
-2. **`@modwrench/modrinth`** â€” âœ… Shipped ([packages/modrinth/](packages/modrinth/))
-   - Best public REST API of any modding platform
-   - 7 tools: search (with facets), get_project, version history, taxonomy lookups (categories / loaders / game versions)
-   - Read-only public API, no auth required
-3. **`@modwrench/curseforge`** â€” ðŸ“ Scaffolded ([packages/curseforge/](packages/curseforge/))
-   - Large multi-game catalog
-   - Rate-limited gated API
-   - Implement once API access, auth shape, and terms are pinned down
+2. **`@modwrench/curseforge`** — ✅ Shipped ([packages/curseforge/](packages/curseforge/))
+   - Large multi-game catalog (Minecraft and dozens of other games)
+   - 10 read tools: game/category discovery, mod search, mod details, file listings, changelogs, dependency lookups
+   - Requires `CURSEFORGE_API_KEY` (free from console.curseforge.com), sent via the `x-api-key` header
+
+> Note: Modrinth (Minecraft hub) moved out of ModWrench to the sibling MyneWrench project, where Minecraft-dev creator tooling lives.
 
 ---
 
