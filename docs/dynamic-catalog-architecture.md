@@ -17,7 +17,7 @@ The MCP protocol's default tool-discovery model is "total discovery." When a cli
 This works well at small catalog sizes. It scales poorly:
 
 - **Context cost**: at ~10 tools per platform, 5 platforms = ~50 tools = roughly 30-50KB of JSON Schema in context per session, before the user has said anything
-- **Picker noise**: an LLM scanning a 70-tool catalog to answer a Skyrim question pays attention cost on Lethal Company tools, Modrinth tools, etc. that have zero relevance
+- **Picker noise**: an LLM scanning a 70-tool catalog to answer a Skyrim question pays attention cost on Lethal Company tools, Minecraft tools, etc. that have zero relevance
 - **User experience**: a Skyrim-only modder shouldn't see r2modman or Minecraft tools in their picker; a Lethal Company modder shouldn't see Bethesda crash-format tools
 
 The naive solutions:
@@ -87,7 +87,6 @@ if detected_mod_managers includes "r2modman" or
   activate("thunderstore")
 if detected_mod_managers includes "curseforge" or
    any detected_game.family == "minecraft":
-  activate("modrinth")
   activate("curseforge")
 if mod.io credential is configured in env or keychain:
   activate("modio")
@@ -109,8 +108,8 @@ After auto-activation completes, the meta-server initializes the MCP transport, 
 A single tool, always registered, that lets the LLM pull in dormant platforms on demand:
 
 ```typescript
-mw_activate_platform({ name: "modrinth" })
-  → { activated: true, toolCount: 8, newTools: [...] }
+mw_activate_platform({ name: "curseforge" })
+  → { activated: true, toolCount: 10, newTools: [...] }
 ```
 
 When called:
@@ -127,7 +126,7 @@ The tool description teaches the LLM the pattern. Something like:
 > platforms you use based on your local setup, but call this if the user asks
 > about a platform that wasn't auto-detected (e.g., they're researching a mod
 > on a platform they don't have installed). Available platforms: nexus, modio,
-> thunderstore, modrinth, curseforge.
+> thunderstore, curseforge.
 
 LLMs pick up "activation tool" patterns reliably — they already understand "this tool unlocks others."
 
@@ -174,7 +173,6 @@ type PlatformId =
   | "nexus"
   | "modio"
   | "thunderstore"
-  | "modrinth"
   | "curseforge"
   | "workbench";
 
@@ -220,7 +218,6 @@ async function autoActivateBasedOnEnvironment(catalog: MetaCatalog) {
 
   if (env.detectedGames.some(g => isMinecraft(g.gameId)) ||
       env.installedModManagers.some(m => m.name === "curseforge")) {
-    await catalog.activate("modrinth");
     await catalog.activate("curseforge");
   }
 
@@ -243,7 +240,7 @@ server.tool(
   "mw_activate_platform",
   "Activate an additional platform's tool set... [full description]",
   {
-    name: z.enum(["nexus", "modio", "thunderstore", "modrinth", "curseforge"])
+    name: z.enum(["nexus", "modio", "thunderstore", "curseforge"])
       .describe("Platform identifier to activate."),
   },
   async ({ name }) => {

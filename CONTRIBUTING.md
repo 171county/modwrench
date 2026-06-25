@@ -74,9 +74,8 @@ Each platform is its own package (`@modwrench/<platform>`). The shape is documen
 
 Strong candidate platforms (in rough order of community demand):
 
-- CurseForge (largest catalog, well-documented API)
-- Thunderstore (Unity co-op community, simple API)
-- Modrinth (open-source-friendly platform, shipped read-side)
+- Nexus, mod.io, Thunderstore, and CurseForge are already shipped read-side — see [packages/](packages/)
+- Bring-your-own platform: pick one with a clean public or key-gated API and follow [docs/adding-a-platform.md](docs/adding-a-platform.md)
 
 ### 6. Improve docs
 

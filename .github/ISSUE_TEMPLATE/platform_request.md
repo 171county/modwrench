@@ -7,7 +7,7 @@ labels: platform-request
 
 ## Which platform
 
-<!-- e.g. CurseForge, Thunderstore, Modrinth, Nexus Mods, mod.io, ... -->
+<!-- e.g. a platform not yet supported. Already shipped: Nexus Mods, mod.io, CurseForge, Thunderstore. -->
 
 ## Why it matters to your modding workflow
 
