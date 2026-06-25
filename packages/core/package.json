@@ -1,41 +1,41 @@
-{
-  "name": "@modwrench/core",
-  "version": "0.0.1",
-  "description": "Shared core library for ModWrench servers — auth, secrets, logging, errors.",
-  "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/171county/modwrench.git",
-    "directory": "packages/core"
-  },
-  "homepage": "https://github.com/171county/modwrench#readme",
-  "bugs": {
-    "url": "https://github.com/171county/modwrench/issues"
-  },
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
-  },
-  "files": [
-    "dist"
-  ],
-  "publishConfig": {
-    "access": "public"
-  },
-  "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
-    "clean": "rimraf dist",
-    "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test test/*.test.ts"
-  },
-  "dependencies": {
-    "@napi-rs/keyring": "^1.1.7",
-    "dotenv": "^16.4.5"
-  }
+﻿{
+    "name":  "@modwrench/core",
+    "version":  "0.0.1",
+    "description":  "Shared core library for ModWrench servers â€” auth, secrets, logging, errors.",
+    "license":  "MIT",
+    "repository":  {
+                       "type":  "git",
+                       "url":  "git+https://github.com/171county/modwrench.git",
+                       "directory":  "packages/core"
+                   },
+    "homepage":  "https://github.com/171county/modwrench#readme",
+    "bugs":  {
+                 "url":  "https://github.com/171county/modwrench/issues"
+             },
+    "type":  "module",
+    "main":  "./dist/index.js",
+    "types":  "./dist/index.d.ts",
+    "exports":  {
+                    ".":  {
+                              "types":  "./dist/index.d.ts",
+                              "import":  "./dist/index.js"
+                          }
+                },
+    "files":  [
+                  "dist"
+              ],
+    "publishConfig":  {
+                          "access":  "public"
+                      },
+    "scripts":  {
+                    "build":  "tsc",
+                    "dev":  "tsc --watch",
+                    "clean":  "rimraf dist",
+                    "typecheck":  "tsc --noEmit",
+                    "test":  "node --import tsx --test test/*.test.ts"
+                },
+    "dependencies":  {
+                         "@napi-rs/keyring":  "^1.1.7",
+                         "dotenv":  "^16.4.5"
+                     }
 }

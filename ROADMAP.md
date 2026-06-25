@@ -1,4 +1,4 @@
-# ModWrench Roadmap
+﻿# ModWrench Roadmap
 
 The full plan, captured here so contributors and prospective users can see where this is going without having to read the chat history.
 
@@ -6,25 +6,25 @@ This document is the source of truth for *where things are going*. For *current 
 
 Status definitions used below:
 
-- **Shipped** — running in `main`, tested, available via `npm install`
-- **Scaffolded** — placeholder directory exists in the monorepo; no implementation yet
-- **Planned** — design intent, no code or scaffold yet
-- **Deferred** — intentionally not on the active path; may revisit later
+- **Shipped** â€” running in `main`, tested, available via `npm install`
+- **Scaffolded** â€” placeholder directory exists in the monorepo; no implementation yet
+- **Planned** â€” design intent, no code or scaffold yet
+- **Deferred** â€” intentionally not on the active path; may revisit later
 
 ---
 
 ## Current state
 
-### v1 — Platform bridge ✅ Shipped
+### v1 â€” Platform bridge âœ… Shipped
 
-- **`@modwrench/nexus`** — 12 tools, OAuth (PKCE) + API-key fallback, full read coverage
-- **`@modwrench/modio`** — 11 tools, OAuth (email code) + API-key fallback, full read coverage
-- **`@modwrench/cli`** — meta-server composing every installed platform under one MCP entry; `auth` subcommand dispatcher
-- **`@modwrench/core`** — shared infrastructure (keychain, env, logging, error envelope, credential resolution)
+- **`@modwrench/nexus`** â€” 12 tools, OAuth (PKCE) + API-key fallback, full read coverage
+- **`@modwrench/modio`** â€” 11 tools, OAuth (email code) + API-key fallback, full read coverage
+- **`@modwrench/cli`** â€” meta-server composing every installed platform under one MCP entry; `auth` subcommand dispatcher
+- **`@modwrench/core`** â€” shared infrastructure (keychain, env, logging, error envelope, credential resolution)
 
-### v2 — The compound modder workbench ✅ Shipped
+### v2 â€” The compound modder workbench âœ… Shipped
 
-`@modwrench/workbench` — 5 atomic tools that compose under LLM reasoning into a conversational diagnostic experience:
+`@modwrench/workbench` â€” 5 atomic tools that compose under LLM reasoning into a conversational diagnostic experience:
 
 - `mw_detect_environment`
 - `mw_read_load_order`
@@ -34,7 +34,7 @@ Status definitions used below:
 
 Test suite: 55 tests, ~0.4s, runs in CI on every PR. See [packages/workbench/test/](packages/workbench/test/) for the fixtures.
 
-`mw_explain` was intentionally not built — the LLM formats responses natively and the wiring prompt marked it optional.
+`mw_explain` was intentionally not built â€” the LLM formats responses natively and the wiring prompt marked it optional.
 
 ### Remote MCP MVP - Shipped
 
@@ -46,7 +46,7 @@ Docs: [docs/remote-deployment.md](docs/remote-deployment.md).
 
 ## On the active path
 
-### v2.5 — Dynamic catalog architecture ✅ Foundation shipped
+### v2.5 â€” Dynamic catalog architecture âœ… Foundation shipped
 
 The `MetaCatalog` abstraction in `@modwrench/cli` is live. Platforms register through the catalog rather than inline; the catalog tracks active vs failed state and emits `notifications/tools/list_changed` to MCP clients on activation.
 
@@ -58,8 +58,8 @@ Shipped in this round:
 - 13 catalog-orchestration tests + smoke-tested end-to-end against live API
 
 Planned next (v2.5.x):
-- **Auto-activation policy** — currently `activateAll()` tries every platform at boot. The v2.5.1 refinement uses workbench's `detectEnvironment()` (already wired via the new `./detect` export) to choose only platforms relevant to the user's setup, reducing tool-catalog noise for users with focused setups.
-- **Per-tool unregistration** — would let `mw_deactivate_platform` actually remove tools rather than just dropping platform state. Requires each platform's register function to return tool names; deferred until there's clear demand.
+- **Auto-activation policy** â€” currently `activateAll()` tries every platform at boot. The v2.5.1 refinement uses workbench's `detectEnvironment()` (already wired via the new `./detect` export) to choose only platforms relevant to the user's setup, reducing tool-catalog noise for users with focused setups.
+- **Per-tool unregistration** â€” would let `mw_deactivate_platform` actually remove tools rather than just dropping platform state. Requires each platform's register function to return tool names; deferred until there's clear demand.
 
 Full architecture spec: [docs/dynamic-catalog-architecture.md](docs/dynamic-catalog-architecture.md).
 
@@ -118,7 +118,7 @@ Medium priority, high flair. Cyberpunk 2077 is the lead target because the tool 
 
 The REDengine lane is intentionally cheap to prototype: mostly file/log readers first, no heroic reverse engineering. If it wins attention, expand it. If maintenance gets heavy, it can stay a sharp read-only diagnostic lane.
 
-### v3 — Multi-platform publishing 🔜 Planned
+### v3 â€” Multi-platform publishing ðŸ”œ Planned
 
 The creator-side killer feature. One mod definition fans out to multiple platforms with a single conversational command.
 
@@ -132,20 +132,20 @@ Permission discipline is non-negotiable: a mod that's flagged "no asset reuse" o
 
 Wiring prompt for v3 is the next design doc to draft.
 
-### Platform expansions 🔜 Planned & 📐 Scaffolded
+### Platform expansions ðŸ”œ Planned & ðŸ“ Scaffolded
 
 In recommended order:
 
-1. **`@modwrench/thunderstore`** — ✅ Shipped ([packages/thunderstore/](packages/thunderstore/))
+1. **`@modwrench/thunderstore`** â€” âœ… Shipped ([packages/thunderstore/](packages/thunderstore/))
    - Unlocks the entire Unity co-op community
    - Closes the loop with the existing r2modman load-order parser
    - 7 tools: list/get communities, list/get/search mods, version history, top mods
    - Read-only public API, no auth required
-2. **`@modwrench/modrinth`** — ✅ Shipped ([packages/modrinth/](packages/modrinth/))
+2. **`@modwrench/modrinth`** â€” âœ… Shipped ([packages/modrinth/](packages/modrinth/))
    - Best public REST API of any modding platform
    - 7 tools: search (with facets), get_project, version history, taxonomy lookups (categories / loaders / game versions)
    - Read-only public API, no auth required
-3. **`@modwrench/curseforge`** — 📐 Scaffolded ([packages/curseforge/](packages/curseforge/))
+3. **`@modwrench/curseforge`** â€” ðŸ“ Scaffolded ([packages/curseforge/](packages/curseforge/))
    - Large multi-game catalog
    - Rate-limited gated API
    - Implement once API access, auth shape, and terms are pinned down
@@ -158,7 +158,7 @@ In recommended order:
 
 `mw_read_load_order` currently does best-effort folder-scan for Vortex installs because the actual state is stored in a LevelDB key-value store. Adding a LevelDB reader would let workbench return real enable-state and load order for Vortex users.
 
-Not blocking — every Vortex response surfaces an honest `warning` field about the gap. Worth doing eventually; not urgent.
+Not blocking â€” every Vortex response surfaces an honest `warning` field about the gap. Worth doing eventually; not urgent.
 
 ### Full remote MCP deployment (Cloudflare Workers / hosted OAuth)
 
@@ -168,13 +168,13 @@ The Streamable HTTP transport MVP is shipped in `@modwrench/remote`, but the ful
 
 ## Active contribution opportunities
 
-The platforms in the [Platform expansions](#platform-expansions--planned---scaffolded) section each have a scaffolded directory and are open for implementation. The existing `@modwrench/nexus` and `@modwrench/modio` are reference implementations — see [docs/adding-a-platform.md](docs/adding-a-platform.md) for the full walkthrough.
+The platforms in the [Platform expansions](#platform-expansions--planned---scaffolded) section each have a scaffolded directory and are open for implementation. The existing `@modwrench/nexus` and `@modwrench/modio` are reference implementations â€” see [docs/adding-a-platform.md](docs/adding-a-platform.md) for the full walkthrough.
 
 Other active areas:
 
-- Conflict database — [packages/workbench/data/conflicts/](packages/workbench/data/conflicts/) accepts community PRs with verified mod incompatibilities. Per-game `<gameId>.json` files.
-- KNOWN_GAMES catalog in [packages/workbench/src/detect/games.ts](packages/workbench/src/detect/games.ts) — adding new games is a small drive-by PR.
-- Additional crashlog formats in [packages/workbench/src/crashlog/](packages/workbench/src/crashlog/) — if your community uses a logger we don't support yet, the parser pattern is ~150 lines.
+- Conflict database â€” [packages/workbench/data/conflicts/](packages/workbench/data/conflicts/) accepts community PRs with verified mod incompatibilities. Per-game `<gameId>.json` files.
+- KNOWN_GAMES catalog in [packages/workbench/src/detect/games.ts](packages/workbench/src/detect/games.ts) â€” adding new games is a small drive-by PR.
+- Additional crashlog formats in [packages/workbench/src/crashlog/](packages/workbench/src/crashlog/) â€” if your community uses a logger we don't support yet, the parser pattern is ~150 lines.
 
 ---
 
@@ -184,4 +184,5 @@ If you're a modder considering whether to use ModWrench: read the [v1 / v2 Shipp
 
 If you're a contributor looking for where to help: read the [Platform expansions](#platform-expansions--planned---scaffolded) and [Active contribution opportunities](#active-contribution-opportunities) sections.
 
-If you found a bug or want a new feature: open an issue. The roadmap is a plan, not a wall — community input shifts priorities and adds items.
+If you found a bug or want a new feature: open an issue. The roadmap is a plan, not a wall â€” community input shifts priorities and adds items.
+
