@@ -17,6 +17,7 @@
                        "packages/core",
                        "packages/nexus",
                        "packages/modio",
+                       "packages/curseforge",
                        "packages/thunderstore",
                        "packages/workbench",
                        "packages/remote",
