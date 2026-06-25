@@ -17,10 +17,10 @@ ModWrench bridges four of the biggest modding platforms on Earth, plus a local w
 - **Nexus Mods** â€” 50M+ users, the dominant home for Bethesda games (Skyrim, Fallout, Starfield), plus thousands of other titles
 - **mod.io** â€” the cross-platform UGC backbone for PC, console, and mobile, embedded in hundreds of games
 - **Thunderstore** â€” 270+ communities, the home of Unity co-op modding (Lethal Company, Valheim, R.E.P.O., Risk of Rain 2, Dyson Sphere Program, BONEWORKS, and more)
-- **Modrinth** â€” the open-source Minecraft hub (mods, modpacks, plugins, datapacks, resourcepacks, shaders). 75% of ad revenue to creators, REST API with no auth needed
+- **CurseForge** â€” one of the largest mod hosts on Earth, spanning Minecraft and dozens of other games. Read-side via the CurseForge API (requires a free `CURSEFORGE_API_KEY` from console.curseforge.com)
 - **Workbench** â€” local-filesystem awareness: which games are installed, which mod manager you use, what your load order looks like, and what your crashlog actually says
 
-Each capability is a separate MCP package (`@modwrench/nexus`, `@modwrench/modio`, `@modwrench/thunderstore`, `@modwrench/modrinth`, `@modwrench/workbench`). Install one, some, or all â€” same wrench, your choice of attachments. The CLI meta-server (`@modwrench/cli`) composes whichever you've configured into a single MCP entry.
+Each capability is a separate MCP package (`@modwrench/nexus`, `@modwrench/modio`, `@modwrench/thunderstore`, `@modwrench/curseforge`, `@modwrench/workbench`). Install one, some, or all â€” same wrench, your choice of attachments. The CLI meta-server (`@modwrench/cli`) composes whichever you've configured into a single MCP entry.
 
 ### Available tools
 
@@ -42,12 +42,10 @@ Each capability is a separate MCP package (`@modwrench/nexus`, `@modwrench/modio
 - `thunderstore_mod_versions` â€” full version history with downloads + dependencies
 - `thunderstore_top_mods` â€” highest-rated mods in a community
 
-**Modrinth (platform tools â€” read-only public API, no auth required):**
+**CurseForge (platform tools â€” read-only API, requires `CURSEFORGE_API_KEY`):**
 
-- `modrinth_search` â€” full-text search with facets (project_type, loader, game_version, category)
-- `modrinth_get_project` â€” single mod/modpack/plugin/datapack/resourcepack/shader by ID or slug
-- `modrinth_get_versions` / `modrinth_get_version` â€” version history + specific-version details
-- `modrinth_list_categories` / `modrinth_list_loaders` / `modrinth_list_game_versions` â€” taxonomy lookups for filtering
+- 10 read tools covering game/category discovery, mod search, mod details, file listings, changelogs, and dependency lookups
+- Authenticates via the `x-api-key` header; get a free key at console.curseforge.com
 
 **Workbench (local diagnostics â€” no credentials required, except `mw_query_mod_metadata`):**
 
@@ -142,7 +140,7 @@ Add to `.cursor/mcp.json` or your client's equivalent:
 
 ### ChatGPT (Responses API / Connectors) - remote MVP
 
-ChatGPT requires a remote MCP server (Streamable HTTP transport) rather than the stdio path the clients above use. ModWrench now includes `@modwrench/remote`, a first remote-safe MVP for public read-only tools: Modrinth + Thunderstore. It does **not** expose Nexus/mod.io credentials or local workbench filesystem tools.
+ChatGPT requires a remote MCP server (Streamable HTTP transport) rather than the stdio path the clients above use. ModWrench now includes `@modwrench/remote`, a first remote-safe MVP for public read-only tools: Thunderstore only (7 tools). It does **not** expose Nexus/mod.io credentials or local workbench filesystem tools.
 
 From source:
 
@@ -237,7 +235,6 @@ Initial targets:
 
 - Nexus Mods + mod.io (already integrated read-side; adding write paths)
 - Thunderstore (Unity co-op) â€” read-side âœ… shipped in [packages/thunderstore/](packages/thunderstore/); write path planned
-- Modrinth â€” read-side âœ… shipped in [packages/modrinth/](packages/modrinth/); write path planned
 - CurseForge â€” [packages/curseforge/](packages/curseforge/) scaffolded
 
 ### v2.5 â€” Dynamic catalog architecture (planned)
