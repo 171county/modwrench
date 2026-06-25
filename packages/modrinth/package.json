@@ -1,4 +1,4 @@
-﻿{
+{
     "name":  "@modwrench/modrinth",
     "version":  "0.0.1",
     "description":  "ModWrench â€” Modrinth MCP server. Discover and inspect mods, modpacks, plugins, datapacks, resourcepacks, and shaders on Modrinth (Minecraft) directly from any MCP-compatible AI client.",

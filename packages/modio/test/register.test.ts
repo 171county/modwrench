@@ -79,11 +79,11 @@ function modioEnvelope<T>(rows: T[]): {
 
 // ─── Registration smoke tests ───────────────────────────────────────────────
 
-test("registerModioTools: registers 11 tools", () => {
+test("registerModioTools: registers 17 tools", () => {
   const server = new MockMcpServer();
   const result = registerModioTools(server as unknown as never, ENV_CRED);
-  assert.equal(result.toolCount, 11);
-  assert.equal(server.tools.size, 11);
+  assert.equal(result.toolCount, 17);
+  assert.equal(server.tools.size, 17);
 });
 
 test("registerModioTools: every expected tool is present", () => {
@@ -101,6 +101,12 @@ test("registerModioTools: every expected tool is present", () => {
     "modio_game_tags",
     "modio_mod_dependencies",
     "modio_top_games",
+    "modio_mod_comments",
+    "modio_modfile_detail",
+    "modio_mod_stats",
+    "modio_mod_metadata_kvp",
+    "modio_mod_tags",
+    "modio_mod_events",
   ];
   for (const name of expected) {
     assert.ok(server.tools.has(name), `missing tool: ${name}`);
