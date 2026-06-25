@@ -559,5 +559,202 @@ export function registerModioTools(
     }
   );
 
-  return { toolCount: 11, baseUrl: MODIO_BASE_URL };
+  // Tool 12: A mod's comments
+  server.tool(
+    "modio_mod_comments",
+    "List the comments posted on a specific mod. Returns each comment's id, author, date, reply threading, karma, and content. Paginated.",
+    {
+      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+      mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(100)
+        .optional()
+        .describe("Max results per page (1-100). Default 30."),
+      offset: z
+        .number()
+        .int()
+        .min(0)
+        .optional()
+        .describe("Pagination offset. Default 0."),
+    },
+    async ({ game_id, mod_id, limit, offset }) => {
+      const list = await modioRequest<
+        ModioList<{
+          id: number;
+          mod_id: number;
+          user: { id: number; username: string };
+          date_added: number;
+          reply_id: number;
+          thread_position: string;
+          karma: number;
+          content: string;
+        }>
+      >(`/games/${game_id}/mods/${mod_id}/comments`, {
+        _limit: limit ?? 30,
+        _offset: offset ?? 0,
+        _sort: "-date_added",
+      });
+
+      const summary = list.data.map((c) => ({
+        id: c.id,
+        author: c.user?.username,
+        date_added: c.date_added,
+        thread_position: c.thread_position,
+        karma: c.karma,
+        content: c.content,
+      }));
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Showing ${list.result_count} of ${list.result_total} comments (offset ${list.result_offset}):\n\n${JSON.stringify(
+              summary,
+              null,
+              2
+            )}`,
+          },
+        ],
+      };
+    }
+  );
+
+  // Tool 13: A single modfile's detail
+  server.tool(
+    "modio_modfile_detail",
+    "Get the detail record for a single modfile (release) of a mod by game id, mod id, and file id. Returns version, filename, filesize, hashes, virus scan status, platforms, download URL, and changelog. Complements modio_mod_files (which lists them).",
+    {
+      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+      mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+      file_id: z.number().int().positive().describe("The numeric modfile id."),
+    },
+    async ({ game_id, mod_id, file_id }) => {
+      const file = await modioRequest<Record<string, unknown>>(
+        `/games/${game_id}/mods/${mod_id}/files/${file_id}`
+      );
+      return {
+        content: [{ type: "text", text: JSON.stringify(file, null, 2) }],
+      };
+    }
+  );
+
+  // Tool 14: A mod's stats
+  server.tool(
+    "modio_mod_stats",
+    "Get the live statistics object for a single mod: popularity rank, download and subscriber totals, and the full ratings breakdown (positive/negative counts, percentage, and weighted aggregate).",
+    {
+      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+      mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+    },
+    async ({ game_id, mod_id }) => {
+      const stats = await modioRequest<Record<string, unknown>>(
+        `/games/${game_id}/mods/${mod_id}/stats`
+      );
+      return {
+        content: [{ type: "text", text: JSON.stringify(stats, null, 2) }],
+      };
+    }
+  );
+
+  // Tool 15: A mod's metadata key-value pairs
+  server.tool(
+    "modio_mod_metadata_kvp",
+    "Get the metadata key-value pairs (KVP) attached to a mod. Authors use these for arbitrary structured data (load order, compatibility flags, custom fields). Returns each metakey and metavalue.",
+    {
+      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+      mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+    },
+    async ({ game_id, mod_id }) => {
+      const list = await modioRequest<
+        ModioList<{ metakey: string; metavalue: string }>
+      >(`/games/${game_id}/mods/${mod_id}/metadatakvp`);
+      return {
+        content: [
+          {
+            type: "text",
+            text: `${list.result_count} metadata pairs:\n\n${JSON.stringify(list.data, null, 2)}`,
+          },
+        ],
+      };
+    }
+  );
+
+  // Tool 16: A mod's tags
+  server.tool(
+    "modio_mod_tags",
+    "List the tags applied to a specific mod (the subset of the game's tag taxonomy the author selected). Returns each tag name and the date it was added.",
+    {
+      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+      mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+    },
+    async ({ game_id, mod_id }) => {
+      const list = await modioRequest<
+        ModioList<{ name: string; date_added: number }>
+      >(`/games/${game_id}/mods/${mod_id}/tags`);
+      return {
+        content: [
+          {
+            type: "text",
+            text: `${list.result_count} tags:\n\n${JSON.stringify(list.data, null, 2)}`,
+          },
+        ],
+      };
+    }
+  );
+
+  // Tool 17: A mod's event log
+  server.tool(
+    "modio_mod_events",
+    "List the activity events for a mod — the audit log of changes such as file additions, edits, availability changes, and team updates. Returns each event's id, type, actor, and timestamp. Paginated. (modio_mod_dependencies already covers dependency resolution.)",
+    {
+      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+      mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(100)
+        .optional()
+        .describe("Max results per page (1-100). Default 30."),
+      offset: z
+        .number()
+        .int()
+        .min(0)
+        .optional()
+        .describe("Pagination offset. Default 0."),
+    },
+    async ({ game_id, mod_id, limit, offset }) => {
+      const list = await modioRequest<
+        ModioList<{
+          id: number;
+          mod_id: number;
+          user_id: number;
+          date_added: number;
+          event_type: string;
+        }>
+      >(`/games/${game_id}/mods/${mod_id}/events`, {
+        _limit: limit ?? 30,
+        _offset: offset ?? 0,
+        _sort: "-date_added",
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Showing ${list.result_count} of ${list.result_total} events (offset ${list.result_offset}):\n\n${JSON.stringify(
+              list.data,
+              null,
+              2
+            )}`,
+          },
+        ],
+      };
+    }
+  );
+
+  return { toolCount: 17, baseUrl: MODIO_BASE_URL };
 }

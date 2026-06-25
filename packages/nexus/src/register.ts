@@ -50,6 +50,43 @@ export function registerNexusTools(
     return httpClient.request<T>(path);
   }
 
+  // GraphQL lives on a separate v2 endpoint (the v1 REST API has no full-text
+  // mod search). We POST through the same shared client so retry/backoff/429
+  // handling and the apikey/Bearer auth header still apply — buildUrl passes
+  // absolute URLs through untouched.
+  const NEXUS_GRAPHQL_URL = getEnv(
+    "NEXUS_GRAPHQL_URL",
+    "https://api.nexusmods.com/v2/graphql"
+  );
+
+  async function nexusGraphQL<T>(
+    query: string,
+    variables: Record<string, unknown>
+  ): Promise<T> {
+    log("debug", "nexus.graphql", { variables });
+    const res = await httpClient.request<{
+      data?: T;
+      errors?: Array<{ message: string }>;
+    }>(NEXUS_GRAPHQL_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, variables }),
+    });
+    if (res.errors && res.errors.length > 0) {
+      throw new ModWrenchError(
+        "nexus_graphql_error",
+        `Nexus GraphQL error: ${res.errors.map((e) => e.message).join("; ")}`
+      );
+    }
+    if (!res.data) {
+      throw new ModWrenchError(
+        "nexus_graphql_empty",
+        "Nexus GraphQL returned no data."
+      );
+    }
+    return res.data;
+  }
+
   // ─── Tools ──────────────────────────────────────────────────────────────────
 
   // Tool 1: Validate the API key is good
@@ -402,5 +439,103 @@ export function registerNexusTools(
     }
   );
 
-  return { toolCount: 12, baseUrl: NEXUS_BASE_URL };
+  // Tool 13: Full-text mod search (GraphQL)
+  // The v1 REST API exposes no free-text search, so this uses the Nexus v2
+  // GraphQL `mods` query — the same backend the website search box hits.
+  server.tool(
+    "nexus_search",
+    "Full-text search for mods across Nexus Mods by free-text term, optionally scoped to a single game. Returns matching mods with name, author, game, mod ID, summary, download/endorsement counts, and a nexusmods.com page URL. This is the only Nexus tool with real keyword search.",
+    {
+      query: z
+        .string()
+        .min(1)
+        .describe("Free-text search term (matched against mod names, e.g. 'inventory sorter')."),
+      game_domain: z
+        .string()
+        .optional()
+        .describe("Optional game domain to scope the search (e.g. 'skyrimspecialedition'). Omit to search all games. Use nexus_list_games to find domains."),
+      limit: z
+        .number()
+        .int()
+        .positive()
+        .max(50)
+        .optional()
+        .describe("Max number of hits to return. Default 10, max 50."),
+    },
+    async ({ query, game_domain, limit }) => {
+      const count = limit ?? 10;
+      // Build the ModsFilter object in JS: always filter by name (wildcard
+      // full-text), and add a gameDomainName equality clause only when a game
+      // is supplied. Passing the filter as a typed $filter variable keeps the
+      // query string valid (GraphQL has no inline conditionals).
+      const filter: {
+        name: { value: string; op: "WILDCARD" };
+        gameDomainName?: Array<{ value: string; op: "EQUALS" }>;
+      } = { name: { value: query, op: "WILDCARD" } };
+      if (game_domain) {
+        filter.gameDomainName = [{ value: game_domain, op: "EQUALS" }];
+      }
+      const gqlQuery = `query ModWrenchSearch($filter: ModsFilter, $count: Int!) {
+  mods(
+    filter: $filter
+    count: $count
+    sort: [{ relevance: { direction: DESC } }]
+  ) {
+    totalCount
+    nodes {
+      modId
+      name
+      summary
+      author
+      uploader { name }
+      game { domainName name }
+      downloads
+      endorsements
+    }
+  }
+}`;
+      const data = await nexusGraphQL<{
+        mods: {
+          totalCount: number;
+          nodes: Array<{
+            modId: number;
+            name: string;
+            summary: string;
+            author: string;
+            uploader: { name: string } | null;
+            game: { domainName: string; name: string } | null;
+            downloads: number;
+            endorsements: number;
+          }>;
+        };
+      }>(gqlQuery, { filter, count });
+
+      const hits = data.mods.nodes.map((m) => ({
+        mod_id: m.modId,
+        name: m.name,
+        summary: m.summary,
+        author: m.author || m.uploader?.name || "",
+        game: m.game?.name ?? "",
+        game_domain: m.game?.domainName ?? "",
+        downloads: m.downloads,
+        endorsements: m.endorsements,
+        url: m.game
+          ? `https://www.nexusmods.com/${m.game.domainName}/mods/${m.modId}`
+          : "",
+      }));
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Found ${data.mods.totalCount} total match(es) for "${query}"${
+              game_domain ? ` in ${game_domain}` : ""
+            }; showing ${hits.length}:\n\n${JSON.stringify(hits, null, 2)}`,
+          },
+        ],
+      };
+    }
+  );
+
+  return { toolCount: 13, baseUrl: NEXUS_BASE_URL };
 }
