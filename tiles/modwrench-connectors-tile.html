@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ModWrench — connected platforms</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --amber:#e8a33d;--amber-dk:#b9791f;--ok:#5fd38a;--warn:#ffb648;--bad:#e2231a;
+    --ink:#eef2f8;--ink-dim:#93a1b6;--edge:#0a0d13;--stroke:rgba(255,255,255,.10);
+    --pixel:"Press Start 2P",monospace;
+    --nexus:#d98f40;--modio:#3a7bd5;--thunder:#23b0c4;--curse:#f16436;--bench:#7f8a9c;
+  }
+  body{background:#0a0d13;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;
+       padding:36px 16px;font-family:"Inter",system-ui,sans-serif;color:var(--ink)}
+  .tile{position:relative;width:600px;max-width:100%;border:3px solid var(--edge);border-radius:5px;overflow:hidden;
+    background:linear-gradient(170deg,rgba(31,38,50,.97),rgba(12,15,21,.98));
+    box-shadow:0 8px 0 #06080d,0 14px 0 #04060a,0 60px 100px -30px rgba(0,0,0,.9),
+      inset 0 3px 0 rgba(255,255,255,.10),inset 0 -5px 0 rgba(0,0,0,.55)}
+  .head{position:relative;display:flex;align-items:center;gap:14px;padding:18px 20px 22px;
+    background:linear-gradient(180deg,#46505f 0%,#36404e 48%,#2a3340 56%,#222a36 100%);border-bottom:3px solid var(--amber-dk)}
+  .head::before{content:"";position:absolute;left:0;right:0;bottom:0;height:6px;
+    background:repeating-linear-gradient(45deg,var(--amber) 0 12px,#1b1206 12px 24px);opacity:.92}
+  .head::after{content:"";position:absolute;inset:0;opacity:.10;pointer-events:none;
+    background-image:radial-gradient(circle at 11px 11px,rgba(255,255,255,.55) 1px,transparent 1.6px);background-size:22px 22px}
+  .logo{width:44px;height:44px;flex:none;display:grid;place-items:center;font-size:21px;z-index:1;
+    background:linear-gradient(180deg,#525d6e,#2c3441);border:3px solid var(--edge);
+    box-shadow:inset 0 3px 0 rgba(255,255,255,.3),inset 0 -3px 0 rgba(0,0,0,.5)}
+  .head h1{z-index:1;font-family:var(--pixel);font-size:14px;color:#fff;text-shadow:2px 2px 0 rgba(0,0,0,.5)}
+  .head p{z-index:1;font-size:11px;color:#ccd6e3;font-weight:600;margin-top:5px}
+  .head .spacer{flex:1}
+  .gem{z-index:1;font-family:var(--pixel);font-size:9px;color:#2a1c05;background:var(--amber);border:2px solid var(--amber-dk);
+    padding:6px 9px;box-shadow:inset 0 2px 0 rgba(255,255,255,.5),inset 0 -2px 0 rgba(0,0,0,.25)}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px}
+  .card{position:relative;border:3px solid var(--edge);border-radius:3px;padding:13px;background:rgba(255,255,255,.04);cursor:pointer;
+    box-shadow:0 4px 0 #06090f,inset 0 2px 0 rgba(255,255,255,.10),inset 0 -3px 0 rgba(0,0,0,.4);
+    transition:transform .14s,box-shadow .14s,border-color .14s,background .14s}
+  .card:hover{transform:translateY(-2px);border-color:var(--amber);background:rgba(232,163,61,.09);
+    box-shadow:0 6px 0 #4a330c,inset 0 2px 0 rgba(255,255,255,.14)}
+  .crow{display:flex;align-items:center;gap:10px}
+  .vox{width:34px;height:34px;flex:none;display:grid;place-items:center;font-size:16px;color:#0b0e13;border:3px solid var(--edge);
+    box-shadow:inset 0 3px 0 rgba(255,255,255,.4),inset 0 -3px 0 rgba(0,0,0,.4)}
+  .vox.nexus{background:linear-gradient(180deg,#edb15a,#c07a2a)}
+  .vox.modio{background:linear-gradient(180deg,#5b97e6,#2c5fae);color:#eaf2ff}
+  .vox.thunder{background:linear-gradient(180deg,#39c6d8,#1c8696)}
+  .vox.curse{background:linear-gradient(180deg,#ff8050,#d44f24)}
+  .vox.bench{background:linear-gradient(180deg,#9aa6b8,#5c6675);color:#11151c}
+  .name{font-size:13px;font-weight:700}.meta{font-size:10px;color:var(--ink-dim);margin-top:1px}
+  .dot{width:9px;height:9px;flex:none;border:2px solid var(--edge)}
+  .dot.on{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.off{background:var(--bad)}
+  .stat{display:flex;gap:13px;margin-top:11px;padding-top:10px;border-top:2px solid var(--stroke)}
+  .stat div{font-size:10px;color:var(--ink-dim)}.stat b{display:block;font-size:13px;color:#fff;font-weight:700}
+  .actions{display:flex;gap:7px;margin-top:11px}
+  .b{flex:1;font-family:var(--pixel);font-size:8px;letter-spacing:.3px;cursor:pointer;border:3px solid var(--edge);padding:9px 4px;color:#fff;
+    background:rgba(255,255,255,.06);box-shadow:inset 0 2px 0 rgba(255,255,255,.14),inset 0 -2px 0 rgba(0,0,0,.35);transition:transform .08s,background .12s}
+  .b:hover{background:rgba(255,255,255,.13)}.b:active{transform:translateY(1px)}
+  .b.go{background:linear-gradient(180deg,#f1bd62,#d08f2c);color:#2a1c05;border-color:var(--amber-dk)}
+  .b.del{flex:none;width:38px}.b.del:hover{background:rgba(226,35,26,.25);border-color:var(--bad)}
+
+  .foot{display:flex;align-items:center;gap:10px;padding:13px 20px;border-top:3px solid var(--stroke);background:rgba(0,0,0,.3)}
+  .foot .lab{font-family:var(--pixel);font-size:8px;color:#5f6f88}.foot .spacer{flex:1}
+  .add{font-family:var(--pixel);font-size:9px;color:#2a1c05;background:linear-gradient(180deg,#f1bd62,#d08f2c);
+    border:3px solid var(--amber-dk);padding:10px 14px;cursor:pointer;box-shadow:inset 0 3px 0 rgba(255,255,255,.5),inset 0 -3px 0 rgba(0,0,0,.3)}
+  .add:active{transform:translateY(1px)}
+
+  .panel{position:absolute;inset:0;z-index:5;background:linear-gradient(180deg,rgba(20,26,36,.99),rgba(10,13,19,.99));
+    display:flex;flex-direction:column;transform:translateY(8px);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+  .panel.show{transform:translateY(0);opacity:1;pointer-events:auto}
+  .phead{display:flex;align-items:center;gap:11px;padding:15px 18px;border-bottom:3px solid var(--stroke)}
+  .back{width:34px;height:34px;border:3px solid var(--edge);background:rgba(255,255,255,.06);color:#fff;cursor:pointer;font-size:15px;flex:none;
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.16),inset 0 -2px 0 rgba(0,0,0,.35)}
+  .tabs{display:flex;gap:7px;padding:12px 18px 0}
+  .tab{font-family:var(--pixel);font-size:8px;color:var(--ink-dim);padding:9px 11px;cursor:pointer;border:3px solid transparent}
+  .tab.act{color:#fff;background:rgba(255,255,255,.06);border-color:var(--edge)}
+  .pbody{flex:1;overflow:auto;padding:14px 18px 18px}
+  .search{display:flex;gap:8px;margin-bottom:12px}
+  .search input{flex:1;background:rgba(255,255,255,.06);border:3px solid var(--edge);color:#fff;font-size:13px;padding:9px 11px;outline:none}
+  .search input:focus{border-color:var(--amber)}
+  .search .go{font-family:var(--pixel);font-size:8px;color:#2a1c05;background:var(--amber);border:3px solid var(--amber-dk);padding:0 12px;cursor:pointer}
+  .tool{display:flex;align-items:center;gap:10px;padding:10px 11px;border:3px solid var(--edge);margin-bottom:8px;background:rgba(255,255,255,.045);font-size:13px}
+  .tool .tn{font-weight:700}.tool .td{font-size:10px;color:#7f8aa3;margin-top:1px}
+  .tool code{margin-left:auto;font-size:10px;color:var(--amber);background:rgba(232,163,61,.10);padding:3px 6px;border:1px solid rgba(232,163,61,.3)}
+  .tool .pluck{margin-left:auto;font-family:var(--pixel);font-size:7px;color:#fff;border:3px solid var(--edge);background:rgba(232,163,61,.16);padding:6px 8px;cursor:pointer}
+  .tool .pluck.added{background:rgba(95,211,138,.18)}
+  .muted{font-family:var(--pixel);font-size:8px;color:#5f6f88;padding:6px 2px 10px}
+
+  .scrim{position:absolute;inset:0;z-index:20;background:rgba(6,7,12,.66);display:none;align-items:center;justify-content:center;padding:24px}
+  .scrim.show{display:flex}
+  .confirm{width:350px;background:linear-gradient(180deg,#2a1416,#180b0d);border:3px solid var(--bad);padding:20px;text-align:center;
+    box-shadow:0 6px 0 #5a0d0a,inset 0 2px 0 rgba(255,255,255,.12)}
+  .confirm .w{width:46px;height:46px;margin:0 auto 12px;display:grid;place-items:center;font-size:22px;background:rgba(226,35,26,.18);border:3px solid var(--bad)}
+  .confirm h3{font-family:var(--pixel);font-size:12px;margin-bottom:8px;color:#fff}
+  .confirm p{font-size:12px;color:var(--ink-dim);line-height:1.5;margin-bottom:16px}.confirm p b{color:#fff}
+  .crow2{display:flex;gap:8px}
+  .crow2 button{flex:1;font-family:var(--pixel);font-size:8px;border:3px solid var(--edge);padding:11px;cursor:pointer}
+  .crow2 .cancel{background:rgba(255,255,255,.08);color:#fff}
+  .crow2 .del{background:var(--bad);color:#fff;border-color:#7a0f0a}
+</style>
+</head>
+<body>
+  <div class="tile">
+    <div class="head">
+      <div class="logo">🔧</div>
+      <div><h1>ModWrench</h1><p>Connected platforms</p></div>
+      <div class="spacer"></div>
+      <span class="gem" id="count">◆ 4 online</span>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="foot">
+      <span class="lab" id="log">ready</span>
+      <div class="spacer"></div>
+      <button class="add" onclick="act('mw_activate_platform',null)">+ connect</button>
+    </div>
+
+    <div class="panel" id="panel">
+      <div class="phead">
+        <button class="back" onclick="closePanel()">←</button>
+        <div class="vox" id="p-ic">⬢</div>
+        <div style="flex:1"><div class="name" id="p-name">—</div><div class="meta" id="p-meta">—</div></div>
+        <span class="dot on" id="p-dot"></span>
+      </div>
+      <div class="tabs">
+        <div class="tab act" id="t-tools" onclick="setTab('tools')">Tools</div>
+        <div class="tab" id="t-config" onclick="setTab('config')">Discover</div>
+      </div>
+      <div class="pbody" id="pbody"></div>
+    </div>
+
+    <div class="scrim" id="scrim">
+      <div class="confirm">
+        <div class="w">⚠</div>
+        <h3>Disconnect platform?</h3>
+        <p>Removes <b id="d-name">platform</b> and its <b id="d-tools">0</b> tools from this session. Nothing on the mod site is touched — ModWrench only ever reads.</p>
+        <div class="crow2"><button class="cancel" onclick="closeConfirm()">Cancel</button><button class="del" onclick="confirmDelete()">Disconnect</button></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const P=[
+    {id:"nexus",name:"Nexus Mods",icon:"⬢",k:"nexus",status:"on",meta:"graphql + v1 · key",mods:"1,204 tracked",
+      tools:[{n:"nexus_search",d:"Full-text mod search (GraphQL)",s:"nexus_search(q)"},
+             {n:"nexus_get_mod",d:"Mod detail + files",s:"nexus_get_mod(game,id)"},
+             {n:"nexus_md5_search",d:"Identify a file by hash",s:"nexus_md5_search(md5)"},
+             {n:"nexus_mod_changelogs",d:"Per-version changelogs",s:"nexus_mod_changelogs(...)"}]},
+    {id:"modio",name:"mod.io",icon:"◎",k:"modio",status:"on",meta:"rest v1 · key",mods:"860 tracked",
+      tools:[{n:"modio_search_mods",d:"Search a game's mods",s:"modio_search_mods(game,q)"},
+             {n:"modio_mod_stats",d:"Downloads, subs, ratings",s:"modio_mod_stats(...)"},
+             {n:"modio_mod_comments",d:"Community comment threads",s:"modio_mod_comments(...)"},
+             {n:"modio_mod_events",d:"Activity / audit log",s:"modio_mod_events(...)"}]},
+    {id:"thunder",name:"Thunderstore",icon:"⚡",k:"thunder",status:"on",meta:"public · no auth",mods:"R.E.P.O. +120",
+      tools:[{n:"thunderstore_list_communities",d:"Every supported game",s:"...()"},
+             {n:"thunderstore_search_mods",d:"Search within a community",s:"...(community,q)"},
+             {n:"thunderstore_top_mods",d:"Highest-rated in a game",s:"...(community)"}]},
+    {id:"curse",name:"CurseForge",icon:"⛬",k:"curse",status:"warn",meta:"core api · key",mods:"sync…",
+      tools:[{n:"curseforge_search_mods",d:"Search mods by game",s:"...(gameId,q)"},
+             {n:"curseforge_mod_files",d:"List a mod's release files",s:"...(modId)"},
+             {n:"curseforge_featured_mods",d:"Featured / popular",s:"...(gameId)"}]},
+    {id:"bench",name:"Workbench",icon:"🛠",k:"bench",status:"on",meta:"local · offline-ok",mods:"diagnostics",
+      tools:[{n:"parse_crashlog",d:"Diagnose a crash dump",s:"parse_crashlog(path)"},
+             {n:"detect_environment",d:"Game + loader detect",s:"detect_environment()"},
+             {n:"check_load_order",d:"Conflicts + missing deps",s:"check_load_order()"}]}
+  ];
+  const LB={on:["Online","on"],warn:["Syncing","warn"],off:["Offline","off"]};
+  // extra read-only tools the user can pull in per platform (ModWrench never writes)
+  const MORE={
+    nexus:[{n:"nexus_list_games",d:"All Nexus-supported games"},{n:"nexus_file_preview",d:"Inspect a file's contents"}],
+    modio:[{n:"modio_mod_tags",d:"Tags on a mod"},{n:"modio_mod_metadata_kvp",d:"Author metadata KVP"}],
+    thunder:[{n:"thunderstore_get_mod",d:"Full mod detail"},{n:"thunderstore_mod_versions",d:"Version history"}],
+    curse:[{n:"curseforge_get_mod_description",d:"Rendered description"},{n:"curseforge_file_changelog",d:"File changelog"}],
+    bench:[{n:"list_mods",d:"Scan installed mods"},{n:"verify_files",d:"Hash-check a mod folder"}]
+  };
+  const added={}; let cur=null,pend=null;
+
+  function card(s){const[txt,cls]=LB[s.status];
+    return `<div class="card" onclick="open_('${s.id}')">
+      <div class="crow"><div class="vox ${s.k}">${s.icon}</div>
+        <div style="flex:1"><div class="name">${s.name}</div><div class="meta">${s.meta}</div></div>
+        <span class="dot ${cls}" title="${txt}"></span></div>
+      <div class="stat"><div><b>${s.tools.length}</b>tools</div><div><b>${s.mods}</b></div><div><b>${txt}</b>status</div></div>
+      <div class="actions">
+        <button class="b go" onclick="event.stopPropagation();open_('${s.id}','config')">DISCOVER</button>
+        <button class="b" onclick="event.stopPropagation();restart('${s.id}')">↻</button>
+        <button class="b del" onclick="event.stopPropagation();askDel('${s.id}')">✕</button>
+      </div></div>`;}
+  function render(){document.getElementById('grid').innerHTML=P.map(card).join('');
+    document.getElementById('count').textContent='◆ '+P.filter(x=>x.status!=='off').length+' online';}
+
+  function open_(id,t){cur=P.find(x=>x.id===id);
+    const p=document.getElementById('p-ic');p.className='vox '+cur.k;p.textContent=cur.icon;
+    document.getElementById('p-name').textContent=cur.name;document.getElementById('p-meta').textContent=cur.meta;
+    const[,cls]=LB[cur.status];document.getElementById('p-dot').className='dot '+cls;
+    setTab(t||'tools');document.getElementById('panel').classList.add('show');flash('open '+id);}
+  function closePanel(){document.getElementById('panel').classList.remove('show');cur=null;}
+  function setTab(t){document.getElementById('t-tools').classList.toggle('act',t==='tools');
+    document.getElementById('t-config').classList.toggle('act',t==='config');
+    document.getElementById('pbody').innerHTML=t==='tools'?toolsV():configV();}
+  function toolsV(){return `<div class="muted">${cur.tools.length} tools loaded · read-only</div>`+
+    cur.tools.map(t=>`<div class="tool"><div><div class="tn">${t.n}</div><div class="td">${t.d}</div></div><code>${t.s}</code></div>`).join('');}
+  function configV(){const m=MORE[cur.id]||[];const l=m.map(x=>{const on=added[cur.id]&&added[cur.id][x.n];
+    return `<div class="tool"><div><div class="tn">${x.n}</div><div class="td">${x.d}</div></div>
+      <button class="pluck ${on?'added':''}" onclick="pluck('${x.n}')">${on?'✓':'+'}</button></div>`;}).join('');
+    return `<div class="search"><input placeholder="Search ${cur.name} read tools…"><button class="go" onclick="act('discover_tools','${cur.id}')">FIND</button></div><div class="muted">available read tools</div>${l}`;}
+  function pluck(n){if(!added[cur.id])added[cur.id]={};added[cur.id][n]=!added[cur.id][n];flash((added[cur.id][n]?'+':'-')+n);setTab('config');}
+
+  function restart(id){const s=P.find(x=>x.id===id);s.status='warn';render();flash('↻ '+id+'…');act('mw_activate_platform',id);
+    setTimeout(()=>{s.status='on';render();flash('✓ '+id+' online');},1300);}
+  function askDel(id){pend=P.find(x=>x.id===id);document.getElementById('d-name').textContent=pend.name;
+    document.getElementById('d-tools').textContent=pend.tools.length;document.getElementById('scrim').classList.add('show');}
+  function closeConfirm(){document.getElementById('scrim').classList.remove('show');pend=null;}
+  function confirmDelete(){const i=P.findIndex(x=>x.id===pend.id);act('disconnect_platform',pend.id);P.splice(i,1);closeConfirm();render();flash('✕ disconnected');}
+
+  function act(n,id){flash('→ '+(id?`${n}(${id})`:`${n}()`));try{window.parent.postMessage({type:'tool',payload:{name:n,arguments:{platformId:id}}},'*');}catch(e){}}
+  function flash(t){const l=document.getElementById('log');l.textContent=t;l.style.color='var(--amber)';setTimeout(()=>l.style.color='#5f6f88',1100);}
+  render();
+</script>
+</body>
+</html>
