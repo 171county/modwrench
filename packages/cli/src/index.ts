@@ -9,7 +9,6 @@ import { log } from "@modwrench/core";
 import { registerNexusTools } from "@modwrench/nexus/register";
 import { registerModioTools } from "@modwrench/modio/register";
 import { registerThunderstoreTools } from "@modwrench/thunderstore/register";
-import { registerModrinthTools } from "@modwrench/modrinth/register";
 import { registerWorkbenchTools } from "@modwrench/workbench/register";
 import { MetaCatalog, type PlatformDef } from "./catalog.js";
 
@@ -108,11 +107,6 @@ const platforms: PlatformDef[] = [
     id: "thunderstore",
     kind: "local",
     register: registerThunderstoreTools,
-  },
-  {
-    id: "modrinth",
-    kind: "local",
-    register: registerModrinthTools,
   },
   {
     id: "workbench",

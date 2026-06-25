@@ -5,11 +5,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { log } from "@modwrench/core";
-import { registerModrinthTools } from "@modwrench/modrinth/register";
 import { registerThunderstoreTools } from "@modwrench/thunderstore/register";
 
-export const REMOTE_PUBLIC_PLATFORMS = ["modrinth", "thunderstore"] as const;
-export const REMOTE_TOOL_COUNT = 14;
+export const REMOTE_PUBLIC_PLATFORMS = ["thunderstore"] as const;
+export const REMOTE_TOOL_COUNT = 7;
 
 export type RemoteAppOptions = {
   host?: string;
@@ -26,7 +25,6 @@ export function createRemoteMcpServer(): McpServer {
     version: "0.0.1",
   });
 
-  registerModrinthTools(server);
   registerThunderstoreTools(server);
 
   return server;

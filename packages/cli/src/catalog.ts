@@ -7,7 +7,6 @@ export type PlatformId =
   | "nexus"
   | "modio"
   | "thunderstore"
-  | "modrinth"
   | "workbench";
 
 export type CredentialedPlatform = {
