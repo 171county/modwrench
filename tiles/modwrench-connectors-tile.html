@@ -3,220 +3,177 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>ModWrench — connected platforms</title>
+<title>ModWrench — mod deck</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   :root{
-    --amber:#e8a33d;--amber-dk:#b9791f;--ok:#5fd38a;--warn:#ffb648;--bad:#e2231a;
-    --ink:#eef2f8;--ink-dim:#93a1b6;--edge:#0a0d13;--stroke:rgba(255,255,255,.10);
-    --pixel:"Press Start 2P",monospace;
-    --nexus:#d98f40;--modio:#3a7bd5;--thunder:#23b0c4;--curse:#f16436;--bench:#7f8a9c;
+    --bg:#070809;--panel:#0d1013;--panel2:#11151a;--line:#1c232b;--ink:#e9eef3;--dim:#7f8b99;
+    --hud:#35e0ec;--amber:#ffb000;--ok:#46e08a;--warn:#ffb648;--bad:#ff4d44;
+    --mono:"JetBrains Mono",ui-monospace,monospace;--disp:"Rajdhani",system-ui,sans-serif;
+    --cp:#fcee0a;--sf:#ff7a33;--fo:#46e08a;--wi:#d8b34a;--rd:#c0392b;--sk:#6db6e0;
   }
-  body{background:#0a0d13;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;
-       padding:36px 16px;font-family:"Inter",system-ui,sans-serif;color:var(--ink)}
-  .tile{position:relative;width:600px;max-width:100%;border:3px solid var(--edge);border-radius:5px;overflow:hidden;
-    background:linear-gradient(170deg,rgba(31,38,50,.97),rgba(12,15,21,.98));
-    box-shadow:0 8px 0 #06080d,0 14px 0 #04060a,0 60px 100px -30px rgba(0,0,0,.9),
-      inset 0 3px 0 rgba(255,255,255,.10),inset 0 -5px 0 rgba(0,0,0,.55)}
-  .head{position:relative;display:flex;align-items:center;gap:14px;padding:18px 20px 22px;
-    background:linear-gradient(180deg,#46505f 0%,#36404e 48%,#2a3340 56%,#222a36 100%);border-bottom:3px solid var(--amber-dk)}
-  .head::before{content:"";position:absolute;left:0;right:0;bottom:0;height:6px;
-    background:repeating-linear-gradient(45deg,var(--amber) 0 12px,#1b1206 12px 24px);opacity:.92}
-  .head::after{content:"";position:absolute;inset:0;opacity:.10;pointer-events:none;
-    background-image:radial-gradient(circle at 11px 11px,rgba(255,255,255,.55) 1px,transparent 1.6px);background-size:22px 22px}
-  .logo{width:44px;height:44px;flex:none;display:grid;place-items:center;font-size:21px;z-index:1;
-    background:linear-gradient(180deg,#525d6e,#2c3441);border:3px solid var(--edge);
-    box-shadow:inset 0 3px 0 rgba(255,255,255,.3),inset 0 -3px 0 rgba(0,0,0,.5)}
-  .head h1{z-index:1;font-family:var(--pixel);font-size:14px;color:#fff;text-shadow:2px 2px 0 rgba(0,0,0,.5)}
-  .head p{z-index:1;font-size:11px;color:#ccd6e3;font-weight:600;margin-top:5px}
-  .head .spacer{flex:1}
-  .gem{z-index:1;font-family:var(--pixel);font-size:9px;color:#2a1c05;background:var(--amber);border:2px solid var(--amber-dk);
-    padding:6px 9px;box-shadow:inset 0 2px 0 rgba(255,255,255,.5),inset 0 -2px 0 rgba(0,0,0,.25)}
+  body{background:radial-gradient(120% 80% at 50% -10%,#10161c 0%,#070809 60%);min-height:100vh;
+    display:flex;align-items:flex-start;justify-content:center;padding:34px 16px;
+    font-family:var(--disp);color:var(--ink);-webkit-font-smoothing:antialiased}
 
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px}
-  .card{position:relative;border:3px solid var(--edge);border-radius:3px;padding:13px;background:rgba(255,255,255,.04);cursor:pointer;
-    box-shadow:0 4px 0 #06090f,inset 0 2px 0 rgba(255,255,255,.10),inset 0 -3px 0 rgba(0,0,0,.4);
-    transition:transform .14s,box-shadow .14s,border-color .14s,background .14s}
-  .card:hover{transform:translateY(-2px);border-color:var(--amber);background:rgba(232,163,61,.09);
-    box-shadow:0 6px 0 #4a330c,inset 0 2px 0 rgba(255,255,255,.14)}
-  .crow{display:flex;align-items:center;gap:10px}
-  .vox{width:34px;height:34px;flex:none;display:grid;place-items:center;font-size:16px;color:#0b0e13;border:3px solid var(--edge);
-    box-shadow:inset 0 3px 0 rgba(255,255,255,.4),inset 0 -3px 0 rgba(0,0,0,.4)}
-  .vox.nexus{background:linear-gradient(180deg,#edb15a,#c07a2a)}
-  .vox.modio{background:linear-gradient(180deg,#5b97e6,#2c5fae);color:#eaf2ff}
-  .vox.thunder{background:linear-gradient(180deg,#39c6d8,#1c8696)}
-  .vox.curse{background:linear-gradient(180deg,#ff8050,#d44f24)}
-  .vox.bench{background:linear-gradient(180deg,#9aa6b8,#5c6675);color:#11151c}
-  .name{font-size:13px;font-weight:700}.meta{font-size:10px;color:var(--ink-dim);margin-top:1px}
-  .dot{width:9px;height:9px;flex:none;border:2px solid var(--edge)}
-  .dot.on{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.off{background:var(--bad)}
-  .stat{display:flex;gap:13px;margin-top:11px;padding-top:10px;border-top:2px solid var(--stroke)}
-  .stat div{font-size:10px;color:var(--ink-dim)}.stat b{display:block;font-size:13px;color:#fff;font-weight:700}
-  .actions{display:flex;gap:7px;margin-top:11px}
-  .b{flex:1;font-family:var(--pixel);font-size:8px;letter-spacing:.3px;cursor:pointer;border:3px solid var(--edge);padding:9px 4px;color:#fff;
-    background:rgba(255,255,255,.06);box-shadow:inset 0 2px 0 rgba(255,255,255,.14),inset 0 -2px 0 rgba(0,0,0,.35);transition:transform .08s,background .12s}
-  .b:hover{background:rgba(255,255,255,.13)}.b:active{transform:translateY(1px)}
-  .b.go{background:linear-gradient(180deg,#f1bd62,#d08f2c);color:#2a1c05;border-color:var(--amber-dk)}
-  .b.del{flex:none;width:38px}.b.del:hover{background:rgba(226,35,26,.25);border-color:var(--bad)}
+  .deck{position:relative;width:620px;max-width:100%;background:linear-gradient(180deg,var(--panel2),var(--panel));
+    border:1px solid var(--line);clip-path:polygon(0 16px,16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%);
+    box-shadow:0 40px 120px -30px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.04)}
+  .deck::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:9;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0 2px,rgba(0,0,0,.16) 2px 3px),
+      radial-gradient(120% 90% at 50% 0%,transparent 60%,rgba(0,0,0,.5) 100%);mix-blend-mode:multiply;opacity:.7}
 
-  .foot{display:flex;align-items:center;gap:10px;padding:13px 20px;border-top:3px solid var(--stroke);background:rgba(0,0,0,.3)}
-  .foot .lab{font-family:var(--pixel);font-size:8px;color:#5f6f88}.foot .spacer{flex:1}
-  .add{font-family:var(--pixel);font-size:9px;color:#2a1c05;background:linear-gradient(180deg,#f1bd62,#d08f2c);
-    border:3px solid var(--amber-dk);padding:10px 14px;cursor:pointer;box-shadow:inset 0 3px 0 rgba(255,255,255,.5),inset 0 -3px 0 rgba(0,0,0,.3)}
-  .add:active{transform:translateY(1px)}
+  .top{position:relative;display:flex;align-items:center;gap:14px;padding:18px 22px 16px;border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,rgba(53,224,236,.05),transparent)}
+  .mk{width:34px;height:34px;flex:none;border:1px solid var(--hud);display:grid;place-items:center;
+    background:linear-gradient(180deg,rgba(53,224,236,.16),rgba(53,224,236,.03));
+    clip-path:polygon(0 7px,7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%)}
+  .mk b{font-weight:700;color:var(--hud);font-size:18px;line-height:1;text-shadow:0 0 10px rgba(53,224,236,.7)}
+  .wm{font-weight:700;font-size:22px;letter-spacing:3px;line-height:1}
+  .wm span{color:var(--hud);text-shadow:0 0 12px rgba(53,224,236,.45)}
+  .sub{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:1px;margin-top:3px}
+  .top .spacer{flex:1}
+  .readout{font-family:var(--mono);font-size:10px;color:var(--hud);text-align:right;letter-spacing:.5px;line-height:1.7}
+  .readout b{color:var(--ink)}
 
-  .panel{position:absolute;inset:0;z-index:5;background:linear-gradient(180deg,rgba(20,26,36,.99),rgba(10,13,19,.99));
-    display:flex;flex-direction:column;transform:translateY(8px);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
-  .panel.show{transform:translateY(0);opacity:1;pointer-events:auto}
-  .phead{display:flex;align-items:center;gap:11px;padding:15px 18px;border-bottom:3px solid var(--stroke)}
-  .back{width:34px;height:34px;border:3px solid var(--edge);background:rgba(255,255,255,.06);color:#fff;cursor:pointer;font-size:15px;flex:none;
-    box-shadow:inset 0 2px 0 rgba(255,255,255,.16),inset 0 -2px 0 rgba(0,0,0,.35)}
-  .tabs{display:flex;gap:7px;padding:12px 18px 0}
-  .tab{font-family:var(--pixel);font-size:8px;color:var(--ink-dim);padding:9px 11px;cursor:pointer;border:3px solid transparent}
-  .tab.act{color:#fff;background:rgba(255,255,255,.06);border-color:var(--edge)}
-  .pbody{flex:1;overflow:auto;padding:14px 18px 18px}
-  .search{display:flex;gap:8px;margin-bottom:12px}
-  .search input{flex:1;background:rgba(255,255,255,.06);border:3px solid var(--edge);color:#fff;font-size:13px;padding:9px 11px;outline:none}
-  .search input:focus{border-color:var(--amber)}
-  .search .go{font-family:var(--pixel);font-size:8px;color:#2a1c05;background:var(--amber);border:3px solid var(--amber-dk);padding:0 12px;cursor:pointer}
-  .tool{display:flex;align-items:center;gap:10px;padding:10px 11px;border:3px solid var(--edge);margin-bottom:8px;background:rgba(255,255,255,.045);font-size:13px}
-  .tool .tn{font-weight:700}.tool .td{font-size:10px;color:#7f8aa3;margin-top:1px}
-  .tool code{margin-left:auto;font-size:10px;color:var(--amber);background:rgba(232,163,61,.10);padding:3px 6px;border:1px solid rgba(232,163,61,.3)}
-  .tool .pluck{margin-left:auto;font-family:var(--pixel);font-size:7px;color:#fff;border:3px solid var(--edge);background:rgba(232,163,61,.16);padding:6px 8px;cursor:pointer}
-  .tool .pluck.added{background:rgba(95,211,138,.18)}
-  .muted{font-family:var(--pixel);font-size:8px;color:#5f6f88;padding:6px 2px 10px}
+  .sectlab{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--dim);padding:16px 22px 0;display:flex;align-items:center;gap:10px}
+  .sectlab::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
 
-  .scrim{position:absolute;inset:0;z-index:20;background:rgba(6,7,12,.66);display:none;align-items:center;justify-content:center;padding:24px}
-  .scrim.show{display:flex}
-  .confirm{width:350px;background:linear-gradient(180deg,#2a1416,#180b0d);border:3px solid var(--bad);padding:20px;text-align:center;
-    box-shadow:0 6px 0 #5a0d0a,inset 0 2px 0 rgba(255,255,255,.12)}
-  .confirm .w{width:46px;height:46px;margin:0 auto 12px;display:grid;place-items:center;font-size:22px;background:rgba(226,35,26,.18);border:3px solid var(--bad)}
-  .confirm h3{font-family:var(--pixel);font-size:12px;margin-bottom:8px;color:#fff}
-  .confirm p{font-size:12px;color:var(--ink-dim);line-height:1.5;margin-bottom:16px}.confirm p b{color:#fff}
-  .crow2{display:flex;gap:8px}
-  .crow2 button{flex:1;font-family:var(--pixel);font-size:8px;border:3px solid var(--edge);padding:11px;cursor:pointer}
-  .crow2 .cancel{background:rgba(255,255,255,.08);color:#fff}
-  .crow2 .del{background:var(--bad);color:#fff;border-color:#7a0f0a}
+  .rail{display:flex;gap:12px;padding:12px 22px 4px;overflow-x:auto;scrollbar-width:thin}
+  .rail::-webkit-scrollbar{height:6px}.rail::-webkit-scrollbar-thumb{background:var(--line)}
+  .world{flex:none;width:158px;cursor:pointer;border:1px solid var(--line);background:var(--panel2);
+    transition:transform .16s,border-color .16s,box-shadow .16s;position:relative}
+  .world:hover{transform:translateY(-3px);border-color:var(--ac);box-shadow:0 14px 30px -12px var(--ac),0 0 0 1px var(--ac) inset}
+  .cover{height:74px;position:relative;overflow:hidden;display:flex;align-items:flex-end;padding:9px 10px;
+    background:linear-gradient(135deg,var(--ac) -40%,rgba(7,8,9,.2) 55%),linear-gradient(180deg,#11161c,#070809)}
+  .cover::before{content:"";position:absolute;inset:0;opacity:.5;
+    background:repeating-linear-gradient(115deg,transparent 0 9px,rgba(0,0,0,.28) 9px 10px)}
+  .cover::after{content:"";position:absolute;left:0;bottom:0;width:100%;height:2px;background:var(--ac);box-shadow:0 0 12px var(--ac)}
+  .wn{position:relative;z-index:1;font-weight:700;font-size:15px;line-height:1.05;letter-spacing:.5px;text-shadow:0 2px 8px rgba(0,0,0,.9)}
+  .wmeta{display:flex;align-items:center;justify-content:space-between;padding:8px 10px}
+  .ld{font-family:var(--mono);font-size:9px;color:var(--ac);border:1px solid var(--ac);padding:2px 5px;letter-spacing:.5px}
+  .wc{font-family:var(--mono);font-size:10px;color:var(--ink)}.wc i{color:var(--dim);font-style:normal}
+
+  .srcs{display:flex;flex-wrap:wrap;gap:8px;padding:12px 22px 6px}
+  .src{display:flex;align-items:center;gap:8px;cursor:pointer;border:1px solid var(--line);background:var(--panel2);
+    padding:8px 11px;font-family:var(--mono);font-size:11px;transition:border-color .15s,background .15s}
+  .src:hover{border-color:var(--hud);background:rgba(255,255,255,.03)}
+  .src .d{width:7px;height:7px;flex:none}.src .d.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  .src .d.warn{background:var(--warn);box-shadow:0 0 8px var(--warn)}.src .d.off{background:var(--bad)}
+  .src .nm{color:var(--ink);font-weight:500}.src .ct{color:var(--dim)}
+
+  .foot{display:flex;align-items:center;gap:12px;padding:14px 22px;margin-top:8px;border-top:1px solid var(--line);
+    background:linear-gradient(180deg,transparent,rgba(0,0,0,.35))}
+  .foot .log{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.5px}.foot .spacer{flex:1}
+  .cta{font-family:var(--mono);font-weight:700;font-size:10px;letter-spacing:1px;color:var(--bg);cursor:pointer;border:none;
+    background:var(--hud);padding:9px 14px;clip-path:polygon(0 5px,5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%);
+    box-shadow:0 0 16px rgba(53,224,236,.4)}.cta:active{transform:translateY(1px)}
+
+  .panel{position:absolute;inset:0;z-index:12;background:linear-gradient(180deg,rgba(10,13,17,.98),rgba(7,8,9,.99));
+    display:flex;flex-direction:column;transform:translateY(10px);opacity:0;pointer-events:none;transition:.22s}
+  .panel.show{transform:none;opacity:1;pointer-events:auto}
+  .pbar{height:4px;background:var(--hud)}
+  .phead{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
+  .back{width:32px;height:32px;flex:none;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;font-size:15px;font-family:var(--mono)}
+  .back:hover{border-color:var(--hud);color:var(--hud)}
+  .phead .pt{font-weight:700;font-size:18px;letter-spacing:.5px}
+  .phead .pl{font-family:var(--mono);font-size:10px;color:var(--hud);margin-top:2px}
+  .pbody{flex:1;overflow:auto;padding:14px 20px 20px}
+  .row{display:flex;align-items:center;gap:12px;padding:11px 12px;border:1px solid var(--line);margin-bottom:8px;background:var(--panel2)}
+  .row .rk{font-family:var(--mono);font-size:11px;color:var(--ac);width:22px}
+  .row .tt{font-weight:600;font-size:14px}.row .mm{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:1px}
+  .row .dl{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--ink)}
+  .sl{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--dim);margin:14px 0 9px}
+  .find{display:flex;flex-wrap:wrap;gap:8px}
+  .fb{font-family:var(--mono);font-size:11px;color:var(--ink);border:1px solid var(--line);background:var(--panel2);padding:9px 12px;cursor:pointer;transition:.14s}
+  .fb:hover{border-color:var(--hud);color:var(--hud);box-shadow:0 0 14px -4px var(--hud)}
+  .fb small{color:var(--dim)}
 </style>
 </head>
 <body>
-  <div class="tile">
-    <div class="head">
-      <div class="logo">🔧</div>
-      <div><h1>ModWrench</h1><p>Connected platforms</p></div>
+  <div class="deck">
+    <div class="top">
+      <div class="mk"><b>/</b></div>
+      <div><div class="wm">MOD<span>WRENCH</span></div><div class="sub">// mod deck · read-only recon</div></div>
       <div class="spacer"></div>
-      <span class="gem" id="count">◆ 4 online</span>
+      <div class="readout"><b id="wcount">6</b> worlds · <b id="scount">5</b> sources<br><span id="log">all systems nominal</span></div>
     </div>
-    <div class="grid" id="grid"></div>
+
+    <div class="sectlab">MODDABLE&nbsp;WORLDS</div>
+    <div class="rail" id="rail"></div>
+
+    <div class="sectlab">SOURCES</div>
+    <div class="srcs" id="srcs"></div>
+
     <div class="foot">
-      <span class="lab" id="log">ready</span>
+      <span class="log">ModWrench never writes — it reads, identifies, and diagnoses.</span>
       <div class="spacer"></div>
-      <button class="add" onclick="act('mw_activate_platform',null)">+ connect</button>
+      <button class="cta" onclick="act('mw_activate_platform',null)">+ CONNECT SOURCE</button>
     </div>
 
     <div class="panel" id="panel">
+      <div class="pbar" id="pbar"></div>
       <div class="phead">
-        <button class="back" onclick="closePanel()">←</button>
-        <div class="vox" id="p-ic">⬢</div>
-        <div style="flex:1"><div class="name" id="p-name">—</div><div class="meta" id="p-meta">—</div></div>
-        <span class="dot on" id="p-dot"></span>
-      </div>
-      <div class="tabs">
-        <div class="tab act" id="t-tools" onclick="setTab('tools')">Tools</div>
-        <div class="tab" id="t-config" onclick="setTab('config')">Discover</div>
+        <button class="back" onclick="closeP()">&larr;</button>
+        <div style="flex:1"><div class="pt" id="pt">—</div><div class="pl" id="pl">—</div></div>
       </div>
       <div class="pbody" id="pbody"></div>
-    </div>
-
-    <div class="scrim" id="scrim">
-      <div class="confirm">
-        <div class="w">⚠</div>
-        <h3>Disconnect platform?</h3>
-        <p>Removes <b id="d-name">platform</b> and its <b id="d-tools">0</b> tools from this session. Nothing on the mod site is touched — ModWrench only ever reads.</p>
-        <div class="crow2"><button class="cancel" onclick="closeConfirm()">Cancel</button><button class="del" onclick="confirmDelete()">Disconnect</button></div>
-      </div>
     </div>
   </div>
 
 <script>
-  const P=[
-    {id:"nexus",name:"Nexus Mods",icon:"⬢",k:"nexus",status:"on",meta:"graphql + v1 · key",mods:"1,204 tracked",
-      tools:[{n:"nexus_search",d:"Full-text mod search (GraphQL)",s:"nexus_search(q)"},
-             {n:"nexus_get_mod",d:"Mod detail + files",s:"nexus_get_mod(game,id)"},
-             {n:"nexus_md5_search",d:"Identify a file by hash",s:"nexus_md5_search(md5)"},
-             {n:"nexus_mod_changelogs",d:"Per-version changelogs",s:"nexus_mod_changelogs(...)"}]},
-    {id:"modio",name:"mod.io",icon:"◎",k:"modio",status:"on",meta:"rest v1 · key",mods:"860 tracked",
-      tools:[{n:"modio_search_mods",d:"Search a game's mods",s:"modio_search_mods(game,q)"},
-             {n:"modio_mod_stats",d:"Downloads, subs, ratings",s:"modio_mod_stats(...)"},
-             {n:"modio_mod_comments",d:"Community comment threads",s:"modio_mod_comments(...)"},
-             {n:"modio_mod_events",d:"Activity / audit log",s:"modio_mod_events(...)"}]},
-    {id:"thunder",name:"Thunderstore",icon:"⚡",k:"thunder",status:"on",meta:"public · no auth",mods:"R.E.P.O. +120",
-      tools:[{n:"thunderstore_list_communities",d:"Every supported game",s:"...()"},
-             {n:"thunderstore_search_mods",d:"Search within a community",s:"...(community,q)"},
-             {n:"thunderstore_top_mods",d:"Highest-rated in a game",s:"...(community)"}]},
-    {id:"curse",name:"CurseForge",icon:"⛬",k:"curse",status:"warn",meta:"core api · key",mods:"sync…",
-      tools:[{n:"curseforge_search_mods",d:"Search mods by game",s:"...(gameId,q)"},
-             {n:"curseforge_mod_files",d:"List a mod's release files",s:"...(modId)"},
-             {n:"curseforge_featured_mods",d:"Featured / popular",s:"...(gameId)"}]},
-    {id:"bench",name:"Workbench",icon:"🛠",k:"bench",status:"on",meta:"local · offline-ok",mods:"diagnostics",
-      tools:[{n:"parse_crashlog",d:"Diagnose a crash dump",s:"parse_crashlog(path)"},
-             {n:"detect_environment",d:"Game + loader detect",s:"detect_environment()"},
-             {n:"check_load_order",d:"Conflicts + missing deps",s:"check_load_order()"}]}
+  const WORLDS=[
+    {id:"cp",name:"Cyberpunk 2077",ac:"--cp",loader:"CET / REDmod",mods:"18,420",dom:"cyberpunk2077",
+      top:[["Better Vehicle Handling","mod.io · phys"],["Nova City Overhaul","Nexus · visual"],["Appearance Menu Mod","Nexus · tools"]]},
+    {id:"sf",name:"Starfield",ac:"--sf",loader:"SFSE",mods:"12,900",dom:"starfield",
+      top:[["StarUI HUD","Nexus · UI"],["Ship Builder Unlocked","Nexus · gameplay"],["DLSS Frame Gen","Nexus · perf"]]},
+    {id:"fo",name:"Fallout 4",ac:"--fo",loader:"F4SE",mods:"31,200",dom:"fallout4",
+      top:[["Sim Settlements 2","Nexus · overhaul"],["Unofficial Patch","Nexus · fixes"],["Weaponsmith Extended","Nexus · weapons"]]},
+    {id:"wi",name:"The Witcher 3",ac:"--wi",loader:"Script Merger",mods:"9,640",dom:"witcher3",
+      top:[["HD Reworked Project","Nexus · visual"],["Friendly HUD","Nexus · UI"],["Brothers In Arms","Nexus · quests"]]},
+    {id:"rd",name:"Red Dead 2",ac:"--rd",loader:"LML",mods:"5,310",dom:"reddeadredemption2",
+      top:[["WhyEm's DLC","mod.io · content"],["Rampage Trainer","Nexus · tools"],["Crime & Law Rebalance","Nexus · gameplay"]]},
+    {id:"sk",name:"Skyrim SE",ac:"--sk",loader:"SKSE64",mods:"68,000",dom:"skyrimspecialedition",
+      top:[["SkyUI","Nexus · UI"],["Unofficial Patch","Nexus · fixes"],["Legacy of the Dragonborn","Nexus · overhaul"]]}
   ];
-  const LB={on:["Online","on"],warn:["Syncing","warn"],off:["Offline","off"]};
-  // extra read-only tools the user can pull in per platform (ModWrench never writes)
-  const MORE={
-    nexus:[{n:"nexus_list_games",d:"All Nexus-supported games"},{n:"nexus_file_preview",d:"Inspect a file's contents"}],
-    modio:[{n:"modio_mod_tags",d:"Tags on a mod"},{n:"modio_mod_metadata_kvp",d:"Author metadata KVP"}],
-    thunder:[{n:"thunderstore_get_mod",d:"Full mod detail"},{n:"thunderstore_mod_versions",d:"Version history"}],
-    curse:[{n:"curseforge_get_mod_description",d:"Rendered description"},{n:"curseforge_file_changelog",d:"File changelog"}],
-    bench:[{n:"list_mods",d:"Scan installed mods"},{n:"verify_files",d:"Hash-check a mod folder"}]
-  };
-  const added={}; let cur=null,pend=null;
+  const SRC=[
+    {id:"nexus",nm:"Nexus Mods",ct:"13",status:"on",tool:"nexus_search"},
+    {id:"modio",nm:"mod.io",ct:"17",status:"on",tool:"modio_search_mods"},
+    {id:"thunder",nm:"Thunderstore",ct:"7",status:"on",tool:"thunderstore_search_mods"},
+    {id:"curse",nm:"CurseForge",ct:"10",status:"warn",tool:"curseforge_search_mods"},
+    {id:"bench",nm:"Workbench",ct:"6",status:"on",tool:"check_load_order"}
+  ];
+  let cur=null;
+  const $=id=>document.getElementById(id);
 
-  function card(s){const[txt,cls]=LB[s.status];
-    return `<div class="card" onclick="open_('${s.id}')">
-      <div class="crow"><div class="vox ${s.k}">${s.icon}</div>
-        <div style="flex:1"><div class="name">${s.name}</div><div class="meta">${s.meta}</div></div>
-        <span class="dot ${cls}" title="${txt}"></span></div>
-      <div class="stat"><div><b>${s.tools.length}</b>tools</div><div><b>${s.mods}</b></div><div><b>${txt}</b>status</div></div>
-      <div class="actions">
-        <button class="b go" onclick="event.stopPropagation();open_('${s.id}','config')">DISCOVER</button>
-        <button class="b" onclick="event.stopPropagation();restart('${s.id}')">↻</button>
-        <button class="b del" onclick="event.stopPropagation();askDel('${s.id}')">✕</button>
-      </div></div>`;}
-  function render(){document.getElementById('grid').innerHTML=P.map(card).join('');
-    document.getElementById('count').textContent='◆ '+P.filter(x=>x.status!=='off').length+' online';}
+  function worldCard(w){return `<div class="world" style="--ac:var(${w.ac})" onclick="openW('${w.id}')">
+      <div class="cover"><div class="wn">${w.name}</div></div>
+      <div class="wmeta"><span class="ld">${w.loader}</span><span class="wc">${w.mods}<i> mods</i></span></div>
+    </div>`;}
+  function srcChip(s){return `<div class="src" onclick="act('${s.tool}','${s.id}')" title="${s.tool}">
+      <span class="d ${s.status}"></span><span class="nm">${s.nm}</span><span class="ct">${s.ct} tools</span></div>`;}
+  function render(){$('rail').innerHTML=WORLDS.map(worldCard).join('');$('srcs').innerHTML=SRC.map(srcChip).join('');
+    $('wcount').textContent=WORLDS.length;$('scount').textContent=SRC.filter(s=>s.status!=='off').length;}
 
-  function open_(id,t){cur=P.find(x=>x.id===id);
-    const p=document.getElementById('p-ic');p.className='vox '+cur.k;p.textContent=cur.icon;
-    document.getElementById('p-name').textContent=cur.name;document.getElementById('p-meta').textContent=cur.meta;
-    const[,cls]=LB[cur.status];document.getElementById('p-dot').className='dot '+cls;
-    setTab(t||'tools');document.getElementById('panel').classList.add('show');flash('open '+id);}
-  function closePanel(){document.getElementById('panel').classList.remove('show');cur=null;}
-  function setTab(t){document.getElementById('t-tools').classList.toggle('act',t==='tools');
-    document.getElementById('t-config').classList.toggle('act',t==='config');
-    document.getElementById('pbody').innerHTML=t==='tools'?toolsV():configV();}
-  function toolsV(){return `<div class="muted">${cur.tools.length} tools loaded · read-only</div>`+
-    cur.tools.map(t=>`<div class="tool"><div><div class="tn">${t.n}</div><div class="td">${t.d}</div></div><code>${t.s}</code></div>`).join('');}
-  function configV(){const m=MORE[cur.id]||[];const l=m.map(x=>{const on=added[cur.id]&&added[cur.id][x.n];
-    return `<div class="tool"><div><div class="tn">${x.n}</div><div class="td">${x.d}</div></div>
-      <button class="pluck ${on?'added':''}" onclick="pluck('${x.n}')">${on?'✓':'+'}</button></div>`;}).join('');
-    return `<div class="search"><input placeholder="Search ${cur.name} read tools…"><button class="go" onclick="act('discover_tools','${cur.id}')">FIND</button></div><div class="muted">available read tools</div>${l}`;}
-  function pluck(n){if(!added[cur.id])added[cur.id]={};added[cur.id][n]=!added[cur.id][n];flash((added[cur.id][n]?'+':'-')+n);setTab('config');}
+  function openW(id){cur=WORLDS.find(w=>w.id===id);
+    $('pbar').style.background=`var(${cur.ac})`;$('pbar').style.boxShadow=`0 0 16px var(${cur.ac})`;
+    $('pt').textContent=cur.name;$('pl').textContent='loader · '+cur.loader+'   ·   '+cur.mods+' mods tracked';
+    $('pl').style.color=`var(${cur.ac})`;
+    const rows=cur.top.map((t,i)=>`<div class="row" style="--ac:var(${cur.ac})">
+      <span class="rk">${String(i+1).padStart(2,'0')}</span>
+      <div style="flex:1"><div class="tt">${t[0]}</div><div class="mm">${t[1]}</div></div>
+      <span class="dl">open</span></div>`).join('');
+    const finds=SRC.map(s=>`<button class="fb" onclick="event.stopPropagation();act('${s.tool}','${cur.dom}')">${s.nm} <small>&rsaquo;</small></button>`).join('');
+    $('pbody').innerHTML=`<div class="sl">TOP MODS · TRACKED</div>${rows}
+      <div class="sl">SEARCH THIS WORLD ACROSS SOURCES</div><div class="find">${finds}</div>`;
+    $('panel').classList.add('show');flash('▸ '+cur.name);}
+  function closeP(){$('panel').classList.remove('show');cur=null;}
 
-  function restart(id){const s=P.find(x=>x.id===id);s.status='warn';render();flash('↻ '+id+'…');act('mw_activate_platform',id);
-    setTimeout(()=>{s.status='on';render();flash('✓ '+id+' online');},1300);}
-  function askDel(id){pend=P.find(x=>x.id===id);document.getElementById('d-name').textContent=pend.name;
-    document.getElementById('d-tools').textContent=pend.tools.length;document.getElementById('scrim').classList.add('show');}
-  function closeConfirm(){document.getElementById('scrim').classList.remove('show');pend=null;}
-  function confirmDelete(){const i=P.findIndex(x=>x.id===pend.id);act('disconnect_platform',pend.id);P.splice(i,1);closeConfirm();render();flash('✕ disconnected');}
-
-  function act(n,id){flash('→ '+(id?`${n}(${id})`:`${n}()`));try{window.parent.postMessage({type:'tool',payload:{name:n,arguments:{platformId:id}}},'*');}catch(e){}}
-  function flash(t){const l=document.getElementById('log');l.textContent=t;l.style.color='var(--amber)';setTimeout(()=>l.style.color='#5f6f88',1100);}
+  function act(n,id){flash('→ '+(id?`${n}("${id}")`:`${n}()`));try{window.parent.postMessage({type:'tool',payload:{name:n,arguments:{target:id}}},'*');}catch(e){}}
+  function flash(t){const l=$('log');l.textContent=t;l.style.color='var(--hud)';setTimeout(()=>l.style.color='',1200);}
   render();
 </script>
 </body>
