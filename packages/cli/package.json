@@ -34,6 +34,7 @@
                 },
     "dependencies":  {
                          "@modwrench/core":  "0.0.1",
+                         "@modwrench/curseforge":  "0.0.1",
                          "@modwrench/modio":  "0.0.1",
                          "@modwrench/nexus":  "0.0.1",
                          "@modwrench/thunderstore":  "0.0.1",
