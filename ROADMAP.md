@@ -126,7 +126,6 @@ Targets, in roughly this order:
 
 - Nexus + mod.io first (already integrated read-side; adding write paths)
 - Thunderstore next (clean API, low political baggage)
-- CurseForge after that (largest catalog, requires careful positioning)
 
 Permission discipline is non-negotiable: a mod that's flagged "no asset reuse" on Nexus does not get republished anywhere else by ModWrench. Read-the-permissions, refuse-when-blocked is baked into the tool's contract.
 
@@ -141,12 +140,8 @@ In recommended order:
    - Closes the loop with the existing r2modman load-order parser
    - 7 tools: list/get communities, list/get/search mods, version history, top mods
    - Read-only public API, no auth required
-2. **`@modwrench/curseforge`** — ✅ Shipped ([packages/curseforge/](packages/curseforge/))
-   - Large multi-game catalog (Minecraft and dozens of other games)
-   - 10 read tools: game/category discovery, mod search, mod details, file listings, changelogs, dependency lookups
-   - Requires `CURSEFORGE_API_KEY` (free from console.curseforge.com), sent via the `x-api-key` header
 
-> Note: Modrinth (Minecraft hub) moved out of ModWrench to the sibling MyneWrench project, where Minecraft-dev creator tooling lives.
+> Note: Modrinth, CurseForge, and all Minecraft support live in the sibling a separate project project, not ModWrench. ModWrench targets native game modding (Bethesda Creation Engine + Unity/BepInEx); Minecraft-and-CurseForge creator tooling belongs to a separate project.
 
 ---
 

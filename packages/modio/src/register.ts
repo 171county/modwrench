@@ -15,6 +15,33 @@ import {
  * Used by both the standalone @modwrench/modio bin and the meta-server in
  * @modwrench/cli that bundles multiple platforms into one MCP entry.
  */
+import { renderShell, createUIResource, type ModCard } from "@modwrench/ui";
+
+type ModioRow = {
+  name: string;
+  author?: string;
+  downloads?: number;
+  rating?: number;
+  summary?: string;
+};
+
+/** mod.io mod lists/search -> a themed mods ui:// resource. */
+function modioModsUI(query: string, rows: ModioRow[]) {
+  const mods: ModCard[] = rows.map((r) => ({
+    name: r.name,
+    author: r.author ?? "unknown",
+    platform: "modio",
+    downloads: r.downloads,
+    endorsements: r.rating,
+    summary: r.summary,
+  }));
+  return createUIResource({
+    uri: "ui://modwrench/mods",
+    html: renderShell({ theme: "skyrim", view: "mods", mods: { query, mods } }),
+    meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
+  });
+}
+
 export function registerModioTools(
   server: McpServer,
   credential: Credential
@@ -32,11 +59,11 @@ export function registerModioTools(
   };
 
   // ─── HTTP helper ────────────────────────────────────────────────────────────
-  // Uses the shared @modwrench/core HTTP client. mod.io's quirk: the legacy
-  // API key authenticates via the api_key QUERY parameter (not a header),
-  // whereas OAuth tokens go in the Authorization header. We inject the
-  // api_key into the query at this layer and let the client handle the
-  // OAuth header via authHeaders.
+  // Uses the shared @modwrench/core HTTP client. mod.io's quirk: a raw API key
+  // authenticates via the api_key QUERY parameter (not a header), whereas OAuth
+  // tokens go in the Authorization header. Both come from the user's OS
+  // credential manager. We inject the api_key into the query at this layer and
+  // let the client handle the OAuth header via authHeaders.
 
   const httpClient = createHttpClient({
     baseUrl: MODIO_BASE_URL,
@@ -57,12 +84,12 @@ export function registerModioTools(
     const finalQuery: Record<string, string | number | undefined | null> = {
       ...(query ?? {}),
     };
-    if (credential.source === "env") {
+    if (credential.source === "apikey") {
       finalQuery["api_key"] = credential.apiKey;
     }
     log("debug", "modio.request", {
       path,
-      auth: credential.source === "env" ? "api_key (query)" : "Bearer (header)",
+      auth: credential.source === "apikey" ? "api_key (query)" : "Bearer (header)",
     });
     return httpClient.request<T>(path, { query: finalQuery });
   }
@@ -210,6 +237,7 @@ export function registerModioTools(
               2
             )}`,
           },
+          modioModsUI("mod.io mods", summary),
         ],
       };
     }
@@ -303,6 +331,7 @@ export function registerModioTools(
               2
             )}`,
           },
+          modioModsUI("mod.io search", summary),
         ],
       };
     }

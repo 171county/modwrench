@@ -1,6 +1,6 @@
 // Normalized cross-format crashlog parse output. Every parser emits this
 // shape so the downstream LLM-reasoning step doesn't care whether the source
-// was Crash Logger SSE, Buffout 4, BepInEx, NetScriptFramework, or Minecraft.
+// was Crash Logger SSE, Buffout 4, BepInEx, or NetScriptFramework.
 //
 // Critical design rule: this module does PARSING only. No diagnosis, no
 // suggested causes, no "you should disable mod X" advice. That's the LLM's
@@ -11,7 +11,6 @@ export type CrashlogType =
   | "buffout4"
   | "netscriptframework"
   | "bepinex"
-  | "minecraft"
   | "unknown";
 
 export type CallStackFrame = {

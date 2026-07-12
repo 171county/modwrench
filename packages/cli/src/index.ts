@@ -8,10 +8,10 @@ import { z } from "zod";
 import { log } from "@modwrench/core";
 import { registerNexusTools } from "@modwrench/nexus/register";
 import { registerModioTools } from "@modwrench/modio/register";
-import { registerCurseForgeTools } from "@modwrench/curseforge/register";
 import { registerThunderstoreTools } from "@modwrench/thunderstore/register";
 import { registerWorkbenchTools } from "@modwrench/workbench/register";
 import { MetaCatalog, type PlatformDef } from "./catalog.js";
+import { renderShell, createUIResource, THEME_IDS } from "@modwrench/ui";
 
 // ─── Subcommand dispatch ─────────────────────────────────────────────────────
 // Must run before the MCP boot block below. Two routes today:
@@ -90,28 +90,17 @@ const platforms: PlatformDef[] = [
     id: "nexus",
     kind: "credentialed",
     register: registerNexusTools,
-    envVar: "NEXUS_API_KEY",
     service: "nexus",
     authHint:
-      "Run `modwrench auth login nexus` (OAuth) or set NEXUS_API_KEY in your .env.",
+      "Store your Nexus credential in your OS credential manager under service `modwrench-nexus` — either a personal API key (https://www.nexusmods.com/users/myaccount?tab=api+access) or an OAuth token via `modwrench auth login nexus`.",
   },
   {
     id: "modio",
     kind: "credentialed",
     register: registerModioTools,
-    envVar: "MODIO_API_KEY",
     service: "modio",
     authHint:
-      "Run `modwrench auth login modio` (OAuth) or set MODIO_API_KEY in your .env.",
-  },
-  {
-    id: "curseforge",
-    kind: "credentialed",
-    register: registerCurseForgeTools,
-    envVar: "CURSEFORGE_API_KEY",
-    service: "curseforge",
-    authHint:
-      "Set CURSEFORGE_API_KEY in your .env (get a key at https://console.curseforge.com).",
+      "Store your mod.io credential in your OS credential manager under service `modwrench-modio` — either an API key (https://mod.io/me/access) or an OAuth token via `modwrench auth login modio`.",
   },
   {
     id: "thunderstore",
@@ -173,6 +162,78 @@ server.tool(
   }
 );
 
+// ─── mw_deck — stateless MCP-UI surface ──────────────────────────────────────
+// Returns the ModWrench deck as a ui:// resource built entirely from the current
+// catalog state. Four flagship-game themes; no state, no storage, no network from
+// the rendered HTML — the UI is a pure function of the tool output.
+
+const CONNECTOR_META: Record<string, { name: string; tool: string }> = {
+  nexus: { name: "Nexus Mods", tool: "nexus_search" },
+  modio: { name: "mod.io", tool: "modio_list_games" },
+  thunderstore: { name: "Thunderstore", tool: "thunderstore_list_communities" },
+  workbench: { name: "Workbench", tool: "mw_detect_environment" },
+};
+
+const FLAGSHIP_GAMES = [
+  { id: "skyrim", name: "Skyrim SE", note: "Nexus \u00b7 Bethesda" },
+  { id: "fallout", name: "Fallout 4", note: "Nexus \u00b7 Bethesda" },
+  { id: "lethal", name: "Lethal Company", note: "Thunderstore \u00b7 BepInEx" },
+  { id: "valheim", name: "Valheim", note: "Thunderstore \u00b7 BepInEx" },
+];
+
+server.tool(
+  "mw_deck",
+  "Open the ModWrench deck: a themed, interactive MCP-UI surface (returned as a ui:// resource) showing the active connectors and flagship games, with four game themes (Skyrim, Fallout, Lethal Company, Valheim). Stateless \u2014 rendered fresh from the current catalog, holds nothing. Use when the user wants a visual dashboard or says \"open the deck\". Optional args set the initial theme and view.",
+  {
+    theme: z
+      .enum([...THEME_IDS] as [string, ...string[]])
+      .optional()
+      .describe("Initial theme: skyrim | fallout | lethal | valheim. Default skyrim."),
+    view: z
+      .enum(["deck", "mods", "crash"])
+      .optional()
+      .describe("Initial view. Default 'deck'."),
+  },
+  async ({ theme, view }) => {
+    const active = new Map(
+      catalog.listActive().map((p) => [p.platformId, p.toolCount] as const)
+    );
+    const connectors = catalog.knownIds().map((id) => {
+      const meta = CONNECTOR_META[id] ?? { name: id, tool: "" };
+      const on = active.has(id);
+      return {
+        id,
+        name: meta.name,
+        tool: meta.tool,
+        status: on ? ("on" as const) : ("off" as const),
+        ...(on ? { toolCount: active.get(id) } : {}),
+      };
+    });
+    const html = renderShell({
+      theme,
+      view: view ?? "deck",
+      deck: { connectors, games: FLAGSHIP_GAMES },
+    });
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify(
+            { view: view ?? "deck", theme: theme ?? "skyrim", connectors },
+            null,
+            2
+          ),
+        },
+        createUIResource({
+          uri: "ui://modwrench/deck",
+          html,
+          meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "760px"] },
+        }),
+      ],
+    };
+  }
+);
+
 const activeAtBoot = catalog.listActive();
 const failedAtBoot = catalog.listFailed();
 
@@ -195,7 +256,7 @@ async function main() {
     })),
     skipped: failedAtBoot.map((p) => p.platformId),
     total_tools:
-      activeAtBoot.reduce((sum, p) => sum + p.toolCount, 0) + 1, // +1 for mw_activate_platform
+      activeAtBoot.reduce((sum, p) => sum + p.toolCount, 0) + 2, // +2 for mw_activate_platform and mw_deck
     catalog_dynamic: true,
   });
 }

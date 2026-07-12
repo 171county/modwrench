@@ -24,13 +24,6 @@ test("detect: BepInEx", () => {
   assert.equal(detectCrashlogType(fixture("LogOutput.log")), "bepinex");
 });
 
-test("detect: Minecraft", () => {
-  assert.equal(
-    detectCrashlogType(fixture("crash-report-minecraft.txt")),
-    "minecraft"
-  );
-});
-
 test("detect: NetScriptFramework", () => {
   assert.equal(
     detectCrashlogType(fixture("crash-netscriptframework.log")),
@@ -197,30 +190,6 @@ test("BepInEx: earlier fatal events preserved in rawSections", () => {
     result.rawSections["earlier_fatal_events"] ?? "",
     /NullReferenceException/
   );
-});
-
-// ─── Minecraft ───────────────────────────────────────────────────────────────
-
-test("Minecraft: parses Java exception and stack trace", () => {
-  const result = parseCrashlog({
-    logContent: fixture("crash-report-minecraft.txt"),
-  });
-  assert.equal(result.ok, true);
-  if (!result.ok) return;
-  assert.equal(result.detectedType, "minecraft");
-  assert.equal(result.exception.type, "java.lang.NullPointerException");
-  assert.match(result.exception.description ?? "", /Rendering screen/);
-});
-
-test("Minecraft: parses -- Mods Loaded -- Forge table", () => {
-  const result = parseCrashlog({
-    logContent: fixture("crash-report-minecraft.txt"),
-  });
-  assert.equal(result.ok, true);
-  if (!result.ok) return;
-  assert.ok(result.loadedPlugins.length > 0);
-  const examplemod = result.loadedPlugins.find((p) => p.name === "minecraft");
-  assert.ok(examplemod, "expected 'minecraft' entry from Forge mods table");
 });
 
 // ─── NetScriptFramework ──────────────────────────────────────────────────────

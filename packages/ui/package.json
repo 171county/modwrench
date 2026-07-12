@@ -1,12 +1,12 @@
 {
-  "name": "@modwrench/curseforge",
+  "name": "@modwrench/ui",
   "version": "0.1.0",
-  "description": "ModWrench — CurseForge MCP server. Search, browse, and inspect mods on CurseForge directly from any MCP-compatible AI client.",
+  "description": "ModWrench — stateless MCP-UI toolkit. Themed interactive UI (mod deck, mod cards, crashlog panel) returned as ui:// resources from ModWrench tools, with four flagship-game themes (Skyrim, Fallout, Lethal Company, Valheim). Holds no state; every view is rendered fresh from a tool result.",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/171county/modwrench.git",
-    "directory": "packages/curseforge"
+    "directory": "packages/ui"
   },
   "homepage": "https://github.com/171county/modwrench#readme",
   "bugs": {
@@ -18,14 +18,7 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./register": {
-      "types": "./dist/register.d.ts",
-      "import": "./dist/register.js"
     }
-  },
-  "bin": {
-    "modwrench-curseforge": "dist/index.js"
   },
   "files": [
     "dist"
@@ -36,14 +29,11 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js",
     "clean": "rimraf dist",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {
-    "@modwrench/core": "0.1.0",
-    "@modelcontextprotocol/sdk": "^1.0.4",
-    "zod": "^3.23.8"
+    "@modwrench/core": "0.1.0"
   }
 }

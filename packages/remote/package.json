@@ -1,52 +1,52 @@
 {
-    "name":  "@modwrench/remote",
-    "version":  "0.1.0",
-    "description":  "ModWrench remote Streamable HTTP MCP server for remote-capable clients.",
-    "license":  "MIT",
-    "repository":  {
-                       "type":  "git",
-                       "url":  "git+https://github.com/171county/modwrench.git",
-                       "directory":  "packages/remote"
-                   },
-    "homepage":  "https://github.com/171county/modwrench#readme",
-    "bugs":  {
-                 "url":  "https://github.com/171county/modwrench/issues"
-             },
-    "type":  "module",
-    "main":  "./dist/index.js",
-    "exports":  {
-                    ".":  {
-                              "types":  "./dist/index.d.ts",
-                              "import":  "./dist/index.js"
-                          },
-                    "./server":  {
-                                     "types":  "./dist/server.d.ts",
-                                     "import":  "./dist/server.js"
-                                 }
-                },
-    "bin":  {
-                "modwrench-remote":  "dist/index.js"
-            },
-    "files":  [
-                  "dist"
-              ],
-    "publishConfig":  {
-                          "access":  "public"
-                      },
-    "scripts":  {
-                    "build":  "tsc",
-                    "dev":  "tsx watch src/index.ts",
-                    "start":  "node dist/index.js",
-                    "clean":  "rimraf dist",
-                    "typecheck":  "tsc --noEmit",
-                    "test":  "node --import tsx --test test/*.test.ts"
-                },
-    "dependencies":  {
-                         "@modwrench/core":  "0.1.0",
-                         "@modwrench/thunderstore":  "0.1.0",
-                         "@modelcontextprotocol/sdk":  "^1.0.4"
-                     },
-    "devDependencies":  {
-                            "@types/express":  "^5.0.0"
-                        }
+  "name": "@modwrench/remote",
+  "version": "0.1.0",
+  "description": "ModWrench remote Streamable HTTP MCP server for remote-capable clients.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/171county/modwrench.git",
+    "directory": "packages/remote"
+  },
+  "homepage": "https://github.com/171county/modwrench#readme",
+  "bugs": {
+    "url": "https://github.com/171county/modwrench/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    }
+  },
+  "bin": {
+    "modwrench-remote": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "clean": "rimraf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@modwrench/core": "0.1.0",
+    "@modwrench/thunderstore": "0.1.0",
+    "@modelcontextprotocol/sdk": "^1.0.4"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0"
+  }
 }

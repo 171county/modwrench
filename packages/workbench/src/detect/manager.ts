@@ -8,8 +8,7 @@ export type ManagerName =
   | "vortex"
   | "mo2"
   | "r2modman"
-  | "thunderstore-mm"
-  | "curseforge";
+  | "thunderstore-mm";
 
 export type DetectedManager = {
   name: ManagerName;
@@ -76,15 +75,6 @@ function r2modmanCandidates(): string[] {
   }
 }
 
-function curseforgeCandidates(): string[] {
-  if (process.platform !== "win32") return [];
-  return [
-    process.env.LOCALAPPDATA
-      ? join(process.env.LOCALAPPDATA, "CurseForge")
-      : "",
-  ].filter(Boolean);
-}
-
 function findFirstExisting(paths: string[]): string | null {
   for (const p of paths) {
     if (p && pathExists(p)) return p;
@@ -139,19 +129,13 @@ export function detectInstalledManagers(): DetectedManager[] {
     out.push({ name: "r2modman", dataPath: r2, managedGameIds: games });
   }
 
-  const curse = findFirstExisting(curseforgeCandidates());
-  if (curse) {
-    out.push({ name: "curseforge", dataPath: curse });
-  }
-
   return out;
 }
 
 /**
  * Heuristic guess at which detected manager is most likely managing a given
  * game. Family-based: bethesda games skew Vortex/MO2, unity-coop skews
- * r2modman, sims/minecraft skews CurseForge. Returns null if no detected
- * manager fits the game.
+ * r2modman. Returns null if no detected manager fits the game.
  */
 export function inferManagerForGame(
   game: GameDef,
@@ -176,10 +160,6 @@ export function inferManagerForGame(
     case "unity-coop":
       if (names.has("r2modman")) return "r2modman";
       if (names.has("thunderstore-mm")) return "thunderstore-mm";
-      return null;
-    case "minecraft":
-    case "sims":
-      if (names.has("curseforge")) return "curseforge";
       return null;
     default:
       return null;

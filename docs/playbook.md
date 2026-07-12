@@ -1,11 +1,11 @@
-# The MCPwrench Playbook
+# The ModWrench Playbook
 
-The canonical cross-product spec. Every wrench product under the MCPwrench
+The canonical cross-product spec. Every wrench product under the ModWrench
 umbrella follows the rules in this document.
 
 This doc lives in the ModWrench repo because that's where the umbrella started,
-but it is **not** a ModWrench-specific document. Sibling repos (MyneWrench,
-DefWrench, FlyOnWallWrench, and any future wrench product) link here from their
+but it is **not** a ModWrench-specific document. Sibling repos (a separate project,
+a separate project, a separate project, and any future wrench product) link here from their
 own `CONTRIBUTING.md`. When the rules and the code disagree, the code wins and
 this doc gets a PR.
 
@@ -18,9 +18,9 @@ need are [The trust posture](#2-the-trust-posture),
 
 ---
 
-## 1. What MCPwrench is
+## 1. What ModWrench is
 
-MCPwrench is an umbrella of focused Model Context Protocol servers that bring
+ModWrench is an umbrella of focused Model Context Protocol servers that bring
 creator-platform APIs into AI clients (Claude Desktop, Claude Code, Cursor,
 ChatGPT, and any other MCP-compatible host). Each wrench product targets a
 distinct audience with its own vocabulary, trust expectations, and platform
@@ -30,27 +30,28 @@ so that a contributor moving between them finds familiar patterns.
 The current product line:
 
 - **ModWrench** — for modders. Wraps Nexus Mods, mod.io, Thunderstore,
-  CurseForge, and a local workbench for crashlog parsing and environment
-  detection. Audience: people who mod Skyrim, Fallout, Lethal Company,
-  Valheim, Minecraft, and the long tail of moddable PC games.
-- **MyneWrench** — for Roblox and UEFN creators. Wraps the Roblox Open Cloud
+  and a local workbench for crashlog parsing and environment detection.
+  Audience: people who mod Skyrim, Fallout, Lethal Company, Valheim, and
+  the long tail of native-moddable PC games. (Minecraft and CurseForge
+  belong to a separate project, not ModWrench.)
+- **a separate project** — for Roblox and UEFN creators. Wraps the Roblox Open Cloud
   surface (universes, places, datastores, assets, MessagingService) and is
   ready to wrap UEFN the day Epic ships a public creator-data API.
   Audience: experience developers shipping to Roblox and Fortnite Creative.
-- **DefWrench** — for AAA studios. Wraps internal build, telemetry, and
+- **a separate project** — for AAA studios. Wraps internal build, telemetry, and
   publishing surfaces that the major engine and platform vendors expose to
   shipped-game teams. Audience: developers inside studios that already pay
   for the underlying tooling.
-- **FlyOnWallWrench** — for community comms. Wraps the read-only surfaces
+- **a separate project** — for community comms. Wraps the read-only surfaces
   of community platforms (forums, chat, issue trackers) that a maintainer
   needs to keep a pulse on without sitting in every channel. Audience:
   open-source maintainers, community managers, and small studios who answer
   their own players.
 
-Every wrench product depends on `@mcpwrench/core`. The core is deliberately
-small: it provides credential resolution against the OS keychain with an
-env-var fallback, a shared HTTP client that handles 429s and 5xxs the same
-way everywhere, a structured `McpwrenchError` envelope, structured stderr
+Every wrench product depends on `@modwrench/core`. The core is deliberately
+small: it provides credential resolution against the OS credential manager
+(read-only — no env-var or on-disk fallback), a shared HTTP client that handles 429s and 5xxs the same
+way everywhere, a structured `ModWrenchError` envelope, structured stderr
 logging that never collides with the MCP protocol on stdout, and a couple
 of environment helpers. New utilities go into core only after a second wrench
 proves they're shared — never on speculation.
@@ -106,7 +107,7 @@ the umbrella partly on this basis.
    `confirm: true`. See section 4 for the full pattern.
 
 These are constraints, not aspirations. A wrench product that breaks one of
-them is no longer an MCPwrench product. The umbrella's value to the audience
+them is no longer an ModWrench product. The umbrella's value to the audience
 is precisely that these rules are baked into the code, not promised in a
 privacy policy.
 
@@ -117,42 +118,40 @@ privacy policy.
 Every wrench product loads credentials the same way, through
 `loadCredential()` in `packages/core/src/auth.ts`. The chain is:
 
-1. **OS keychain first.** `getStoredToken()` reads the token saved by
-   `<wrench>-<platform> auth login`. The token is a `StoredToken` JSON
-   blob — `access_token`, optional `refresh_token`, `expires_at`,
-   `saved_at` — stored under the service name `modwrench-<service>` so a
-   user inspecting their keychain sees a recognizable owner. (The
-   `modwrench-` prefix is historical and shared across the umbrella; it
-   is not a ModWrench-only namespace.)
-2. **Environment variable fallback.** If no keychain entry exists, the
-   loader looks at the platform's named env var (`NEXUS_API_KEY`,
-   `MODIO_API_KEY`, `ROBLOX_API_KEY`, etc.). This is the developer-local
-   testing path and the fallback for systems where the OS keychain is not
-   reachable.
-3. **Fail loud with a hint.** If neither source has a credential, the
-   loader throws an error that names the service, says which env var it
-   looked for, and includes the platform's specific `authHint` — usually
-   pointing the user at `<wrench>-<platform> auth login`.
+1. **OS credential manager — the only source.** `getRawSecret()` reads the
+   value the user stored under service `modwrench-<service>`, account
+   `default`. It is auto-detected: a `StoredToken` JSON blob (`access_token`,
+   optional `refresh_token`, `expires_at`, `saved_at` — written by
+   `<wrench>-<platform> auth login`) resolves as an OAuth credential;
+   anything else is treated as a raw API key the user pasted in. ModWrench
+   reads it, sends it, and holds it no longer than the request that uses it.
+   It never reads a credential from an env var, a `.env`, or any file on disk.
+2. **Fail loud with a hint.** If nothing is stored, the loader throws an
+   error that names the service, the exact keychain service/account to use,
+   and the platform's specific `authHint`.
 
 The returned `Credential` is a discriminated union — `{ source: "keychain",
-accessToken, ... }` or `{ source: "env", apiKey }`. Platform packages branch
-on `source` to decide which auth header shape to send (Bearer vs.
-platform-specific `apikey` / `x-api-key` / etc.). The shape is intentional:
-the platform package owns the routing decision so core doesn't have to know
+accessToken, ... }` (an OAuth token JSON) or `{ source: "apikey", apiKey }`
+(a raw key) — both sourced from the OS credential manager, never from env or
+disk. Platform packages branch on `source` to decide which auth header shape
+to send (Bearer vs. platform-specific `apikey` / `x-api-key` / query param).
+The platform package owns the routing decision so core doesn't have to know
 every upstream's quirks.
 
 One important nuance: on Linux systems where libsecret / D-Bus is unavailable
 (Steam Deck Game Mode, headless servers, minimal container images) the
-keychain is silently unreachable. `auth.ts` detects this case and the
-fail-loud error explicitly says "OS keychain is unavailable" rather than
-just "no credential found." This is the difference between a user spending
-five minutes fixing their setup and an hour debugging a phantom auth bug.
+credential manager is unreachable. `auth.ts` detects this case and the
+fail-loud error explicitly says "OS credential manager is unavailable"
+rather than just "no credential found," and points the user at enabling a
+Secret Service (e.g. gnome-keyring). There is no env-var fallback — the OS
+credential manager is the only credential source, by design.
 
-Wrench products **never** persist credentials to repo-local files. `.env` is
-a developer-local convenience for testing. It is gitignored. It is not a
-deployment mechanism. If a deployment shape seems to require shipping an
-`.env` with secrets, the answer is to wire the OAuth flow or to document
-that the deployment runs with env vars injected by the orchestrator.
+Wrench products **never** read or persist credentials to `.env` or any file.
+`.env` holds non-secret operational config only (log level, base-URL
+overrides). The sole credential store is the user's OS credential manager;
+the user puts the token or key there, and the wrench only reads it. There is
+no env-var or file-based credential path to configure, in development or in
+deployment.
 
 ---
 
@@ -166,7 +165,7 @@ tool's zod schema includes a `confirm` boolean (optional, default false).
 When `confirm` is not exactly `true`, the tool returns a preview of what
 it *would* have done and performs no upstream call. Only on a re-call with
 `confirm: true` does the tool actually act. The canonical example is
-`roblox_send_message` in `mynewrench/packages/roblox/src/register.ts` — the
+`roblox_send_message` in `modwrench/packages/roblox/src/register.ts` — the
 tool description starts with "WRITE ACTION," explains the consequence
 ("sends data to your live game servers"), and the handler short-circuits
 to a preview branch unless `confirm === true`. Same pattern for
@@ -182,7 +181,7 @@ non-idempotent write on a transient 5xx could publish a message twice,
 upload a file twice, or send a notification twice. For a deliberate,
 confirmation-gated action we'd rather fail loud once and let the user
 decide whether to retry. See the `writeClient` declaration in
-`mynewrench/packages/roblox/src/register.ts` for the exact shape.
+`modwrench/packages/roblox/src/register.ts` for the exact shape.
 
 **Rule 3: write tools name themselves loudly.** The tool's MCP description
 string starts with `WRITE ACTION` in all caps. The description explains
@@ -207,8 +206,8 @@ write side because that's where the irreversible actions live.
 
 ## 5. Error envelope
 
-Every wrench product surfaces failures through `McpwrenchError`, the shared
-error type exported from `@mcpwrench/core`. Three fields matter to the
+Every wrench product surfaces failures through `ModWrenchError`, the shared
+error type exported from `@modwrench/core`. Three fields matter to the
 caller: `code` (a stable identifier like `nexus_http_error`), `status`
 (the upstream HTTP status when the failure was an HTTP error), and `meta`
 (structured details — for HTTP errors this includes the first 500 bytes of
@@ -253,7 +252,7 @@ different shapes for those and that's a v2 concern. The current
 429-reactive behavior is what keeps wrench products off platform
 blocklists.
 
-Tool handlers should let `McpwrenchError` propagate. The MCP SDK formats
+Tool handlers should let `ModWrenchError` propagate. The MCP SDK formats
 the thrown error into a structured tool-error response the LLM can read.
 Catching errors only to re-throw a different one is almost always wrong;
 catching to *add context* (e.g. "while fetching mod 12345") is fine.
@@ -272,10 +271,7 @@ plural (a list, a search). Examples that pass:
 
 - `nexus_get_mod`, `nexus_list_games`, `nexus_md5_search`
 - `modio_search_mods`, `modio_top_games`, `modio_get_mod`
-- `roblox_get_universe`, `roblox_list_datastores`,
-  `roblox_get_datastore_entry`
 - `thunderstore_list_communities`, `thunderstore_search_mods`
-- `modrinth_search`, `modrinth_get_project`, `modrinth_get_versions`
 
 Generic verbs (`get_mod`, `search`) are forbidden at the platform tool
 layer — they would be ambiguous inside the meta-server, which composes
@@ -285,8 +281,8 @@ every platform's tools into one namespace.
 short prefix for tools that aren't tied to one upstream platform. ModWrench
 uses `mw_` for the workbench tools (`mw_detect_environment`,
 `mw_read_load_order`, `mw_parse_crashlog`, `mw_query_mod_metadata`,
-`mw_check_known_conflicts`). MyneWrench uses `myne_` for cross-platform
-helpers. DefWrench uses `def_`. FlyOnWallWrench uses `fow_`. The prefix is
+`mw_check_known_conflicts`). a separate project uses `myne_` for cross-platform
+helpers. a separate project uses `def_`. a separate project uses `fow_`. The prefix is
 the product, not the company — when a meta-tool clearly belongs to one
 product's vocabulary, it gets that product's prefix even if the
 implementation lives in a shared package.
@@ -329,7 +325,7 @@ LLM with stub tools is worse than an LLM with no tools, because the model
 will happily call the stub and the user will get a confident wrong answer.
 
 The same applies inside tool handlers. An HTTP error becomes a thrown
-`McpwrenchError`, which the SDK surfaces to the model as a structured
+`ModWrenchError`, which the SDK surfaces to the model as a structured
 tool-error response. The model sees `nexus_http_error: HTTP 403 for GET
 /v1/games/skyrim/mods/12345` and can either tell the user (best) or try
 something different (also fine). It does not see a fabricated empty
@@ -339,7 +335,7 @@ been removed" — which would be a lie.
 **No fake tools when the upstream API doesn't exist.** A wrench product
 will not paper over a missing capability with a tool that returns
 plausible-looking data. The canonical example is the UEFN package in
-MyneWrench — `mynewrench/packages/uefn/src/register.ts` is fully scaffolded
+a separate project — `modwrench/packages/uefn/src/register.ts` is fully scaffolded
 (takes a credential, sets a base URL, logs its status on boot) and
 registers exactly zero tools. The top-of-file comment explains why:
 
@@ -376,7 +372,7 @@ A new wrench is a product, not a feature. Before writing code:
 1. **Name reservation.** Confirm the name is unclaimed across three
    surfaces: the npm scope (`@<wrench>/`), a GitHub repo under the
    umbrella organization, and the matching domain (`<wrench>.dev` or
-   `mcpwrench.dev/<wrench>` as the umbrella site grows). If any of the
+   `modwrench.dev/<wrench>` as the umbrella site grows). If any of the
    three is taken by something unrelated, pick a different name now — it
    is cheaper than renaming later.
 2. **Distinct audience.** A new wrench is justified when its audience
@@ -388,7 +384,7 @@ A new wrench is a product, not a feature. Before writing code:
 
 Once the name and the audience are settled, the engineering shape:
 
-3. **Depend on `@mcpwrench/core`.** Every platform package and the meta
+3. **Depend on `@modwrench/core`.** Every platform package and the meta
    server depend on core. Do not vendor core. Do not fork it. If core
    is missing something every wrench would need, file an issue against
    the core package and discuss it before adding it.
@@ -409,7 +405,7 @@ Once the name and the audience are settled, the engineering shape:
    site once it exists. List the product, its audience, and a one-line
    description. Keep it factual.
 7. **Link to this playbook from `CONTRIBUTING.md`.** Your repo's
-   contributor doc should say "this project follows the MCPwrench
+   contributor doc should say "this project follows the ModWrench
    Playbook" with a link to this file. Repeat in your repo only the
    process notes that are genuinely repo-specific (release cadence,
    issue templates, the maintainer's contact). Do not restate the

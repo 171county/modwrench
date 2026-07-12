@@ -39,8 +39,8 @@ let unavailableWarningEmitted = false;
 
 /**
  * Public status of the OS keychain integration on this system. Useful for
- * tools that want to surface a clearer error or recommend the env-var path
- * proactively.
+ * tools that want to surface a clearer error when the credential manager
+ * can't be reached.
  */
 export function getKeychainStatus(): KeychainStatus {
   return keychainStatus;
@@ -80,14 +80,36 @@ function emitUnavailableWarningOnce(err: unknown): void {
     JSON.stringify({
       ts: new Date().toISOString(),
       level: "warn",
-      msg: "OS keychain unavailable on this system; falling back to env vars",
+      msg: "OS credential manager unavailable on this system",
       hint:
         "Common on Steam Deck Game Mode, headless Linux, or systems without " +
-        "libsecret/D-Bus. Set the platform's API_KEY env var in your .env to " +
-        "use the legacy auth path instead.",
+        "libsecret/D-Bus. ModWrench reads credentials only from the OS " +
+        "credential manager, so a working Secret Service (e.g. gnome-keyring) " +
+        "is required — there is no env-var or file-based credential path.",
       error: err instanceof Error ? err.message : String(err),
     }) + "\n"
   );
+}
+
+/**
+ * Read a raw secret string from the OS credential manager without interpreting
+ * it. Returns the stored value as-is — an OAuth-token JSON blob written by the
+ * assisted `auth login` helper, or a raw API key the user pasted in — or null
+ * if nothing is stored / the credential manager is unavailable.
+ */
+export function getRawSecret(name: string): string | null {
+  try {
+    const entry = new Entry(service(name), KEYCHAIN_ACCOUNT);
+    const raw = entry.getPassword();
+    keychainStatus = "available";
+    return raw && raw.trim() !== "" ? raw : null;
+  } catch (err) {
+    if (classifyKeychainError(err) === "unavailable") {
+      keychainStatus = "unavailable";
+      emitUnavailableWarningOnce(err);
+    }
+    return null;
+  }
 }
 
 export function getStoredToken(name: string): StoredToken | null {
@@ -115,10 +137,11 @@ export function setStoredToken(name: string, token: StoredToken): void {
     if (classifyKeychainError(err) === "unavailable") {
       keychainStatus = "unavailable";
       throw new Error(
-        `[modwrench/core] Cannot save credential: OS keychain unavailable. ` +
-          `This is common on Steam Deck Game Mode, headless Linux, or systems ` +
-          `without libsecret/D-Bus. Use the legacy API-key path instead — set ` +
-          `the platform's API_KEY env var in your .env. ` +
+        `[modwrench/core] Cannot save credential: OS credential manager ` +
+          `unavailable. This is common on Steam Deck Game Mode, headless Linux, ` +
+          `or systems without libsecret/D-Bus. ModWrench stores and reads ` +
+          `credentials only in the OS credential manager, so a working Secret ` +
+          `Service (e.g. gnome-keyring) is required. ` +
           `Original error: ${err instanceof Error ? err.message : String(err)}`
       );
     }
@@ -147,50 +170,76 @@ export function deleteStoredToken(name: string): boolean {
 
 export type Credential =
   | {
+      // An OAuth token JSON the user stored in their OS credential manager,
+      // typically written there by the optional `auth login` helper.
       source: "keychain";
       accessToken: string;
       refreshToken?: string;
       expiresAt: number | null;
     }
-  | { source: "env"; apiKey: string };
+  | {
+      // A raw API key / token the user pasted directly into their OS
+      // credential manager. ModWrench reads it and sends it; it never stores
+      // or interprets it beyond trimming surrounding whitespace.
+      source: "apikey";
+      apiKey: string;
+    };
 
 /**
- * Resolve a credential by trying the OS keychain first, then an env var, then
- * failing with a hint that points the user at `auth login`. The shape of the
- * returned credential differs by source — callers should branch on `source`
- * to decide which auth header (Bearer vs platform-specific) to send.
+ * Resolve a credential from the OS credential manager — and ONLY from the OS
+ * credential manager. ModWrench never reads a credential from an env var, a
+ * .env file, or anywhere else on disk. The user places their token or API key
+ * in their OS store (Windows Credential Manager, macOS Keychain, Linux
+ * libsecret); ModWrench reads it, sends it, and holds it no longer than the
+ * request that uses it.
  *
- * If the keychain is unavailable (Steam Deck Game Mode, headless Linux, etc.)
- * the thrown error explicitly says so rather than just reporting "no credential
- * found" — which helps users fix the actual problem.
+ * The stored value is auto-detected: an OAuth-token JSON blob (written by the
+ * optional `auth login` helper) resolves to `source: "keychain"`; anything
+ * else is treated as a raw API key and resolves to `source: "apikey"`. Callers
+ * branch on `source` to decide which auth header (Bearer vs platform-specific)
+ * to send.
+ *
+ * If nothing is stored, or the credential manager is unavailable (Steam Deck
+ * Game Mode, headless Linux, etc.), the thrown error explains exactly where to
+ * put the credential rather than just reporting "not found."
  */
 export function loadCredential(opts: {
   service: string;
-  envVar: string;
   authHint: string;
 }): Credential {
-  const stored = getStoredToken(opts.service);
-  if (stored && stored.access_token) {
-    return {
-      source: "keychain",
-      accessToken: stored.access_token,
-      refreshToken: stored.refresh_token,
-      expiresAt: stored.expires_at,
-    };
+  const raw = getRawSecret(opts.service);
+  if (!raw) {
+    const keychainNote =
+      keychainStatus === "unavailable"
+        ? `The OS credential manager is unavailable on this system (libsecret/` +
+          `D-Bus missing — common on Steam Deck Game Mode or headless Linux). ` +
+          `ModWrench reads credentials only from the OS credential manager, so ` +
+          `a working Secret Service (e.g. gnome-keyring) is required. `
+        : `No credential found in your OS credential manager for ` +
+          `"${opts.service}" (service "${service(opts.service)}", account ` +
+          `"${KEYCHAIN_ACCOUNT}"). Store your ${opts.service} token or API key ` +
+          `there, then retry. `;
+    throw new Error(`[modwrench/core] ${keychainNote}${opts.authHint}`);
   }
 
-  const env = process.env[opts.envVar];
-  if (env && env.trim() !== "") {
-    return { source: "env", apiKey: env };
+  // OAuth-token JSON (from `auth login`) vs a raw pasted API key. Parse and
+  // look for an access_token; otherwise treat the whole string as the key.
+  try {
+    const parsed = JSON.parse(raw) as Partial<StoredToken>;
+    if (
+      parsed &&
+      typeof parsed.access_token === "string" &&
+      parsed.access_token.trim() !== ""
+    ) {
+      return {
+        source: "keychain",
+        accessToken: parsed.access_token,
+        refreshToken: parsed.refresh_token,
+        expiresAt: parsed.expires_at ?? null,
+      };
+    }
+  } catch {
+    // Not JSON — fall through and treat the raw string as an API key.
   }
-
-  const keychainNote =
-    keychainStatus === "unavailable"
-      ? "OS keychain is unavailable on this system (likely libsecret/D-Bus missing — common on Steam Deck Game Mode or headless Linux). "
-      : "Tried OS keychain and ";
-  throw new Error(
-    `[modwrench/core] No credential found for "${opts.service}". ` +
-      `${keychainNote}env var ${opts.envVar} is not set. ` +
-      opts.authHint
-  );
+  return { source: "apikey", apiKey: raw.trim() };
 }

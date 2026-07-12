@@ -21,11 +21,11 @@ If any of these are uncertain, open an issue first describing the platform and t
 
 **Decide your auth story.**
 
-- **Read-only public API** (no auth or simple API key): easiest path. Mirror `@modwrench/modio`'s API-key-via-env fallback.
+- **Read-only public API** (no auth): easiest path — no credential wiring at all. Mirror `@modwrench/thunderstore`. If the API needs a key, the user stores it in their OS credential manager and ModWrench reads it (mirror `@modwrench/nexus`'s key handling).
 - **OAuth (PKCE)**: required if the platform supports it. Mirror `@modwrench/nexus`'s flow.
 - **OAuth (email-code or other non-PKCE)**: case by case. Mirror `@modwrench/modio`'s email-code flow if the shape fits.
 
-Credentials must end up in the OS keychain via `@modwrench/core`'s `setStoredToken`. We don't ship credentials to disk in plain files, and we don't keep them in process memory longer than the request that uses them.
+Credentials live in the user's OS credential manager under service `modwrench-<platform>`. The optional `auth login` flow deposits an OAuth token there via `@modwrench/core`'s `setStoredToken`; a key-only platform relies on the user storing the key there directly. ModWrench only ever READS the credential — it never reads env/`.env`, never ships credentials to disk, and never holds them longer than the request that uses them.
 
 ---
 
@@ -246,9 +246,8 @@ if (subcmd === "auth") {
 
 const credential = loadCredential({
   service: "x",
-  envVar: "X_API_KEY",
   authHint:
-    "Run `modwrench-x auth login` (OAuth) or set X_API_KEY in your .env.",
+    "Store your X credential in your OS credential manager under service `modwrench-x` — an API key, or an OAuth token via `modwrench-x auth login`.",
 });
 
 const server = new McpServer({
@@ -320,10 +319,9 @@ const platforms: PlatformRegistration[] = [
     name: "x",
     kind: "credentialed",
     register: registerXTools,
-    envVar: "X_API_KEY",
     service: "x",
     authHint:
-      "Run `modwrench-x auth login` (OAuth) or set X_API_KEY in your .env.",
+      "Store your X credential in your OS credential manager under service `modwrench-x` — an API key, or an OAuth token via `modwrench-x auth login`.",
   },
 ];
 ```
@@ -397,8 +395,8 @@ PRs that follow this guide and the trust posture get reviewed fast. PRs that byp
 
 ## Living references
 
-- `@modwrench/nexus` — OAuth (PKCE) + legacy API-key fallback, dual auth header routing, 12 tools
-- `@modwrench/modio` — OAuth (email code) + legacy API-key fallback, dual auth routing, 11 tools
+- `@modwrench/nexus` — OAuth (PKCE) or API key, both read from the OS credential manager, dual auth-header routing, 12 tools
+- `@modwrench/modio` — OAuth (email code) or API key, both read from the OS credential manager, dual auth routing, 11 tools
 - `@modwrench/workbench` — uncredentialed `local` kind, demonstrates the alternative registration shape
 
 If something in this doc is wrong or stale, the existing code wins. File an issue with what you found.

@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline/promises";
 import {
-  getEnv,
+  getRawSecret,
   setStoredToken,
   getStoredToken,
   deleteStoredToken,
@@ -20,10 +20,16 @@ async function prompt(question: string): Promise<string> {
 // ─── Subcommands ──────────────────────────────────────────────────────────────
 
 export async function authLogin(): Promise<void> {
-  const apiKey = getEnv("MODIO_API_KEY", "");
+  // mod.io's OAuth email exchange is initiated with the account's API key.
+  // ModWrench never reads that key from .env — the user stores it in their OS
+  // credential manager (service `modwrench-modio`) and we read it from there.
+  const stored = getRawSecret(SERVICE);
+  const apiKey = stored && !stored.trim().startsWith("{") ? stored.trim() : "";
   if (!apiKey) {
     process.stderr.write(
-      "MODIO_API_KEY required to initiate email exchange. Set it in .env first.\n"
+      "A mod.io API key is required to initiate the email exchange. Store it " +
+        "in your OS credential manager under service `modwrench-modio` " +
+        "(account `default`) first, then re-run auth login.\n"
     );
     process.exit(1);
   }

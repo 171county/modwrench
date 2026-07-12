@@ -6,7 +6,6 @@ export type SourcePlatform =
   | "nexus"
   | "modio"
   | "thunderstore"
-  | "curseforge"
   | "unknown";
 
 export type LoadOrderMod = {
