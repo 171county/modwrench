@@ -20,14 +20,13 @@ export type GameId =
   | "repo"
   | "riskofrain2"
   | "dysonsphereprogram"
-  | "boneworks"
-  | "thesims4";
+  | "boneworks";
 
 export type GameDef = {
   gameId: GameId;
   steamAppId: string;
   displayName: string;
-  family: "bethesda" | "unity-coop" | "minecraft" | "sims" | "other";
+  family: "bethesda" | "unity-coop" | "other";
   /** Mod loaders the game can use. First match wins during detection. */
   loaderChecks: Array<{
     loader: ModLoader;
@@ -55,9 +54,6 @@ export type ModLoader =
   | "bepinex-6-mono"
   | "bepinex-6-il2cpp"
   | "melonloader"
-  | "forge"
-  | "fabric"
-  | "neoforge"
   | "none";
 
 export const KNOWN_GAMES: GameDef[] = [
@@ -199,13 +195,5 @@ export const KNOWN_GAMES: GameDef[] = [
       { loader: "melonloader", files: ["MelonLoader/MelonLoader.dll"] },
     ],
     r2modmanFolder: "BONEWORKS",
-  },
-  {
-    gameId: "thesims4",
-    steamAppId: "1222670",
-    displayName: "The Sims 4",
-    family: "sims",
-    // The Sims 4 has no loader — mods drop into Documents/Electronic Arts/...
-    loaderChecks: [],
   },
 ];

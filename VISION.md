@@ -35,8 +35,8 @@ Missing config errors clearly at boot â€” never silently. HTTP errors from 
 
 | Phase | Status | Mechanism |
 |---|---|---|
-| API-key (dev) | Shipped | `NEXUS_API_KEY` / `MODIO_API_KEY` in `.env` (workspace root, gitignored) |
-| OAuth sign-in | Shipped (read-only scope) | Per-server `auth login` subcommand; token in OS keychain via `@napi-rs/keyring`; boot-time fallback chain: keychain â†’ env â†’ fail with hint |
+| API key / token | Shipped | User stores it in the OS credential manager (service `modwrench-<platform>`); ModWrench reads only |
+| OAuth sign-in | Shipped (read-only scope) | Per-server `auth login` subcommand; token in OS keychain via `@napi-rs/keyring`; credential source: OS credential manager only (no env fallback) â†’ fail with hint |
 | OAuth write scopes (endorse, subscribe, rate, comment) | Deliberately deferred | Will require explicit per-tool confirmation prompts |
 
 ### OAuth flow (planned)

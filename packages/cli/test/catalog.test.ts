@@ -1,5 +1,6 @@
-import { test, beforeEach, afterEach } from "node:test";
+import { test } from "node:test";
 import assert from "node:assert/strict";
+import type { Credential } from "@modwrench/core";
 import { MetaCatalog, type PlatformDef } from "../src/catalog.js";
 
 // MetaCatalog is tested against a mock McpServer (we don't need transport —
@@ -24,21 +25,29 @@ class MockMcpServer {
   }
 }
 
-// ─── Test fixtures ──────────────────────────────────────────────────────────
+// ─── Credential injection ─────────────────────────────────────────────────────
+// Credentials come ONLY from the OS credential manager in production. Tests
+// must never touch a real keychain, so we inject a resolver backed by an
+// in-memory store. An empty store models "user has stored nothing" — the
+// resolver throws exactly as core's loadCredential would.
 
-const originalEnv = { ...process.env };
+type CredStore = Map<string, Credential>;
 
-beforeEach(() => {
-  // Each test starts with a clean env so credential-based tests are
-  // deterministic regardless of the dev machine's .env state.
-  process.env = { ...originalEnv };
-  delete process.env["NEXUS_API_KEY"];
-  delete process.env["MODIO_API_KEY"];
-});
+function makeResolver(store: CredStore) {
+  return (opts: { service: string; authHint: string }): Credential => {
+    const cred = store.get(opts.service);
+    if (!cred) {
+      throw new Error(
+        `[modwrench/core] No credential found in your OS credential manager ` +
+          `for "${opts.service}" (service "modwrench-${opts.service}", account ` +
+          `"default"). ${opts.authHint}`
+      );
+    }
+    return cred;
+  };
+}
 
-afterEach(() => {
-  process.env = { ...originalEnv };
-});
+const NEXUS_CRED: Credential = { source: "apikey", apiKey: "fake-test-key" };
 
 /**
  * Synthetic platform set for catalog tests. Mirrors the real CLI's mix of
@@ -52,16 +61,12 @@ function makePlatforms(): PlatformDef[] {
     {
       id: "nexus",
       kind: "credentialed",
-      // Test-only register that just counts invocations and returns a
-      // synthetic tool count. The McpServer mock ignores the actual
-      // tool.() calls so we don't need real tool definitions.
       register: () => {
         nexusCalls++;
         return { toolCount: 12, baseUrl: "https://api.nexusmods.com/v1" };
       },
-      envVar: "NEXUS_API_KEY",
       service: "nexus",
-      authHint: "set NEXUS_API_KEY",
+      authHint: "Store your Nexus credential in your OS credential manager.",
     },
     {
       id: "thunderstore",
@@ -82,17 +87,25 @@ function makePlatforms(): PlatformDef[] {
   ];
 }
 
+/** Build a catalog whose credential resolver is backed by `store`. */
+function makeCatalog(store: CredStore = new Map()): MetaCatalog {
+  const server = new MockMcpServer();
+  return new MetaCatalog(
+    server as unknown as never,
+    makePlatforms(),
+    makeResolver(store)
+  );
+}
+
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
 test("MetaCatalog.knownIds returns all platform identifiers", () => {
-  const server = new MockMcpServer();
-  const catalog = new MetaCatalog(server as unknown as never, makePlatforms());
+  const catalog = makeCatalog();
   assert.deepEqual(catalog.knownIds(), ["nexus", "thunderstore", "workbench"]);
 });
 
 test("activate: local platform succeeds and is tracked as active", async () => {
-  const server = new MockMcpServer();
-  const catalog = new MetaCatalog(server as unknown as never, makePlatforms());
+  const catalog = makeCatalog();
   const result = await catalog.activate("workbench");
   assert.equal(result.status, "active");
   if (result.status !== "active") return;
@@ -101,28 +114,25 @@ test("activate: local platform succeeds and is tracked as active", async () => {
   assert.equal(catalog.isActive("workbench"), true);
 });
 
-test("activate: credentialed platform fails without credential", async () => {
-  const server = new MockMcpServer();
-  const catalog = new MetaCatalog(server as unknown as never, makePlatforms());
+test("activate: credentialed platform fails without a stored credential", async () => {
+  const catalog = makeCatalog(); // empty store — nothing in the OS cred manager
   const result = await catalog.activate("nexus");
   assert.equal(result.status, "failed");
   if (result.status !== "failed") return;
-  assert.match(result.reason, /NEXUS_API_KEY/);
+  assert.match(result.reason, /OS credential manager/);
   assert.equal(catalog.isActive("nexus"), false);
 });
 
-test("activate: credentialed platform succeeds with env credential", async () => {
-  process.env["NEXUS_API_KEY"] = "fake-test-key";
-  const server = new MockMcpServer();
-  const catalog = new MetaCatalog(server as unknown as never, makePlatforms());
+test("activate: credentialed platform succeeds when a credential is stored", async () => {
+  const store: CredStore = new Map([["nexus", NEXUS_CRED]]);
+  const catalog = makeCatalog(store);
   const result = await catalog.activate("nexus");
   assert.equal(result.status, "active");
   assert.equal(catalog.isActive("nexus"), true);
 });
 
 test("activate: idempotent — second call returns alreadyActive=true", async () => {
-  const server = new MockMcpServer();
-  const catalog = new MetaCatalog(server as unknown as never, makePlatforms());
+  const catalog = makeCatalog();
   const first = await catalog.activate("workbench");
   assert.equal(first.status, "active");
   if (first.status !== "active") return;
@@ -135,8 +145,7 @@ test("activate: idempotent — second call returns alreadyActive=true", async ()
 });
 
 test("activate: unknown platform returns status=unknown with helpful message", async () => {
-  const server = new MockMcpServer();
-  const catalog = new MetaCatalog(server as unknown as never, makePlatforms());
+  const catalog = makeCatalog();
   const result = await catalog.activate("not-a-platform");
   assert.equal(result.status, "unknown");
   if (result.status !== "unknown") return;
@@ -146,7 +155,11 @@ test("activate: unknown platform returns status=unknown with helpful message", a
 
 test("activate: emits sendToolListChanged on first successful activation", async () => {
   const server = new MockMcpServer();
-  const catalog = new MetaCatalog(server as unknown as never, makePlatforms());
+  const catalog = new MetaCatalog(
+    server as unknown as never,
+    makePlatforms(),
+    makeResolver(new Map())
+  );
   assert.equal(server.notificationsSent, 0);
   await catalog.activate("workbench");
   assert.equal(server.notificationsSent, 1);
@@ -154,7 +167,11 @@ test("activate: emits sendToolListChanged on first successful activation", async
 
 test("activate: does NOT emit notification on already-active no-op", async () => {
   const server = new MockMcpServer();
-  const catalog = new MetaCatalog(server as unknown as never, makePlatforms());
+  const catalog = new MetaCatalog(
+    server as unknown as never,
+    makePlatforms(),
+    makeResolver(new Map())
+  );
   await catalog.activate("workbench");
   assert.equal(server.notificationsSent, 1);
   await catalog.activate("workbench");
@@ -163,15 +180,18 @@ test("activate: does NOT emit notification on already-active no-op", async () =>
 
 test("activate: does NOT emit notification on failed activation", async () => {
   const server = new MockMcpServer();
-  const catalog = new MetaCatalog(server as unknown as never, makePlatforms());
-  await catalog.activate("nexus"); // fails, no creds
+  const catalog = new MetaCatalog(
+    server as unknown as never,
+    makePlatforms(),
+    makeResolver(new Map())
+  );
+  await catalog.activate("nexus"); // fails, no stored credential
   assert.equal(server.notificationsSent, 0);
 });
 
 test("activateAll: activates every available platform, records failures", async () => {
-  // Only workbench + thunderstore can activate (no nexus cred set).
-  const server = new MockMcpServer();
-  const catalog = new MetaCatalog(server as unknown as never, makePlatforms());
+  // Only workbench + thunderstore can activate (no nexus credential stored).
+  const catalog = makeCatalog();
   await catalog.activateAll();
   const active = catalog.listActive();
   const failed = catalog.listFailed();
@@ -181,8 +201,7 @@ test("activateAll: activates every available platform, records failures", async 
 });
 
 test("listActive includes toolCount and baseUrl when provided", async () => {
-  const server = new MockMcpServer();
-  const catalog = new MetaCatalog(server as unknown as never, makePlatforms());
+  const catalog = makeCatalog();
   await catalog.activate("thunderstore");
   const active = catalog.listActive();
   assert.equal(active.length, 1);
@@ -192,22 +211,23 @@ test("listActive includes toolCount and baseUrl when provided", async () => {
 });
 
 test("listActive omits baseUrl for local platforms that don't provide one", async () => {
-  const server = new MockMcpServer();
-  const catalog = new MetaCatalog(server as unknown as never, makePlatforms());
+  const catalog = makeCatalog();
   await catalog.activate("workbench");
   const active = catalog.listActive();
   assert.equal(active[0]?.platformId, "workbench");
   assert.equal(active[0]?.baseUrl, undefined);
 });
 
-test("retry: failed platform becomes active after env var is set", async () => {
-  const server = new MockMcpServer();
-  const catalog = new MetaCatalog(server as unknown as never, makePlatforms());
+test("retry: failed platform becomes active after the credential is stored", async () => {
+  // Start with nothing stored; the platform fails. Then simulate the user
+  // placing their credential in the OS credential manager (here: adding it to
+  // the injected store) and retry — activation should now succeed.
+  const store: CredStore = new Map();
+  const catalog = makeCatalog(store);
   const first = await catalog.activate("nexus");
   assert.equal(first.status, "failed");
 
-  // Simulate the user running `modwrench auth login nexus` (here just env var).
-  process.env["NEXUS_API_KEY"] = "now-available";
+  store.set("nexus", NEXUS_CRED);
   const retry = await catalog.activate("nexus");
   assert.equal(retry.status, "active");
   assert.equal(catalog.isActive("nexus"), true);

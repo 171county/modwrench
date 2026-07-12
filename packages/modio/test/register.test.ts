@@ -29,7 +29,7 @@ class MockMcpServer {
   }
 }
 
-const ENV_CRED: Credential = { source: "env", apiKey: "modio-test-key" };
+const APIKEY_CRED: Credential = { source: "apikey", apiKey: "modio-test-key" };
 const KEYCHAIN_CRED: Credential = {
   source: "keychain",
   accessToken: "modio-oauth-token",
@@ -81,14 +81,14 @@ function modioEnvelope<T>(rows: T[]): {
 
 test("registerModioTools: registers 17 tools", () => {
   const server = new MockMcpServer();
-  const result = registerModioTools(server as unknown as never, ENV_CRED);
+  const result = registerModioTools(server as unknown as never, APIKEY_CRED);
   assert.equal(result.toolCount, 17);
   assert.equal(server.tools.size, 17);
 });
 
 test("registerModioTools: every expected tool is present", () => {
   const server = new MockMcpServer();
-  registerModioTools(server as unknown as never, ENV_CRED);
+  registerModioTools(server as unknown as never, APIKEY_CRED);
   const expected = [
     "modio_list_games",
     "modio_get_game",
@@ -115,9 +115,9 @@ test("registerModioTools: every expected tool is present", () => {
 
 // ─── mod.io's auth quirk: api_key as QUERY param, OAuth as Bearer header ────
 
-test("env credential injects api_key into the query string", async () => {
+test("apikey credential injects api_key into the query string", async () => {
   const server = new MockMcpServer();
-  registerModioTools(server as unknown as never, ENV_CRED);
+  registerModioTools(server as unknown as never, APIKEY_CRED);
   const { calls } = captureFetch(() => jsonResponse(modioEnvelope([])));
   await server.invoke("modio_list_games", { limit: 10 });
   assert.equal(calls.length, 1);
@@ -149,7 +149,7 @@ test("keychain credential uses Authorization Bearer header (no api_key in URL)",
 
 test("modio_get_mod hits /games/{game_id}/mods/{mod_id}", async () => {
   const server = new MockMcpServer();
-  registerModioTools(server as unknown as never, ENV_CRED);
+  registerModioTools(server as unknown as never, APIKEY_CRED);
   const { calls } = captureFetch(() => jsonResponse({ id: 42, name: "Test" }));
   await server.invoke("modio_get_mod", { game_id: 6195, mod_id: 42 });
   // Strip query params (api_key) before checking path
@@ -159,7 +159,7 @@ test("modio_get_mod hits /games/{game_id}/mods/{mod_id}", async () => {
 
 test("modio_search_mods passes query and limit", async () => {
   const server = new MockMcpServer();
-  registerModioTools(server as unknown as never, ENV_CRED);
+  registerModioTools(server as unknown as never, APIKEY_CRED);
   const { calls } = captureFetch(() => jsonResponse(modioEnvelope([])));
   await server.invoke("modio_search_mods", {
     game_id: 1,
@@ -172,7 +172,7 @@ test("modio_search_mods passes query and limit", async () => {
 
 test("modio_popular sorts by 'popular'", async () => {
   const server = new MockMcpServer();
-  registerModioTools(server as unknown as never, ENV_CRED);
+  registerModioTools(server as unknown as never, APIKEY_CRED);
   const { calls } = captureFetch(() => jsonResponse(modioEnvelope([])));
   await server.invoke("modio_popular", { game_id: 1, limit: 10 });
   assert.ok(calls[0]?.url.includes("_sort=popular"));
@@ -180,7 +180,7 @@ test("modio_popular sorts by 'popular'", async () => {
 
 test("modio_top_games paginates and ranks server-side", async () => {
   const server = new MockMcpServer();
-  registerModioTools(server as unknown as never, ENV_CRED);
+  registerModioTools(server as unknown as never, APIKEY_CRED);
   // Stub returns a single page so the pagination loop exits cleanly.
   globalThis.fetch = async () =>
     jsonResponse({
@@ -207,7 +207,7 @@ test("modio_top_games paginates and ranks server-side", async () => {
 
 test("HTTP 401 surfaces as modio_http_error", async () => {
   const server = new MockMcpServer();
-  registerModioTools(server as unknown as never, ENV_CRED);
+  registerModioTools(server as unknown as never, APIKEY_CRED);
   globalThis.fetch = async () =>
     new Response("Unauthorized", { status: 401 });
   await assert.rejects(

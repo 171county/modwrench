@@ -15,6 +15,11 @@ published at a matching version, `@modwrench/curseforge` and `@modwrench/remote`
 for the first time, and the MCP Registry entry (`io.github.171county/modwrench`) updated
 to point at `@modwrench/cli@0.1.0`.
 
+### Removed
+
+- **CurseForge platform removed from ModWrench.** `@modwrench/curseforge` and all CurseForge wiring were pulled out — CurseForge (a Minecraft-centric host) belongs in the sibling a separate project project, not ModWrench.
+- **Minecraft support removed from the Workbench.** The Minecraft crash-report parser and the Forge/Fabric/NeoForge loader + `minecraft` game-family detection were removed and staged for a separate project. ModWrench's local diagnostics now target the Bethesda Creation Engine and Unity/BepInEx families only. Final platform lineup: Nexus, mod.io, Thunderstore, and the local Workbench.
+
 ### Added
 
 - **CurseForge platform added** ([packages/curseforge/](packages/curseforge/)) — 10 read-only tools, authenticated via `CURSEFORGE_API_KEY` (free from console.curseforge.com) sent in the `x-api-key` header. (2026-06-25)

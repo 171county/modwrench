@@ -105,10 +105,10 @@ async function queryModMetadataInner(
     input.modName !== undefined &&
     input.gameId !== undefined;
 
-  if (platform === "thunderstore" || platform === "curseforge") {
+  if (platform === "thunderstore") {
     return {
       found: false,
-      reason: `Platform "${platform}" support is not implemented yet (planned for v3+). Use platform="nexus" or "modio" for now.`,
+      reason: `Platform "thunderstore" support is not implemented yet (planned for a later version). Use platform="nexus" or "modio" for now.`,
       attemptedPlatforms: [],
     };
   }
@@ -120,8 +120,9 @@ async function queryModMetadataInner(
     const client = tryCreateNexusClient();
     if (!client) {
       platformErrors["nexus"] =
-        "No Nexus credential configured. Run `modwrench auth login nexus` " +
-        "(OAuth) or set NEXUS_API_KEY in your .env.";
+        "No Nexus credential found. Store your Nexus API key (or an OAuth " +
+        "token via `modwrench auth login nexus`) in your OS credential " +
+        "manager under service `modwrench-nexus`.";
     } else {
       try {
         const raw = await queryNexus(client, input.gameId!, input.modId!);
@@ -142,8 +143,9 @@ async function queryModMetadataInner(
     const client = tryCreateModioClient();
     if (!client) {
       platformErrors["modio"] =
-        "No mod.io credential configured. Run `modwrench auth login modio` " +
-        "(OAuth) or set MODIO_API_KEY in your .env.";
+        "No mod.io credential found. Store your mod.io API key (or an OAuth " +
+        "token via `modwrench auth login modio`) in your OS credential " +
+        "manager under service `modwrench-modio`.";
     } else {
       try {
         const raw = await queryModioById(client, input.gameId!, input.modId!);

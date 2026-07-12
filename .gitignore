@@ -26,7 +26,8 @@ desktop.ini
 .vscode/
 .idea/
 .cursor/
-.claude/
+.claude/*
+!.claude/skills/
 .codex/
 .continue/
 .cline/
@@ -44,3 +45,7 @@ desktop.ini
 .cache/
 # Raw chat transcripts — kept local-only, not project artifacts
 research on modders.md
+
+# Local staging / backups (moved-out code preserved for a separate project port; not shipped)
+_removed-*/
+_old-node_modules-*/

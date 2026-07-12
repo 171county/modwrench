@@ -36,23 +36,23 @@ interface DetectEnvironmentOutput {
     gameId: string;            // "skyrimspecialedition", "fallout4", "lethalcompany"
     gameName: string;
     installPath: string;
-    modManager?: "vortex" | "mo2" | "r2modman" | "thunderstore-mm" | "curseforge" | "none";
+    modManager?: "vortex" | "mo2" | "r2modman" | "thunderstore-mm" | "none";
     modManagerProfile?: string; // active profile name if applicable
-    modLoader?: "skse" | "f4se" | "bepinex-5" | "bepinex-6" | "forge" | "fabric" | "neoforge" | "none";
+    modLoader?: "skse" | "f4se" | "bepinex-5" | "bepinex-6" | "melonloader" | "none";
     modLoaderVersion?: string;
   }>;
   protonVersion?: string;      // only on Linux/Steam Deck
 }
 ```
 
-**Why this matters:** The modding tool universe is wildly different across Bethesda / Unity-co-op / Minecraft / Sims. The compound workbench has to know which universe it's in before it can be useful. On Steam Deck, this also flags Proton-specific issues (force-proton workarounds, etc.) that wouldn't apply on bare Windows.
+**Why this matters:** The modding tool universe is wildly different across Bethesda / Unity-co-op. The compound workbench has to know which universe it's in before it can be useful. On Steam Deck, this also flags Proton-specific issues (force-proton workarounds, etc.) that wouldn't apply on bare Windows.
 
 **Implementation notes:**
 - On Windows: scan Steam's `libraryfolders.vdf`, registry, plus standard Bethesda Launcher / GOG paths
 - On Linux: scan `~/.steam/steam/steamapps/`, Flatpak Steam locations, native installs
 - On Steam Deck: check `/etc/os-release` for `steamdeck` ID, then add `isSteamDeck: true`
 - Mod manager detection: look for known directory structures (Vortex: `%APPDATA%/Vortex`, MO2: `mods/`, `profiles/`, `mods.txt` in instance dir, r2modman: `%APPDATA%/r2modmanPlus-local`)
-- Mod loader detection: file presence checks (`SKSE64_loader.exe`, `BepInEx/core/BepInEx.dll`, `mods/` for Minecraft Forge, etc.)
+- Mod loader detection: file presence checks (`SKSE64_loader.exe`, `BepInEx/core/BepInEx.dll`, etc.)
 
 ### Tool 2 — `mw_read_load_order`
 
@@ -71,10 +71,10 @@ interface ReadLoadOrderOutput {
   mods: Array<{
     name: string;
     enabled: boolean;
-    loadOrderIndex?: number;   // for Bethesda games; undefined for Unity/Minecraft
+    loadOrderIndex?: number;   // for Bethesda games; undefined for Unity
     pluginFile?: string;       // .esp/.esl/.esm name for Bethesda
     version?: string;
-    sourcePlatform?: "nexus" | "modio" | "thunderstore" | "curseforge" | "unknown";
+    sourcePlatform?: "nexus" | "modio" | "thunderstore" | "unknown";
     sourceModId?: string;       // platform-specific ID, supports attribution
     author?: string;            // PRESERVED — never strip
     installedAt?: string;       // ISO timestamp
@@ -95,13 +95,13 @@ interface ReadLoadOrderOutput {
 
 ### Tool 3 — `mw_parse_crashlog`
 
-**Purpose:** Read a crash log (Bethesda Crash Logger SSE, Buffout 4, NetScriptFramework, BepInEx exception, or Minecraft crash report) and extract structured information without trying to diagnose it.
+**Purpose:** Read a crash log (Bethesda Crash Logger SSE, Buffout 4, NetScriptFramework, or BepInEx exception) and extract structured information without trying to diagnose it.
 
 ```typescript
 interface ParseCrashlogInput {
   logContent?: string;          // either provide content directly
   logPath?: string;             // or a path to read
-  logType?: "auto" | "crashlogger-sse" | "buffout4" | "netscriptframework" | "bepinex" | "minecraft";
+  logType?: "auto" | "crashlogger-sse" | "buffout4" | "netscriptframework" | "bepinex";
 }
 
 interface ParseCrashlogOutput {
@@ -139,7 +139,6 @@ interface ParseCrashlogOutput {
 - Crash Logger SSE format: parse `Documents\My Games\Skyrim Special Edition\SKSE\crash-YYYY-MM-DD-HH-MM-SS.log`
 - Buffout 4 format: parse `Documents\My Games\Fallout4\F4SE\crash-*.log`
 - BepInEx exceptions: parse `BepInEx/LogOutput.log` for fatal exception traces
-- Minecraft crash reports: parse `crash-reports/crash-YYYY-MM-DD_HH.MM.SS-*.txt`
 - Always emit `detectedType` so the LLM can adapt its reasoning to the format
 - `suspectedRefs.likelySource` is a soft guess only — never present as certainty
 
@@ -151,7 +150,7 @@ interface ParseCrashlogOutput {
 interface QueryModMetadataInput {
   modId?: string;
   modName?: string;             // fuzzy match if id unknown
-  platform?: "nexus" | "modio" | "thunderstore" | "curseforge" | "any";
+  platform?: "nexus" | "modio" | "thunderstore" | "any";
   gameId?: string;              // recommended for fuzzy name matches
 }
 
@@ -184,7 +183,7 @@ interface QueryModMetadataOutput {
 **Why this matters:** The compound workbench frequently needs to ask "what is this mod, who made it, what's it known to conflict with?" This is the answer-source. **Critically, this tool surfaces author and permissions metadata on every reply** — that's how trust gets baked into the chain.
 
 **Implementation notes:**
-- Hits the Nexus / mod.io / Thunderstore / CurseForge APIs your existing 14 tools already wrap. Just normalize the response shape.
+- Hits the Nexus / mod.io / Thunderstore APIs your existing tools already wrap. Just normalize the response shape.
 - Cache aggressively (24-hour TTL is fine for description, version metadata); never cache user-specific data
 - Respect platform rate limits cleanly; fail with a useful message rather than retrying silently
 
@@ -211,7 +210,7 @@ interface CheckKnownConflictsOutput {
 }
 ```
 
-**Why this matters:** LOOT's masterlist is community-curated knowledge that lives in plain text files in a GitHub repo. ModWrench can read that file directly (no API key needed, just HTTPS fetch) and use it as the seed conflict database for Bethesda games. For non-Bethesda games (Unity, Minecraft), there's no equivalent yet — start by maintaining a small curated JSON file in your repo and let the community contribute via PRs. That contribution loop itself becomes a moat over time.
+**Why this matters:** LOOT's masterlist is community-curated knowledge that lives in plain text files in a GitHub repo. ModWrench can read that file directly (no API key needed, just HTTPS fetch) and use it as the seed conflict database for Bethesda games. For non-Bethesda games (Unity), there's no equivalent yet — start by maintaining a small curated JSON file in your repo and let the community contribute via PRs. That contribution loop itself becomes a moat over time.
 
 **Implementation notes:**
 - LOOT masterlist URL pattern: `https://raw.githubusercontent.com/loot/<game>/v0.21/masterlist.yaml`
