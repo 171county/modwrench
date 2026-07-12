@@ -1,41 +1,41 @@
 {
-    "name":  "mcpwrench",
-    "version":  "0.1.0",
-    "private":  true,
-    "description":  "MCPwrench â€” a workshop of MCP servers. First product: ModWrench, an MCP toolkit for modders.",
-    "license":  "MIT",
-    "repository":  {
-                       "type":  "git",
-                       "url":  "git+https://github.com/171county/modwrench.git"
-                   },
-    "homepage":  "https://github.com/171county/modwrench#readme",
-    "bugs":  {
-                 "url":  "https://github.com/171county/modwrench/issues"
-             },
-    "type":  "module",
-    "workspaces":  [
-                       "packages/core",
-                       "packages/nexus",
-                       "packages/modio",
-                       "packages/curseforge",
-                       "packages/thunderstore",
-                       "packages/workbench",
-                       "packages/remote",
-                       "packages/cli"
-                   ],
-    "scripts":  {
-                    "build":  "npm run build --workspaces --if-present",
-                    "dev":  "npm run dev --workspaces --if-present",
-                    "clean":  "npm run clean --workspaces --if-present",
-                    "typecheck":  "npm run typecheck --workspaces --if-present",
-                    "test":  "npm run test --workspaces --if-present"
-                },
-    "engines":  {
-                    "node":  "\u003e=20.0.0"
-                },
-    "devDependencies":  {
-                            "@types/node":  "^22.0.0",
-                            "tsx":  "^4.19.0",
-                            "typescript":  "^5.6.0"
-                        }
+  "name": "modwrench",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ModWrench \u00e2\u20ac\u201d a workshop of MCP servers. First product: ModWrench, an MCP toolkit for modders.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/171county/modwrench.git"
+  },
+  "homepage": "https://github.com/171county/modwrench#readme",
+  "bugs": {
+    "url": "https://github.com/171county/modwrench/issues"
+  },
+  "type": "module",
+  "workspaces": [
+    "packages/core",
+    "packages/ui",
+    "packages/nexus",
+    "packages/modio",
+    "packages/thunderstore",
+    "packages/workbench",
+    "packages/remote",
+    "packages/cli"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev": "npm run dev --workspaces --if-present",
+    "clean": "npm run clean --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
 }

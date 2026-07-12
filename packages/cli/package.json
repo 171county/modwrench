@@ -1,44 +1,44 @@
 {
-    "name":  "@modwrench/cli",
-    "version":  "0.1.0",
-    "mcpName":  "io.github.171county/modwrench",
-    "description":  "ModWrench â€” one MCP entry, every mod platform. Bundles all installed @modwrench/* platform packages into a single combined MCP server.",
-    "license":  "MIT",
-    "repository":  {
-                       "type":  "git",
-                       "url":  "git+https://github.com/171county/modwrench.git",
-                       "directory":  "packages/cli"
-                   },
-    "homepage":  "https://github.com/171county/modwrench#readme",
-    "bugs":  {
-                 "url":  "https://github.com/171county/modwrench/issues"
-             },
-    "type":  "module",
-    "main":  "./dist/index.js",
-    "bin":  {
-                "modwrench":  "dist/index.js"
-            },
-    "files":  [
-                  "dist"
-              ],
-    "publishConfig":  {
-                          "access":  "public"
-                      },
-    "scripts":  {
-                    "build":  "tsc",
-                    "dev":  "tsx watch src/index.ts",
-                    "start":  "node dist/index.js",
-                    "clean":  "rimraf dist",
-                    "typecheck":  "tsc --noEmit",
-                    "test":  "node --import tsx --test test/*.test.ts"
-                },
-    "dependencies":  {
-                         "@modwrench/core":  "0.1.0",
-                         "@modwrench/curseforge":  "0.1.0",
-                         "@modwrench/modio":  "0.1.0",
-                         "@modwrench/nexus":  "0.1.0",
-                         "@modwrench/thunderstore":  "0.1.0",
-                         "@modwrench/workbench":  "0.1.0",
-                         "@modelcontextprotocol/sdk":  "^1.0.4"
-                     }
+  "name": "@modwrench/cli",
+  "version": "0.1.0",
+  "mcpName": "io.github.171county/modwrench",
+  "description": "ModWrench \u00e2\u20ac\u201d one MCP entry, every mod platform. Bundles all installed @modwrench/* platform packages into a single combined MCP server.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/171county/modwrench.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/171county/modwrench#readme",
+  "bugs": {
+    "url": "https://github.com/171county/modwrench/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "modwrench": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "clean": "rimraf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@modwrench/core": "0.1.0",
+    "@modwrench/modio": "0.1.0",
+    "@modwrench/nexus": "0.1.0",
+    "@modwrench/thunderstore": "0.1.0",
+    "@modwrench/ui": "0.1.0",
+    "@modwrench/workbench": "0.1.0"
+  }
 }

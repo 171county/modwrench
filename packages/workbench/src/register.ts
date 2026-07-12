@@ -5,6 +5,24 @@ import { detectEnvironment } from "./detect/environment.js";
 import { readLoadOrder } from "./loadorder/index.js";
 import { parseCrashlog } from "./crashlog/index.js";
 import { queryModMetadata } from "./metadata/index.js";
+import {
+  renderShell,
+  createUIResource,
+  themeForCrashType,
+  type CrashData,
+  type ConflictsData,
+  type DepsData,
+} from "@modwrench/ui";
+
+/** Pick the theme skin from a canonical game id. */
+function themeForGameId(gameId: string): string {
+  const g = gameId.toLowerCase();
+  if (g.includes("fallout")) return "fallout";
+  if (g.includes("skyrim") || g.includes("starfield") || g.includes("oblivion"))
+    return "skyrim";
+  if (g.includes("valheim")) return "valheim";
+  return "lethal";
+}
 import { checkKnownConflicts } from "./conflicts/index.js";
 
 /**
@@ -26,7 +44,7 @@ export function registerWorkbenchTools(server: McpServer): {
 
   server.tool(
     "mw_detect_environment",
-    "Auto-detect the user's modding environment: OS, Steam Deck, installed mod-friendly games (Bethesda / Unity co-op / Sims / Minecraft), per-game mod loaders (SKSE / F4SE / BepInEx / etc.), installed mod managers (Vortex / MO2 / r2modman / CurseForge App), and Proton versions on Linux. Read-only — touches no files outside known config/save locations.",
+    "Auto-detect the user's modding environment: OS, Steam Deck, installed mod-friendly games (Bethesda / Unity co-op), per-game mod loaders (SKSE / F4SE / BepInEx / etc.), installed mod managers (Vortex / MO2 / r2modman), and Proton versions on Linux. Read-only — touches no files outside known config/save locations.",
     {},
     async () => {
       const result = detectEnvironment();
@@ -98,12 +116,40 @@ export function registerWorkbenchTools(server: McpServer): {
         mods: result.ok ? result.totalCount : 0,
       });
 
+      const orderUI = result.ok
+        ? [
+            createUIResource({
+              uri: "ui://modwrench/order",
+              html: renderShell({
+                theme: themeForGameId(gameId),
+                view: "deps",
+                deps: {
+                  loadOrder: result.mods.map((m) => ({
+                    name: m.name,
+                    enabled: m.enabled,
+                    index: m.loadOrderIndex,
+                    version: m.version,
+                    source: m.sourcePlatform,
+                    pluginFile: m.pluginFile,
+                  })),
+                  manager: result.modManager,
+                  profile: result.profile,
+                  enabledCount: result.enabledCount,
+                  totalCount: result.totalCount,
+                } as DepsData,
+              }),
+              meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
+            }),
+          ]
+        : [];
+
       return {
         content: [
           {
             type: "text",
             text: JSON.stringify(result, null, 2),
           },
+          ...orderUI,
         ],
       };
     }
@@ -118,7 +164,7 @@ export function registerWorkbenchTools(server: McpServer): {
 
   server.tool(
     "mw_parse_crashlog",
-    "Parse a crashlog file or pasted content into structured fields (exception type, call stack, loaded plugins, registers, suspected FormID refs). Supports Crash Logger SSE (Skyrim), Buffout 4 (Fallout 4), NetScriptFramework (older Skyrim), BepInEx (Unity games), and Minecraft crash-reports. Returns parsed structure only — diagnosis is the LLM's job.",
+    "Parse a crashlog file or pasted content into structured fields (exception type, call stack, loaded plugins, registers, suspected FormID refs). Supports Crash Logger SSE (Skyrim), Buffout 4 (Fallout 4), NetScriptFramework (older Skyrim), and BepInEx (Unity games). Returns parsed structure only — diagnosis is the LLM's job.",
     {
       logContent: z
         .string()
@@ -130,7 +176,7 @@ export function registerWorkbenchTools(server: McpServer): {
         .string()
         .optional()
         .describe(
-          "Absolute path to a crashlog file on disk. Common locations: ~/Documents/My Games/Skyrim Special Edition/SKSE/crash-*.log for Crash Logger SSE, ~/Documents/My Games/Fallout4/F4SE/crash-*.log for Buffout 4, the game's BepInEx/LogOutput.log for Unity, or ~/.minecraft/crash-reports/crash-*.txt for Minecraft."
+          "Absolute path to a crashlog file on disk. Common locations: ~/Documents/My Games/Skyrim Special Edition/SKSE/crash-*.log for Crash Logger SSE, ~/Documents/My Games/Fallout4/F4SE/crash-*.log for Buffout 4, or the game's BepInEx/LogOutput.log for Unity."
         ),
       logType: z
         .enum([
@@ -139,7 +185,6 @@ export function registerWorkbenchTools(server: McpServer): {
           "buffout4",
           "netscriptframework",
           "bepinex",
-          "minecraft",
         ])
         .optional()
         .describe(
@@ -166,6 +211,15 @@ export function registerWorkbenchTools(server: McpServer): {
             type: "text",
             text: JSON.stringify(result, null, 2),
           },
+          createUIResource({
+            uri: "ui://modwrench/crash",
+            html: renderShell({
+              theme: themeForCrashType(result.ok ? result.detectedType : undefined),
+              view: "crash",
+              crash: result as unknown as CrashData,
+            }),
+            meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
+          }),
         ],
       };
     }
@@ -179,7 +233,7 @@ export function registerWorkbenchTools(server: McpServer): {
 
   server.tool(
     "mw_query_mod_metadata",
-    "Look up a mod's metadata across supported platforms (Nexus, mod.io) with a normalized shape: id, name, author, version, downloads, endorsements, pageUrl, and a permissions block that always includes attribution. Use this to enrich crashlog suspects or load-order entries with who-made-this and where-it-lives info. Thunderstore and CurseForge support is planned for v3+.",
+    "Look up a mod's metadata across supported platforms (Nexus, mod.io) with a normalized shape: id, name, author, version, downloads, endorsements, pageUrl, and a permissions block that always includes attribution. Use this to enrich crashlog suspects or load-order entries with who-made-this and where-it-lives info. Thunderstore support is planned for a later version.",
     {
       modId: z
         .string()
@@ -194,7 +248,7 @@ export function registerWorkbenchTools(server: McpServer): {
           "Mod name for fuzzy lookup (mod.io only — Nexus has no public search endpoint). Pass with gameId."
         ),
       platform: z
-        .enum(["nexus", "modio", "thunderstore", "curseforge", "any"])
+        .enum(["nexus", "modio", "thunderstore", "any"])
         .optional()
         .describe(
           "Which platform to query. Default 'any' — tries Nexus first when a numeric modId + gameId are given, then mod.io. Use explicit platform to skip the cascade."
@@ -219,12 +273,32 @@ export function registerWorkbenchTools(server: McpServer): {
         attempted: result.attemptedPlatforms,
       });
 
+      const cards = result.found
+        ? [
+            {
+              id: result.mod.id,
+              name: result.mod.name,
+              author: result.mod.attribution.author,
+              platform: result.mod.platform,
+              version: result.mod.version,
+              downloads: result.mod.downloadCount,
+              endorsements: result.mod.endorsements,
+              summary: result.mod.summary,
+              pageUrl: result.mod.pageUrl,
+            },
+          ]
+        : [];
       return {
         content: [
           {
             type: "text",
             text: JSON.stringify(result, null, 2),
           },
+          createUIResource({
+            uri: "ui://modwrench/mods",
+            html: renderShell({ view: "mods", mods: { mods: cards } }),
+            meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
+          }),
         ],
       };
     }
@@ -260,6 +334,21 @@ export function registerWorkbenchTools(server: McpServer): {
     async ({ gameId, modIds }) => {
       const result = await checkKnownConflicts({ gameId, modIds });
 
+      const conflictUI = createUIResource({
+        uri: "ui://modwrench/conflicts",
+        html: renderShell({
+          theme: themeForGameId(gameId),
+          view: "conflicts",
+          conflicts: {
+            gameId,
+            conflicts: result.conflicts,
+            sources: result.sources,
+            warnings: result.warnings,
+          } as ConflictsData,
+        }),
+        meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
+      });
+
       log("debug", "workbench.check_known_conflicts", {
         gameId,
         inputs: modIds.length,
@@ -274,6 +363,7 @@ export function registerWorkbenchTools(server: McpServer): {
             type: "text",
             text: JSON.stringify(result, null, 2),
           },
+          conflictUI,
         ],
       };
     }

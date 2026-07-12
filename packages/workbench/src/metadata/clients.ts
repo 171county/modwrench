@@ -33,7 +33,6 @@ export function tryCreateNexusClient(): NexusClient | null {
   try {
     credential = loadCredential({
       service: "nexus",
-      envVar: "NEXUS_API_KEY",
       authHint: "no-op",
     });
   } catch {
@@ -75,7 +74,6 @@ export function tryCreateModioClient(): ModioClient | null {
   try {
     credential = loadCredential({
       service: "modio",
-      envVar: "MODIO_API_KEY",
       authHint: "no-op",
     });
   } catch {
@@ -102,16 +100,16 @@ export function tryCreateModioClient(): ModioClient | null {
       const finalQuery: Record<string, string | number | undefined | null> = {
         ...(query ?? {}),
       };
-      // mod.io's quirk: legacy API key goes on the query string, not as a
+      // mod.io's quirk: a raw API key goes on the query string, not as a
       // header. OAuth tokens use the Authorization header (handled by
-      // authHeaders above).
-      if (credential.source === "env") {
+      // authHeaders above). Both come from the OS credential manager.
+      if (credential.source === "apikey") {
         finalQuery["api_key"] = credential.apiKey;
       }
       log("debug", "workbench.modio.request", {
         path,
         auth:
-          credential.source === "env" ? "api_key (query)" : "Bearer (header)",
+          credential.source === "apikey" ? "api_key (query)" : "Bearer (header)",
       });
       return http.request<T>(path, { query: finalQuery });
     },

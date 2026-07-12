@@ -41,7 +41,7 @@ class MockMcpServer {
 
 // ─── Test fixtures ───────────────────────────────────────────────────────────
 
-const ENV_CRED: Credential = { source: "env", apiKey: "test-api-key-12345" };
+const APIKEY_CRED: Credential = { source: "apikey", apiKey: "test-api-key-12345" };
 const KEYCHAIN_CRED: Credential = {
   source: "keychain",
   accessToken: "oauth-token-67890",
@@ -80,28 +80,28 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 // ─── Registration smoke tests ───────────────────────────────────────────────
 
-test("registerNexusTools: registers 13 tools with env credential", () => {
+test("registerNexusTools: registers 14 tools with an apikey credential", () => {
   const server = new MockMcpServer();
-  const result = registerNexusTools(server as unknown as never, ENV_CRED);
-  assert.equal(result.toolCount, 13);
-  assert.equal(server.tools.size, 13);
+  const result = registerNexusTools(server as unknown as never, APIKEY_CRED);
+  assert.equal(result.toolCount, 14);
+  assert.equal(server.tools.size, 14);
 });
 
 test("registerNexusTools: same tool count with keychain credential", () => {
   const server = new MockMcpServer();
   const result = registerNexusTools(server as unknown as never, KEYCHAIN_CRED);
-  assert.equal(result.toolCount, 13);
+  assert.equal(result.toolCount, 14);
 });
 
 test("registerNexusTools: exposes base URL", () => {
   const server = new MockMcpServer();
-  const result = registerNexusTools(server as unknown as never, ENV_CRED);
+  const result = registerNexusTools(server as unknown as never, APIKEY_CRED);
   assert.ok(result.baseUrl.includes("nexusmods.com"));
 });
 
 test("registerNexusTools: every expected tool is present", () => {
   const server = new MockMcpServer();
-  registerNexusTools(server as unknown as never, ENV_CRED);
+  registerNexusTools(server as unknown as never, APIKEY_CRED);
   const expected = [
     "nexus_validate_key",
     "nexus_list_games",
@@ -114,6 +114,7 @@ test("registerNexusTools: every expected tool is present", () => {
     "nexus_get_file",
     "nexus_file_preview",
     "nexus_mod_changelogs",
+    "nexus_updated",
     "nexus_md5_search",
     "nexus_search",
   ];
@@ -124,9 +125,9 @@ test("registerNexusTools: every expected tool is present", () => {
 
 // ─── Auth header routing ─────────────────────────────────────────────────────
 
-test("env credential routes auth to 'apikey' header", async () => {
+test("apikey credential routes auth to 'apikey' header", async () => {
   const server = new MockMcpServer();
-  registerNexusTools(server as unknown as never, ENV_CRED);
+  registerNexusTools(server as unknown as never, APIKEY_CRED);
   const { calls } = captureFetch(() =>
     jsonResponse({ user_id: 1, name: "test", is_premium: false })
   );
@@ -155,7 +156,7 @@ test("keychain credential routes auth to Authorization Bearer header", async () 
 
 test("nexus_get_mod hits /games/{domain}/mods/{id}.json", async () => {
   const server = new MockMcpServer();
-  registerNexusTools(server as unknown as never, ENV_CRED);
+  registerNexusTools(server as unknown as never, APIKEY_CRED);
   const { calls } = captureFetch(() => jsonResponse({ mod_id: 1840, name: "SkyUI" }));
   await server.invoke("nexus_get_mod", {
     game_domain: "skyrimspecialedition",
@@ -169,7 +170,7 @@ test("nexus_get_mod hits /games/{domain}/mods/{id}.json", async () => {
 
 test("nexus_list_games respects include_unapproved flag", async () => {
   const server = new MockMcpServer();
-  registerNexusTools(server as unknown as never, ENV_CRED);
+  registerNexusTools(server as unknown as never, APIKEY_CRED);
   const { calls } = captureFetch(() => jsonResponse([]));
   await server.invoke("nexus_list_games", { include_unapproved: true });
   assert.ok(calls[0]?.url.includes("include_unapproved=true"));
@@ -177,7 +178,7 @@ test("nexus_list_games respects include_unapproved flag", async () => {
 
 test("nexus_md5_search hits the md5_search path", async () => {
   const server = new MockMcpServer();
-  registerNexusTools(server as unknown as never, ENV_CRED);
+  registerNexusTools(server as unknown as never, APIKEY_CRED);
   const { calls } = captureFetch(() => jsonResponse([]));
   const hash = "a".repeat(32);
   await server.invoke("nexus_md5_search", {
@@ -194,7 +195,7 @@ test("nexus_md5_search hits the md5_search path", async () => {
 
 test("HTTP 401 surfaces as nexus_http_error", async () => {
   const server = new MockMcpServer();
-  registerNexusTools(server as unknown as never, ENV_CRED);
+  registerNexusTools(server as unknown as never, APIKEY_CRED);
   globalThis.fetch = async () =>
     new Response("Unauthorized", { status: 401 });
   await assert.rejects(

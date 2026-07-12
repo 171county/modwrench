@@ -44,7 +44,7 @@ Reports for upstream projects:
 For transparency, the rules ModWrench's code enforces:
 
 1. **OAuth tokens live in the OS keychain only.** Windows Credential Manager, macOS Keychain, or Linux libsecret. We use [`@napi-rs/keyring`](https://github.com/napi-rs/keyring-rs/tree/main/crates/keyring-node) to access the platform-native APIs. Tokens are never written to a file ModWrench creates.
-2. **Legacy API keys are read from environment variables only.** We never write them to disk or to the keychain. If you set `NEXUS_API_KEY=...` in your `.env`, that file is `.gitignored` by default and ModWrench treats its contents as read-only.
+2. **All credentials are read from the OS credential manager only.** Whether it's an OAuth token or a raw API key, you place it in your OS credential manager (service `modwrench-<platform>`); ModWrench only reads it. It never reads a credential from an environment variable, a `.env`, or any file on disk, and never writes one during normal operation.
 3. **No telemetry. Ever.** ModWrench makes no outbound network connections except to the platforms whose APIs you've configured (Nexus Mods, mod.io, Thunderstore, GitHub for LOOT masterlist fetches). There is no analytics endpoint.
 4. **Logs go to stderr as JSON.** API keys and OAuth tokens are never logged. If you find one in a log line, that's a vulnerability — report it.
 5. **The repo enforces secret-scanning at the GitHub layer** (partner patterns + push protection) plus a custom [gitleaks workflow](.github/workflows/gitleaks.yml) that catches Nexus and mod.io key shapes specifically. Commits containing credential-shaped strings are blocked before landing.

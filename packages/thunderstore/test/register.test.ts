@@ -55,11 +55,11 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 // ─── Registration smoke tests ───────────────────────────────────────────────
 
-test("registerThunderstoreTools: registers 7 tools (no creds required)", () => {
+test("registerThunderstoreTools: registers 8 tools (no creds required)", () => {
   const server = new MockMcpServer();
   const result = registerThunderstoreTools(server as unknown as never);
-  assert.equal(result.toolCount, 7);
-  assert.equal(server.tools.size, 7);
+  assert.equal(result.toolCount, 8);
+  assert.equal(server.tools.size, 8);
 });
 
 test("registerThunderstoreTools: every expected tool is present", () => {
@@ -73,6 +73,7 @@ test("registerThunderstoreTools: every expected tool is present", () => {
     "thunderstore_search_mods",
     "thunderstore_mod_versions",
     "thunderstore_top_mods",
+    "thunderstore_mod_dependencies",
   ];
   for (const name of expected) {
     assert.ok(server.tools.has(name), `missing tool: ${name}`);

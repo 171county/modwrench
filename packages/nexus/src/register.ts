@@ -16,6 +16,38 @@ import {
  * Used by both the standalone @modwrench/nexus bin and the meta-server in
  * @modwrench/cli that bundles multiple platforms into one MCP entry.
  */
+import { renderShell, createUIResource, type ModCard } from "@modwrench/ui";
+
+type NexusRow = {
+  mod_id: number;
+  name: string;
+  summary?: string;
+  author?: string;
+  version?: string;
+  endorsement_count?: number;
+  downloads?: number;
+};
+
+/** Nexus discovery lists -> a Skyrim-skinned mods ui:// resource (Nexus is
+ * Bethesda-dominant, so the SkyUI/MO2 look is the natural fit). */
+function nexusModsUI(query: string, domain: string, rows: NexusRow[]) {
+  const mods: ModCard[] = rows.map((r) => ({
+    name: r.name,
+    author: r.author ?? "unknown",
+    platform: "nexus",
+    version: r.version,
+    downloads: r.downloads,
+    endorsements: r.endorsement_count,
+    summary: r.summary,
+    pageUrl: `https://www.nexusmods.com/${domain}/mods/${r.mod_id}`,
+  }));
+  return createUIResource({
+    uri: "ui://modwrench/mods",
+    html: renderShell({ theme: "skyrim", view: "mods", mods: { query, mods } }),
+    meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
+  });
+}
+
 export function registerNexusTools(
   server: McpServer,
   credential: Credential
@@ -286,6 +318,7 @@ export function registerNexusTools(
             type: "text",
             text: JSON.stringify(mods, null, 2),
           },
+          nexusModsUI(`Trending \u00b7 ${game_domain}`, game_domain, mods),
         ],
       };
     }
@@ -537,5 +570,41 @@ export function registerNexusTools(
     }
   );
 
-  return { toolCount: 13, baseUrl: NEXUS_BASE_URL };
+  server.tool(
+    "nexus_updated",
+    "List every mod for a game updated within a recent window (1d / 1w / 1m). Returns each mod_id with its latest file-update and mod-activity timestamps — the feed a load-order maintainer watches to know exactly what to refresh.",
+    {
+      game_domain: z
+        .string()
+        .describe("The game's domain name (e.g. 'skyrimspecialedition')."),
+      period: z
+        .enum(["1d", "1w", "1m"])
+        .optional()
+        .describe("Look-back window. Default '1w'."),
+    },
+    async ({ game_domain, period }) => {
+      const p = period ?? "1w";
+      const updated = await nexusRequest<
+        Array<{
+          mod_id: number;
+          latest_file_update: number;
+          latest_mod_activity: number;
+        }>
+      >(`/games/${game_domain}/mods/updated.json?period=${p}`);
+      return {
+        content: [
+          {
+            type: "text",
+            text: `${updated.length} mods updated in the last ${p} for ${game_domain}:\n\n${JSON.stringify(
+              updated,
+              null,
+              2
+            )}`,
+          },
+        ],
+      };
+    }
+  );
+
+  return { toolCount: 14, baseUrl: NEXUS_BASE_URL };
 }

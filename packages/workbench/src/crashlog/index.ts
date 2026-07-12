@@ -4,7 +4,6 @@ import { pathExists } from "../detect/os.js";
 import { detectCrashlogType } from "./detect.js";
 import { parseCrashloggerSse } from "./crashlogger-sse.js";
 import { parseBepInExLog } from "./bepinex.js";
-import { parseMinecraftCrashReport } from "./minecraft.js";
 import { parseNetScriptFramework } from "./netscriptframework.js";
 import type { CrashlogParseResult, CrashlogType } from "./types.js";
 
@@ -69,9 +68,6 @@ export function parseCrashlog(
     case "bepinex":
       parsed = parseBepInExLog(text);
       break;
-    case "minecraft":
-      parsed = parseMinecraftCrashReport(text);
-      break;
     case "netscriptframework":
       parsed = parseNetScriptFramework(text);
       break;
@@ -80,7 +76,7 @@ export function parseCrashlog(
         ok: false,
         reason:
           "Could not auto-detect the crashlog format. Pass logType explicitly " +
-          "(crashlogger-sse, buffout4, netscriptframework, bepinex, or minecraft).",
+          "(crashlogger-sse, buffout4, netscriptframework, or bepinex).",
       };
   }
 

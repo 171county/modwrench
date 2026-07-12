@@ -6,7 +6,7 @@
 //   "Attribution preserved end-to-end. Author names, source platforms, and
 //   original mod URLs appear in every output that mentions a mod."
 
-export type ModPlatform = "nexus" | "modio" | "thunderstore" | "curseforge";
+export type ModPlatform = "nexus" | "modio" | "thunderstore";
 
 export type ModPermissions = {
   /** Allow modification / patches by other authors. Null = not exposed via API. */

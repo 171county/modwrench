@@ -27,9 +27,8 @@ if (subcmd === "auth") {
 
 const credential = loadCredential({
   service: "nexus",
-  envVar: "NEXUS_API_KEY",
   authHint:
-    "Run `modwrench-nexus auth login` (OAuth) or set NEXUS_API_KEY in your .env (legacy API key).",
+    "Store your Nexus credential in your OS credential manager under service `modwrench-nexus` — a personal API key (https://www.nexusmods.com/users/myaccount?tab=api+access) or an OAuth token via `modwrench-nexus auth login`.",
 });
 
 const server = new McpServer({

@@ -25,9 +25,8 @@ if (subcmd === "auth") {
 
 const credential = loadCredential({
   service: "modio",
-  envVar: "MODIO_API_KEY",
   authHint:
-    "Run `modwrench-modio auth login` (OAuth) or set MODIO_API_KEY in your .env (read-only API key).",
+    "Store your mod.io credential in your OS credential manager under service `modwrench-modio` — an API key (https://mod.io/me/access) or an OAuth token via `modwrench-modio auth login`.",
 });
 
 const server = new McpServer({

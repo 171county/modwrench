@@ -17,10 +17,9 @@ ModWrench bridges four of the biggest modding platforms on Earth, plus a local w
 - **Nexus Mods** â€” 50M+ users, the dominant home for Bethesda games (Skyrim, Fallout, Starfield), plus thousands of other titles
 - **mod.io** â€” the cross-platform UGC backbone for PC, console, and mobile, embedded in hundreds of games
 - **Thunderstore** â€” 270+ communities, the home of Unity co-op modding (Lethal Company, Valheim, R.E.P.O., Risk of Rain 2, Dyson Sphere Program, BONEWORKS, and more)
-- **CurseForge** â€” one of the largest mod hosts on Earth, spanning Minecraft and dozens of other games. Read-side via the CurseForge API (requires a free `CURSEFORGE_API_KEY` from console.curseforge.com)
 - **Workbench** â€” local-filesystem awareness: which games are installed, which mod manager you use, what your load order looks like, and what your crashlog actually says
 
-Each capability is a separate MCP package (`@modwrench/nexus`, `@modwrench/modio`, `@modwrench/thunderstore`, `@modwrench/curseforge`, `@modwrench/workbench`). Install one, some, or all â€” same wrench, your choice of attachments. The CLI meta-server (`@modwrench/cli`) composes whichever you've configured into a single MCP entry.
+Each capability is a separate MCP package (`@modwrench/nexus`, `@modwrench/modio`, `@modwrench/thunderstore`, `@modwrench/workbench`). Install one, some, or all â€” same wrench, your choice of attachments. The CLI meta-server (`@modwrench/cli`) composes whichever you've configured into a single MCP entry.
 
 ### Available tools
 
@@ -42,16 +41,11 @@ Each capability is a separate MCP package (`@modwrench/nexus`, `@modwrench/modio
 - `thunderstore_mod_versions` â€” full version history with downloads + dependencies
 - `thunderstore_top_mods` â€” highest-rated mods in a community
 
-**CurseForge (platform tools â€” read-only API, requires `CURSEFORGE_API_KEY`):**
-
-- 10 read tools covering game/category discovery, mod search, mod details, file listings, changelogs, and dependency lookups
-- Authenticates via the `x-api-key` header; get a free key at console.curseforge.com
-
 **Workbench (local diagnostics â€” no credentials required, except `mw_query_mod_metadata`):**
 
 - `mw_detect_environment` â€” find the user's games, mod managers, mod loaders, Proton versions
 - `mw_read_load_order` â€” normalize the load order across MO2 / r2modman / Vortex (best-effort)
-- `mw_parse_crashlog` â€” structured parse of Crash Logger SSE, Buffout 4, NetScriptFramework, BepInEx, and Minecraft crash-reports
+- `mw_parse_crashlog` â€” structured parse of Crash Logger SSE, Buffout 4, NetScriptFramework, and BepInEx crash logs
 - `mw_query_mod_metadata` â€” cross-platform mod lookup with mandatory attribution preserved
 - `mw_check_known_conflicts` â€” pairwise conflict checks against LOOT + community database
 
@@ -90,7 +84,7 @@ The conversation is the interface. Tool names are internal.
 ## Trust posture (the six rules)
 
 1. **No telemetry.** ModWrench does not phone home. Ever.
-2. **No personal data stored.** Your API tokens go straight to the OS keychain (Windows Credential Manager, macOS Keychain, Linux libsecret). The tokens never touch ModWrench's process memory longer than the API call that uses them.
+2. **No personal data stored, credentials read-only.** You place your token or API key in your OS credential manager (Windows Credential Manager, macOS Keychain, Linux libsecret); ModWrench only ever reads it. It never accepts keys via `.env` or files, never writes them during normal operation, and never holds them in memory longer than the API call that uses them.
 3. **Attribution is preserved end-to-end.** Author names, source platform, and original mod URLs appear in every output that mentions a mod. ModWrench will not let the LLM strip credits.
 4. **Permissions are read, not bypassed.** When a mod author says "no asset reuse," ModWrench respects it. No tool in this project will help you violate another modder's stated permissions.
 5. **Rate limits are respected.** ModWrench fails politely on someone else's infrastructure rather than hammering it.
@@ -121,7 +115,7 @@ Add this to your MCP config (`~/Library/Application Support/Claude/claude_deskto
 }
 ```
 
-Restart your client. Run `modwrench auth login nexus` and `modwrench auth login modio` in a terminal once to set up your API keys. Tokens go straight to your keychain â€” ModWrench never sees them as files.
+Restart your client, then put your credentials in your OS credential manager — ModWrench only reads them, and never accepts a key via `.env` or a file. For Nexus and mod.io you can run `modwrench auth login nexus` / `modwrench auth login modio` once; the OAuth flow deposits the token into your keychain for you. If you'd rather use an API key (for Nexus or mod.io) instead of OAuth, store it yourself under service `modwrench-<platform>`, account `default`. Either way the credential lives only in your keychain — ModWrench never sees it as a file.
 
 ### Cursor / Continue / Cline / Roo Code
 
@@ -184,10 +178,11 @@ mod.io + Nexus Mods. 12 Nexus tools + 11 mod.io tools â€” 23 total, exposed
 
 Five atomic tools (`@modwrench/workbench`) that compose under LLM reasoning into a conversational diagnostic experience. All read-only:
 
-- `mw_detect_environment` â€” detect OS, Steam Deck status, Steam libraries, mod-friendly games (Skyrim SE/LE/VR, Fallout 3/NV/4/4VR, Starfield, Oblivion, Lethal Company, Valheim, R.E.P.O., Risk of Rain 2, Dyson Sphere Program, BONEWORKS, Sims 4), mod managers (Vortex / MO2 / r2modman / CurseForge App), mod loaders (SKSE / F4SE / SFSE / NVSE / FOSE / OBSE / BepInEx 5 / BepInEx 6 IL2CPP / MelonLoader), and Proton versions on Linux
+- `mw_detect_environment` â€” detect OS, Steam Deck status, Steam libraries, mod-friendly games (Skyrim SE/LE/VR, Fallout 3/NV/4/4VR, Starfield, Oblivion, Lethal Company, Valheim, R.E.P.O., Risk of Rain 2, Dyson Sphere Program, BONEWORKS), mod managers (Vortex / MO2 / r2modman), mod loaders (SKSE / F4SE / SFSE / NVSE / FOSE / OBSE / BepInEx 5 / BepInEx 6 IL2CPP / MelonLoader), and Proton versions on Linux
 - `mw_read_load_order` â€” normalize the user's installed mod list across managers. MO2 (full: `modlist.txt` + `plugins.txt` + active-profile discovery from `ModOrganizer.ini`) and r2modman (full: `mods.yml` with author + version preserved) are first-class; Vortex is best-effort folder scan, with an honest `warning` field because its LevelDB state isn't parsed yet
-- `mw_parse_crashlog` â€” structured parsing (no diagnosis â€” that's the LLM's job) of Crash Logger SSE, Buffout 4, NetScriptFramework, BepInEx exception traces, and Minecraft crash-reports. Extracts exception type/address, call stack, registers, loaded plugins, and FormID-based suspected refs
-- `mw_query_mod_metadata` â€” normalized cross-platform mod lookup with **mandatory** attribution (author + sourcePlatform + pageUrl on every result). Nexus + mod.io live today; Thunderstore + CurseForge planned for v3+
+- `mw_parse_crashlog` â€” structured parsing (no diagnosis â€” that's the LLM's job) of Crash Logger SSE, Buffout 4, NetScriptFramework, and BepInEx exception traces. Extracts exception type/address, call stack, registers, loaded plugins, and FormID-based suspected refs
+- `mw_query_mod_metadata` â€” normalized cross-platform mod lookup with **mandatory** attribution (author + sourcePlatform + pageUrl on every result). Nexus + mod.io live today; Thunderstore planned for a later version
+- `mw_deck` â€” opens the **ModWrench deck**: a stateless, themed MCP-UI surface (returned as a `ui://` resource) with four flagship-game themes (Skyrim, Fallout, Lethal Company, Valheim). `mw_parse_crashlog` and `mw_query_mod_metadata` also return themed `ui://` views alongside their JSON
 - `mw_check_known_conflicts` â€” pairwise conflict checks against LOOT's live masterlist (Bethesda games) and ModWrench's bundled community-curated database (`data/conflicts/<gameId>.json` â€” see [packages/workbench/data/conflicts/README.md](packages/workbench/data/conflicts/README.md) for the contribution schema)
 
 The LLM orchestrates these into the compound experience: *"My Skyrim keeps crashing on the bridge to Whiterun"* â†’ detect environment, read load order, parse the crashlog, look up suspect plugins on Nexus, cross-reference against LOOT's masterlist, return a diagnosis with attribution preserved end-to-end.
@@ -235,7 +230,6 @@ Initial targets:
 
 - Nexus Mods + mod.io (already integrated read-side; adding write paths)
 - Thunderstore (Unity co-op) â€” read-side âœ… shipped in [packages/thunderstore/](packages/thunderstore/); write path planned
-- CurseForge â€” [packages/curseforge/](packages/curseforge/) scaffolded
 
 ### v2.5 â€” Dynamic catalog architecture (planned)
 

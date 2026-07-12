@@ -17,8 +17,8 @@ The MCP protocol's default tool-discovery model is "total discovery." When a cli
 This works well at small catalog sizes. It scales poorly:
 
 - **Context cost**: at ~10 tools per platform, 5 platforms = ~50 tools = roughly 30-50KB of JSON Schema in context per session, before the user has said anything
-- **Picker noise**: an LLM scanning a 70-tool catalog to answer a Skyrim question pays attention cost on Lethal Company tools, Minecraft tools, etc. that have zero relevance
-- **User experience**: a Skyrim-only modder shouldn't see r2modman or Minecraft tools in their picker; a Lethal Company modder shouldn't see Bethesda crash-format tools
+- **Picker noise**: an LLM scanning a large catalog to answer a Skyrim question pays attention cost on Lethal Company tools, mod.io tools, etc. that have zero relevance
+- **User experience**: a Skyrim-only modder shouldn't see r2modman or Thunderstore tools in their picker; a Lethal Company modder shouldn't see Bethesda crash-format tools
 
 The naive solutions:
 
@@ -85,9 +85,6 @@ if detected_games has any Bethesda game:
 if detected_mod_managers includes "r2modman" or
    any detected_game.family == "unity-coop":
   activate("thunderstore")
-if detected_mod_managers includes "curseforge" or
-   any detected_game.family == "minecraft":
-  activate("curseforge")
 if mod.io credential is configured in env or keychain:
   activate("modio")
 ```
@@ -108,8 +105,8 @@ After auto-activation completes, the meta-server initializes the MCP transport, 
 A single tool, always registered, that lets the LLM pull in dormant platforms on demand:
 
 ```typescript
-mw_activate_platform({ name: "curseforge" })
-  → { activated: true, toolCount: 10, newTools: [...] }
+mw_activate_platform({ name: "modio" })
+  → { activated: true, toolCount: 11, newTools: [...] }
 ```
 
 When called:
@@ -126,7 +123,7 @@ The tool description teaches the LLM the pattern. Something like:
 > platforms you use based on your local setup, but call this if the user asks
 > about a platform that wasn't auto-detected (e.g., they're researching a mod
 > on a platform they don't have installed). Available platforms: nexus, modio,
-> thunderstore, curseforge.
+> thunderstore.
 
 LLMs pick up "activation tool" patterns reliably — they already understand "this tool unlocks others."
 
@@ -173,7 +170,6 @@ type PlatformId =
   | "nexus"
   | "modio"
   | "thunderstore"
-  | "curseforge"
   | "workbench";
 
 type ActivePlatform = {
@@ -216,11 +212,6 @@ async function autoActivateBasedOnEnvironment(catalog: MetaCatalog) {
     await catalog.activate("thunderstore");
   }
 
-  if (env.detectedGames.some(g => isMinecraft(g.gameId)) ||
-      env.installedModManagers.some(m => m.name === "curseforge")) {
-    await catalog.activate("curseforge");
-  }
-
   // mod.io is harder to auto-detect from local setup since it's used as a
   // backend by many games; activate when its credential is present.
   if (hasCredentialFor("modio")) {
@@ -229,7 +220,7 @@ async function autoActivateBasedOnEnvironment(catalog: MetaCatalog) {
 }
 ```
 
-The classification helpers (`isBethesda`, `isUnityCoop`, `isMinecraft`) are derived from the existing `GameDef.family` field in `packages/workbench/src/detect/games.ts`.
+The classification helpers (`isBethesda`, `isUnityCoop`) are derived from the existing `GameDef.family` field in `packages/workbench/src/detect/games.ts`.
 
 ### The meta-tool
 
@@ -240,7 +231,7 @@ server.tool(
   "mw_activate_platform",
   "Activate an additional platform's tool set... [full description]",
   {
-    name: z.enum(["nexus", "modio", "thunderstore", "curseforge"])
+    name: z.enum(["nexus", "modio", "thunderstore"])
       .describe("Platform identifier to activate."),
   },
   async ({ name }) => {
@@ -310,7 +301,7 @@ A few things beyond the obvious context-cost win:
 
 **Trigger:** when the 4th platform lands and at least one of the following happens:
 
-- A real user reports catalog noise ("why are Minecraft tools showing up when I mod Skyrim")
+- A real user reports catalog noise ("why are Bethesda tools showing up when I mod Lethal Company")
 - Tool-picker latency becomes measurable in any major MCP client
 - The `tools/list` JSON Schema crosses 30KB
 
@@ -326,7 +317,7 @@ These don't block planning but need decisions when implementation starts:
 
 - **Exact MCP SDK API for tool removal** — `server.removeTool(name)` is the obvious shape; confirm against the version of `@modelcontextprotocol/sdk` we're on at build time.
 - **Notification ordering** — when activating multiple platforms in quick succession at boot, do we send one `list_changed` after all of them or one per platform? Probably one batch.
-- **Persisting active set across sessions** — should the meta-server remember "user explicitly activated CurseForge last session, auto-activate again next time"? Probably yes, lightly, via a config file. Defer until a user asks.
+- **Persisting active set across sessions** — should the meta-server remember "user explicitly activated mod.io last session, auto-activate again next time"? Probably yes, lightly, via a config file. Defer until a user asks.
 - **Capability mismatch graceful degradation** — exact UX for clients that don't support `listChanged`. The meta-tool's response should include a hint when this is the case.
 
 ---

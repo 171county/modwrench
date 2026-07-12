@@ -13,6 +13,38 @@ import { createHttpClient, getEnv, log, ModWrenchError } from "@modwrench/core";
  * When v3 write support lands, this will be refactored to support OAuth
  * tokens for publishing. For now: read-only, no creds, no env required.
  */
+import { renderShell, createUIResource, type ModCard } from "@modwrench/ui";
+
+type TsRow = {
+  name: string;
+  author: string;
+  latest_version?: string;
+  total_downloads?: number;
+  rating?: number;
+  page_url?: string;
+};
+
+/** Map a Thunderstore summary list to a themed mods ui:// resource. Valheim
+ * searches get the Valheim skin; every other Unity co-op community gets the
+ * Lethal Company terminal skin. */
+function thunderstoreModsUI(query: string, community: string, rows: TsRow[]) {
+  const mods: ModCard[] = rows.map((r) => ({
+    name: r.name,
+    author: r.author,
+    platform: "thunderstore",
+    version: r.latest_version,
+    downloads: r.total_downloads,
+    endorsements: r.rating,
+    pageUrl: r.page_url,
+  }));
+  const theme = /valheim/i.test(community) ? "valheim" : "lethal";
+  return createUIResource({
+    uri: "ui://modwrench/mods",
+    html: renderShell({ theme, view: "mods", mods: { query, mods } }),
+    meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
+  });
+}
+
 export function registerThunderstoreTools(server: McpServer): {
   toolCount: number;
   baseUrl: string;
@@ -208,6 +240,7 @@ export function registerThunderstoreTools(server: McpServer): {
             type: "text",
             text: `Showing ${summary.length} of ${mods.length} mods in ${community}:\n\n${JSON.stringify(summary, null, 2)}`,
           },
+          thunderstoreModsUI(`${community} mods`, community, summary),
         ],
       };
     }
@@ -289,6 +322,7 @@ export function registerThunderstoreTools(server: McpServer): {
             type: "text",
             text: `Matched ${matched.length} mods (showing ${summary.length}):\n\n${JSON.stringify(summary, null, 2)}`,
           },
+          thunderstoreModsUI(q, community, summary),
         ],
       };
     }
@@ -393,10 +427,49 @@ export function registerThunderstoreTools(server: McpServer): {
             type: "text",
             text: `Top ${ranked.length} mods in ${community} by rating:\n\n${JSON.stringify(ranked, null, 2)}`,
           },
+          thunderstoreModsUI(`Top ${community}`, community, ranked),
         ],
       };
     }
   );
 
-  return { toolCount: 7, baseUrl: BASE_URL };
+  server.tool(
+    "thunderstore_mod_dependencies",
+    "List the dependencies of a Thunderstore mod's latest version — the other packages (e.g. BepInEx) it needs to run. The backbone of a correct r2modman profile. Returns each dependency's full_name.",
+    {
+      namespace: z
+        .string()
+        .describe("Mod author/namespace — the part before the dash in full_name."),
+      name: z.string().describe("Mod name — the part after the dash in full_name."),
+    },
+    async ({ namespace, name }) => {
+      const pkg = await thunderstoreRequest<{
+        latest: { dependencies: string[]; version_number: string };
+      }>(`/api/experimental/package/${namespace}/${name}/`);
+      const deps = pkg.latest?.dependencies ?? [];
+      return {
+        content: [
+          {
+            type: "text",
+            text: `${deps.length} dependencies for ${namespace}-${name} (v${pkg.latest?.version_number}):\n\n${JSON.stringify(
+              deps,
+              null,
+              2
+            )}`,
+          },
+          createUIResource({
+            uri: "ui://modwrench/deps",
+            html: renderShell({
+              theme: "lethal",
+              view: "deps",
+              deps: { root: `${namespace}-${name}`, deps },
+            }),
+            meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
+          }),
+        ],
+      };
+    }
+  );
+
+  return { toolCount: 8, baseUrl: BASE_URL };
 }

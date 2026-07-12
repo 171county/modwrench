@@ -6,7 +6,6 @@ import { loadCredential, log, type Credential } from "@modwrench/core";
 export type PlatformId =
   | "nexus"
   | "modio"
-  | "curseforge"
   | "thunderstore"
   | "workbench";
 
@@ -17,7 +16,6 @@ export type CredentialedPlatform = {
     server: McpServer,
     credential: Credential
   ) => { toolCount: number; baseUrl: string };
-  envVar: string;
   service: string;
   authHint: string;
 };
@@ -68,10 +66,25 @@ export class MetaCatalog {
   >();
   private failed = new Map<PlatformId, string>();
 
+  // The credential resolver defaults to core's loadCredential — which reads
+  // ONLY from the OS credential manager, never env/disk. It is injectable so
+  // tests can supply a credential without touching a real keychain; production
+  // always uses the default.
+  private readonly resolveCredential: (opts: {
+    service: string;
+    authHint: string;
+  }) => Credential;
+
   constructor(
     private readonly server: McpServer,
-    private readonly platforms: PlatformDef[]
-  ) {}
+    private readonly platforms: PlatformDef[],
+    resolveCredential: (opts: {
+      service: string;
+      authHint: string;
+    }) => Credential = loadCredential
+  ) {
+    this.resolveCredential = resolveCredential;
+  }
 
   /** Known platform IDs — used by mw_activate_platform's zod enum. */
   knownIds(): PlatformId[] {
@@ -129,9 +142,8 @@ export class MetaCatalog {
     try {
       let result: { toolCount: number; baseUrl?: string };
       if (platform.kind === "credentialed") {
-        const credential = loadCredential({
+        const credential = this.resolveCredential({
           service: platform.service,
-          envVar: platform.envVar,
           authHint: platform.authHint,
         });
         result = platform.register(this.server, credential);

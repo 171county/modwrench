@@ -1,7 +1,6 @@
 import type { CrashlogType } from "./types.js";
 
-// Format detection based on first ~50 lines + filename hints. Order matters:
-// Minecraft has the most distinctive header, so check it first; SSE and
+// Format detection based on first ~50 lines + filename hints. SSE and
 // Buffout 4 are close cousins so we differentiate them by the game-name line.
 
 export function detectCrashlogType(
@@ -10,10 +9,6 @@ export function detectCrashlogType(
 ): CrashlogType {
   const head = text.split(/\r?\n/, 60).join("\n");
   const headLower = head.toLowerCase();
-
-  if (head.startsWith("---- Minecraft Crash Report ----")) {
-    return "minecraft";
-  }
 
   if (
     headLower.includes("crashloggersse") ||
@@ -49,7 +44,6 @@ export function detectCrashlogType(
     if (f.includes("crash-")) {
       if (f.includes("skyrim")) return "crashlogger-sse";
       if (f.includes("fallout")) return "buffout4";
-      if (f.endsWith(".txt") && f.includes("crash-report")) return "minecraft";
     }
     if (f === "logoutput.log" || f.endsWith("/logoutput.log")) return "bepinex";
   }
