@@ -14,6 +14,7 @@ import { createHttpClient, getEnv, log, ModWrenchError } from "@modwrench/core";
  * tokens for publishing. For now: read-only, no creds, no env required.
  */
 import { renderShell, createUIResource, type ModCard } from "@modwrench/ui";
+import { resolveDependencyTree } from "./resolve.js";
 
 type TsRow = {
   name: string;
@@ -471,5 +472,70 @@ export function registerThunderstoreTools(server: McpServer): {
     }
   );
 
-  return { toolCount: 8, baseUrl: BASE_URL };
+  // Tool 9: resolve the FULL dependency tree — recursive, de-duped, install-first
+  server.tool(
+    "thunderstore_resolve_dependencies",
+    "Resolve a Thunderstore mod's ENTIRE dependency tree — not just its direct deps, but its deps' deps, all the way down. De-duped and cycle-safe; returns an install-first order (dependencies before the things that need them), the full tree, and any refs it couldn't resolve. The 'find every mod this needs before I download it' answer in one shot. Read-only.",
+    {
+      namespace: z
+        .string()
+        .describe("Mod author/namespace — the part before the dash in full_name."),
+      name: z.string().describe("Mod name — the part after the dash in full_name."),
+      maxDepth: z
+        .number()
+        .int()
+        .min(1)
+        .max(10)
+        .optional()
+        .describe(
+          "How deep to walk the tree. Default 6 — deep enough for real BepInEx stacks, capped so a pathological graph can't run away."
+        ),
+    },
+    async ({ namespace, name, maxDepth }) => {
+      const fetchDeps = async (ns: string, nm: string) => {
+        const pkg = await thunderstoreRequest<{
+          latest: { dependencies: string[]; version_number: string };
+        }>(`/api/experimental/package/${ns}/${nm}/`);
+        const version = pkg.latest?.version_number;
+        return {
+          ...(version !== undefined ? { version } : {}),
+          dependencies: pkg.latest?.dependencies ?? [],
+        };
+      };
+      const res = await resolveDependencyTree({
+        namespace,
+        name,
+        fetchDeps,
+        ...(maxDepth !== undefined ? { maxDepth } : {}),
+      });
+      log("debug", "thunderstore.resolve_dependencies", {
+        root: res.root,
+        resolved: res.nodes.length,
+        unresolved: res.unresolved.length,
+        truncated: res.truncated,
+      });
+      const installFirst = res.order.filter(
+        (fn) => fn.toLowerCase() !== res.root.toLowerCase()
+      );
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(res, null, 2),
+          },
+          createUIResource({
+            uri: "ui://modwrench/deps",
+            html: renderShell({
+              theme: "lethal",
+              view: "deps",
+              deps: { root: res.root, deps: installFirst },
+            }),
+            meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
+          }),
+        ],
+      };
+    }
+  );
+
+  return { toolCount: 9, baseUrl: BASE_URL };
 }
