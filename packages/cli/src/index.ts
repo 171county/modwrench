@@ -11,6 +11,7 @@ import { registerModioTools } from "@modwrench/modio/register";
 import { registerThunderstoreTools } from "@modwrench/thunderstore/register";
 import { registerWorkbenchTools } from "@modwrench/workbench/register";
 import { MetaCatalog, type PlatformDef } from "./catalog.js";
+import { registerPrompts } from "./prompts.js";
 import { renderShell, createUIResource, THEME_IDS } from "@modwrench/ui";
 
 // ─── Subcommand dispatch ─────────────────────────────────────────────────────
@@ -22,14 +23,20 @@ import { renderShell, createUIResource, THEME_IDS } from "@modwrench/ui";
 
 const [, , subcmd, action, platform] = process.argv;
 
+// Read this package's version once from package.json (files:["dist"] ships it at
+// the package root, so resolve("..","package.json") works from dist/index.js).
+// Reused for both `--version` and the MCP handshake so they can never drift.
+const PKG_VERSION = (
+  JSON.parse(
+    readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), "..", "package.json"),
+      "utf8"
+    )
+  ) as { version: string }
+).version;
+
 if (subcmd === "--version" || subcmd === "-v") {
-  // Read directly from this package's package.json so version stays in sync
-  // automatically — no hardcoded duplicate to forget on release.
-  const here = dirname(fileURLToPath(import.meta.url));
-  const pkgJson = JSON.parse(
-    readFileSync(resolve(here, "..", "package.json"), "utf8")
-  ) as { version: string };
-  process.stdout.write(`${pkgJson.version}\n`);
+  process.stdout.write(`${PKG_VERSION}\n`);
   process.exit(0);
 }
 
@@ -117,7 +124,7 @@ const platforms: PlatformDef[] = [
 const server = new McpServer(
   {
     name: "modwrench",
-    version: "0.1.0",
+    version: PKG_VERSION,
   },
   {
     // listChanged advertises to MCP clients that the tool catalog can change
@@ -125,7 +132,11 @@ const server = new McpServer(
     // MetaCatalog.activate) emits notifications/tools/list_changed which
     // tells the client to re-fetch via tools/list. Without this capability
     // declared, runtime activation still works but clients may not refresh.
-    capabilities: { tools: { listChanged: true } },
+    //
+    // prompts advertises the "/" summons (see prompts.ts). Registering a prompt
+    // auto-declares this, but we state it explicitly so the handshake is
+    // self-documenting.
+    capabilities: { tools: { listChanged: true }, prompts: {} },
   }
 );
 
@@ -183,7 +194,7 @@ const FLAGSHIP_GAMES = [
 
 server.tool(
   "mw_deck",
-  "Open the ModWrench deck: a themed, interactive MCP-UI surface (returned as a ui:// resource) showing the active connectors and flagship games, with four game themes (Skyrim, Fallout, Lethal Company, Valheim). Stateless \u2014 rendered fresh from the current catalog, holds nothing. Use when the user wants a visual dashboard or says \"open the deck\". Optional args set the initial theme and view.",
+  "Open the ModWrench deck: a themed, interactive MCP-UI surface (a ui:// resource) showing the active connectors and flagship games in four skins (Skyrim, Fallout Pip-Boy, Lethal Company, Valheim). Stateless \u2014 rendered fresh from the current catalog, holds nothing. Use when the user says \"open the deck\", \"summon/show ModWrench\", or wants a visual dashboard. Optional args set the initial theme and view.",
   {
     theme: z
       .enum([...THEME_IDS] as [string, ...string[]])
@@ -234,6 +245,13 @@ server.tool(
   }
 );
 
+// ─── Prompts — the "/" summons ───────────────────────────────────────────────
+// Typed entry points hosts surface as slash-commands: /modwrench, /mw-find,
+// /mw-crash, /mw-conflicts, /mw-order. Registered unconditionally — they steer
+// the model to the right tool and don't depend on which platforms activated.
+// See prompts.ts.
+const { promptCount } = registerPrompts(server);
+
 const activeAtBoot = catalog.listActive();
 const failedAtBoot = catalog.listFailed();
 
@@ -257,6 +275,7 @@ async function main() {
     skipped: failedAtBoot.map((p) => p.platformId),
     total_tools:
       activeAtBoot.reduce((sum, p) => sum + p.toolCount, 0) + 2, // +2 for mw_activate_platform and mw_deck
+    prompts: promptCount,
     catalog_dynamic: true,
   });
 }

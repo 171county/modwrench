@@ -117,10 +117,14 @@ function empty(title: string, hint: string, action?: { label: string; tool: stri
 export function renderDeck(data: DeckData): string {
   const connectors = data.connectors ?? [];
   if (connectors.length === 0) {
-    return empty("No connectors active", "Activate a platform to populate the deck.", {
-      label: "Detect environment",
-      tool: "mw_detect_environment",
-    });
+    return empty(
+      "No connectors active",
+      "Drop a token in your OS keychain, then activate a platform — ModWrench only ever reads it. Or detect what's already installed.",
+      {
+        label: "Detect environment",
+        tool: "mw_detect_environment",
+      }
+    );
   }
   const rows = connectors
     .map((c, i) => {
@@ -179,7 +183,9 @@ export function renderMods(data: ModsData): string {
   if (mods.length === 0) {
     return empty(
       "No mods to show",
-      data.query ? `Nothing came back for "${data.query}".` : "Run a search to populate mod cards.",
+      data.query
+        ? `Nothing came back for "${data.query}". Either it's gone or the search terms are cursed.`
+        : "Run a search and the cards land here.",
       { label: "Search mods", tool: "nexus_search" }
     );
   }
@@ -235,7 +241,7 @@ export function renderCrash(data: CrashData): string {
     });
   }
   if (!data.exception && !(data.callStack && data.callStack.length)) {
-    return empty("No crashlog loaded", "Parse a crashlog to see the breakdown here.", {
+    return empty("No crashlog loaded", "Point me at a Buffout 4 / Crash Logger SSE / BepInEx log and I'll break it down.", {
       label: "Parse a crashlog",
       tool: "mw_parse_crashlog",
     });
@@ -349,7 +355,7 @@ export function renderConflicts(data: ConflictsData): string {
     return `<section class="mw-sec">
       <div class="mw-sec-h"><h2>Conflicts${data.gameId ? ` · ${esc(data.gameId)}` : ""}</h2><span class="mw-sec-sub">${sources}</span></div>
       ${legend}
-      <div class="mw-clean"><span class="mw-clean-mark">✔</span> No known conflicts among the checked mods.</div>
+      <div class="mw-clean"><span class="mw-clean-mark">✔</span> No known conflicts flagged. Not a promise it'll run — just that nothing's on the list.</div>
       ${(data.warnings ?? []).map((w) => `<div class="mw-warnrow">${esc(w)}</div>`).join("")}
     </section>`;
   }
@@ -412,7 +418,7 @@ export function renderDeps(data: DepsData): string {
 
   const deps = data.deps ?? [];
   if (deps.length === 0) {
-    return empty("No dependencies", data.root ? `${data.root} lists no dependencies.` : "Look up a mod's dependencies to see the chain.", {
+    return empty("No dependencies", data.root ? `${data.root} lists no dependencies. Clean.` : "Look one up to see the chain — install those first.", {
       label: "Check dependencies",
       tool: "thunderstore_mod_dependencies",
     });
@@ -426,7 +432,7 @@ export function renderDeps(data: DepsData): string {
     .join("");
   return `<section class="mw-sec">
     <div class="mw-sec-h"><h2>Dependencies${data.root ? ` · ${esc(data.root)}` : ""} <span class="mw-count">${deps.length}</span></h2>
-      <span class="mw-sec-sub">install these first — the backbone of a correct profile</span></div>
+      <span class="mw-sec-sub">install these first · future-you says thanks</span></div>
     ${data.root ? `<div class="mw-lrow mw-deproot"><span class="mw-prio">▸</span><span class="mw-dot on"></span><span class="mw-lmain"><span class="mw-lname">${esc(data.root)}</span></span></div>` : ""}
     <div class="mw-list">${tree}</div>
   </section>`;
