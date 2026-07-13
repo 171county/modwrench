@@ -8,7 +8,7 @@ import { log } from "@modwrench/core";
 import { registerThunderstoreTools } from "@modwrench/thunderstore/register";
 
 export const REMOTE_PUBLIC_PLATFORMS = ["thunderstore"] as const;
-export const REMOTE_TOOL_COUNT = 8;
+export const REMOTE_TOOL_COUNT = 9;
 
 export type RemoteAppOptions = {
   host?: string;

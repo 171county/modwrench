@@ -24,6 +24,7 @@ function themeForGameId(gameId: string): string {
   return "lethal";
 }
 import { checkKnownConflicts } from "./conflicts/index.js";
+import { correlateCrash } from "./crashlog/diagnose.js";
 
 /**
  * Register all Workbench tools on the given MCP server. Workbench tools are
@@ -369,5 +370,97 @@ export function registerWorkbenchTools(server: McpServer): {
     }
   );
 
-  return { toolCount: 5 };
+  // ─── Tool 6: mw_diagnose_crash ─────────────────────────────────────────────
+  // Parse a crashlog, THEN correlate its suspects with the loaded plugins and
+  // known conflicts — a bundle of facts for the model to reason over. Still
+  // parse-not-guess: ModWrench lines up the evidence, it never names the cause.
+  server.tool(
+    "mw_diagnose_crash",
+    "Crash log in, culprit shortlist out. Parses the log, then correlates its suspects with the loaded plugins and (with a gameId) the known-conflict database into one bundle: which suspected mods are actually in the load order, at what index, and which loaded plugins have known conflicts. It lines up the evidence; it does NOT name the cause — that's the model's call, reasoned over the data. Use when the user says \"what's causing my crash\", \"which mod is it\", or pastes a crash log and wants the answer.",
+    {
+      logContent: z
+        .string()
+        .optional()
+        .describe("Crashlog content as a string. Provide this OR logPath."),
+      logPath: z
+        .string()
+        .optional()
+        .describe(
+          "Absolute path to a crashlog on disk (the SKSE/F4SE crash folder, or the game's BepInEx/LogOutput.log)."
+        ),
+      logType: z
+        .enum(["auto", "crashlogger-sse", "buffout4", "netscriptframework", "bepinex"])
+        .optional()
+        .describe("Format hint. Default 'auto' — detect from content."),
+      gameId: z
+        .string()
+        .optional()
+        .describe(
+          "Canonical game id (e.g. 'skyrimspecialedition', 'fallout4') to include the known-conflict cross-check. Omit to skip it."
+        ),
+    },
+    async ({ logContent, logPath, logType, gameId }) => {
+      const parsed = parseCrashlog({
+        ...(logContent !== undefined ? { logContent } : {}),
+        ...(logPath !== undefined ? { logPath } : {}),
+        ...(logType !== undefined ? { logType } : {}),
+      });
+
+      if (!parsed.ok) {
+        return {
+          content: [
+            { type: "text", text: JSON.stringify(parsed, null, 2) },
+            createUIResource({
+              uri: "ui://modwrench/crash",
+              html: renderShell({
+                theme: "skyrim",
+                view: "crash",
+                crash: parsed as unknown as CrashData,
+              }),
+              meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
+            }),
+          ],
+        };
+      }
+
+      const diagnosis = await correlateCrash({
+        parsed,
+        ...(gameId !== undefined ? { gameId } : {}),
+        checkConflicts: async (g, modIds) => {
+          const r = await checkKnownConflicts({ gameId: g, modIds });
+          return {
+            conflicts: r.conflicts,
+            ...(r.warnings ? { warnings: r.warnings } : {}),
+          };
+        },
+      });
+
+      log("debug", "workbench.diagnose_crash", {
+        type: diagnosis.detectedType,
+        suspects: diagnosis.suspects.length,
+        knownConflicts: diagnosis.knownConflicts.length,
+        gameId: gameId ?? null,
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ diagnosis, crash: parsed }, null, 2),
+          },
+          createUIResource({
+            uri: "ui://modwrench/crash",
+            html: renderShell({
+              theme: themeForCrashType(parsed.detectedType),
+              view: "crash",
+              crash: parsed as unknown as CrashData,
+            }),
+            meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
+          }),
+        ],
+      };
+    }
+  );
+
+  return { toolCount: 6 };
 }
