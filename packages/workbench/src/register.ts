@@ -44,7 +44,7 @@ export function registerWorkbenchTools(server: McpServer): {
 
   server.tool(
     "mw_detect_environment",
-    "Auto-detect the user's modding environment: OS, Steam Deck, installed mod-friendly games (Bethesda / Unity co-op), per-game mod loaders (SKSE / F4SE / BepInEx / etc.), installed mod managers (Vortex / MO2 / r2modman), and Proton versions on Linux. Read-only — touches no files outside known config/save locations.",
+    "See what you're working with. Auto-detects OS, Steam Deck, installed mod-friendly games (Bethesda / Unity co-op), per-game loaders (SKSE / F4SE / BepInEx), mod managers (MO2 / Vortex / r2modman), and Proton versions on Linux. Read-only — reads known config/save locations and touches nothing else. Use when the user asks \"what've I got installed\", \"find my games\", or before any tool that needs to know their setup.",
     {},
     async () => {
       const result = detectEnvironment();
@@ -75,7 +75,7 @@ export function registerWorkbenchTools(server: McpServer): {
 
   server.tool(
     "mw_read_load_order",
-    "Read the user's mod load order for a specific game from whichever mod manager they use (MO2, r2modman, or best-effort Vortex). Normalized output: each entry has name, enabled state, load-order index, and attribution metadata when available. Read-only.",
+    "Post your load order — but here, not in a Discord. Reads it for a specific game from whichever manager the user runs (MO2, r2modman, or best-effort Vortex). Normalized output: each entry has name, enabled state, load-order index, and attribution when available. Read-only. Use when the user says \"show/post my load order\", \"what mods do I have enabled\", or \"what order are my mods in\".",
     {
       gameId: z
         .string()
@@ -164,7 +164,7 @@ export function registerWorkbenchTools(server: McpServer): {
 
   server.tool(
     "mw_parse_crashlog",
-    "Parse a crashlog file or pasted content into structured fields (exception type, call stack, loaded plugins, registers, suspected FormID refs). Supports Crash Logger SSE (Skyrim), Buffout 4 (Fallout 4), NetScriptFramework (older Skyrim), and BepInEx (Unity games). Returns parsed structure only — diagnosis is the LLM's job.",
+    "Crash log in, structure out. Parses a crashlog (file path or pasted content) into fields: exception type, call stack, loaded plugins, registers, suspected FormID refs. Handles Crash Logger SSE (Skyrim), Buffout 4 (Fallout 4), NetScriptFramework (older Skyrim), and BepInEx (Unity). Returns parsed structure only — naming the culprit is the model's job, reasoned over the actual load order, not pattern-matched from a list. Use when the user says \"my game crashed\", \"CTD\", \"here's my crash log\", or \"why did it crash\".",
     {
       logContent: z
         .string()
@@ -233,7 +233,7 @@ export function registerWorkbenchTools(server: McpServer): {
 
   server.tool(
     "mw_query_mod_metadata",
-    "Look up a mod's metadata across supported platforms (Nexus, mod.io) with a normalized shape: id, name, author, version, downloads, endorsements, pageUrl, and a permissions block that always includes attribution. Use this to enrich crashlog suspects or load-order entries with who-made-this and where-it-lives info. Thunderstore support is planned for a later version.",
+    "Put a name and a source on a mod. Looks up metadata across platforms (Nexus, mod.io) in one normalized shape: id, name, author, version, downloads, endorsements, pageUrl, and a permissions block that always carries attribution. Use it to enrich a crashlog suspect or a load-order entry — \"who made this\", \"look up this mod\", \"what version is X\". Thunderstore support is planned.",
     {
       modId: z
         .string()
@@ -317,7 +317,7 @@ export function registerWorkbenchTools(server: McpServer): {
 
   server.tool(
     "mw_check_known_conflicts",
-    "Check a list of mods/plugins for known pairwise incompatibilities. Two sources: LOOT's masterlist (live, Bethesda games) and ModWrench's community conflict database (bundled, any game). Returns conflicts with severity, description, attribution to source, and an optional patch suggestion. Input identifiers can be plugin filenames (Skyrim.esp) or platform-prefixed mod IDs (nexus:12345).",
+    "Check a list of mods/plugins for known pairwise incompatibilities. Two sources: LOOT's masterlist (live, Bethesda games) and ModWrench's bundled community conflict database (any game). Returns conflicts with severity, description, source attribution, and an optional patch suggestion. It flags what's on the list — it won't promise the game runs clean. Input ids can be plugin filenames (\"Skyrim.esp\") or platform-prefixed mod ids (\"nexus:12345\"). Use when the user asks \"what's conflicting\", \"will these mods fight\", or \"known issues between X and Y\".",
     {
       gameId: z
         .string()
