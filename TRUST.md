@@ -16,6 +16,7 @@ Where a claim needed a caveat to stay true, the caveat is here instead of being 
 - **Never send anything to the maintainer.** There is no analytics SDK, no crash reporting, no telemetry, no phone-home. No network destination in this codebase belongs to us.
 - **Never store your data.** Nothing is written to disk. There is no database and no cache of your data — the only thing held in memory is LOOT's public masterlist, and it dies with the process.
 - **Never ask for a password.** ModWrench never sees or handles your platform password.
+- **Never surface adult-tagged Nexus content** unless you explicitly enable it yourself — see below.
 
 ## There is no ModWrench service
 
@@ -55,6 +56,20 @@ Platform base URLs are environment variables you can override, so you can point 
 **Not logged.** No log line in the codebase includes a key or token, and logs go to stderr, never to a file. Credential-bearing URL parameters are stripped from HTTP error messages, and the auth commands run upstream error bodies through a redactor before printing. To be precise rather than flattering: redaction is applied at those specific points, not as a blanket filter over every possible output path.
 
 ModWrench does read a `.env` at startup, but only for non-secret operational config — log level, API base-URL overrides, Steam root — and, if you register your own Nexus OAuth application, that app's client ID. **Your Nexus or mod.io key never comes from there.**
+
+## Adult content
+
+Nexus tags some mods as adult content. On their own site that content is hidden from signed-out visitors, off by default for signed-in ones, and released only after an age check. Their Terms of Service put the same duty on tools like this one, in a single sentence: *"Third parties who use our APIs are responsible for filtering the content returned."*
+
+**ModWrench filters it out by default.** Adult-tagged entries are dropped from lists and replaced with a short notice when you ask for one directly. The filter sits in the shared request path, so it covers every Nexus tool — including any added later.
+
+If you want it, you turn it on yourself, on your own machine:
+
+```
+NEXUS_ALLOW_ADULT_CONTENT=true
+```
+
+Two deliberate choices worth stating. It is an **environment variable, not a tool parameter** — which means the AI cannot switch it off no matter what it is asked to do; only the person running ModWrench can. And ModWrench performs no age verification, so the default is the conservative one rather than a guess about who is reading.
 
 ## What leaves your machine — read this one
 
