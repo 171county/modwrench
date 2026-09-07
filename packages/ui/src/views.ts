@@ -107,7 +107,7 @@ function num(n: number | undefined): string {
 
 function empty(title: string, hint: string, action?: { label: string; tool: string }): string {
   const btn = action
-    ? `<button class="mw-btn primary" onclick="mw('tool','${esc(action.tool)}')">${esc(action.label)}</button>`
+    ? `<button class="mw-btn primary" data-mw-act="tool" data-mw-val="${esc(action.tool)}">${esc(action.label)}</button>`
     : "";
   return `<div class="mw-empty"><div class="mw-empty-mark"></div><h3>${esc(title)}</h3><p>${esc(hint)}</p>${btn}</div>`;
 }
@@ -130,7 +130,7 @@ export function renderDeck(data: DeckData): string {
     .map((c, i) => {
       const dot = c.status ?? "on";
       const tool = c.tool ? esc(c.tool) : "";
-      const click = tool ? `onclick="mw('tool','${tool}')"` : "";
+      const click = tool ? `data-mw-act="tool" data-mw-val="${tool}"` : "";
       const prio = String(i + 1).padStart(2, "0");
       const flag =
         dot === "off"
@@ -154,7 +154,7 @@ export function renderDeck(data: DeckData): string {
 
   const games = (data.games ?? [])
     .map(
-      (g) => `<button class="mw-game" onclick="mw('prompt','Show top ${esc(g.name)} mods')">
+      (g) => `<button class="mw-game" data-mw-act="prompt" data-mw-val="Show top ${esc(g.name)} mods">
         <span class="mw-game-nm">${esc(g.name)}</span>
         ${g.note ? `<span class="mw-game-note">${esc(g.note)}</span>` : ""}
       </button>`
@@ -202,11 +202,11 @@ export function renderMods(data: ModsData): string {
         ) || "MO";
       const plat = m.platform ? `<span class="mw-badge">${esc(m.platform)}</span>` : "";
       const open = m.pageUrl
-        ? `<button class="mw-btn" onclick="mw('link','${esc(m.pageUrl)}')">Open ›</button>`
+        ? `<button class="mw-btn" data-mw-act="link" data-mw-val="${esc(m.pageUrl)}">Open ›</button>`
         : "";
-      const toggle = `<span class="mw-toggle" data-on="1" title="enable / disable" onclick="mwToggle(this,'${esc(
+      const toggle = `<span class="mw-toggle" data-on="1" title="enable / disable" data-mw-act="toggle" data-mw-val="${esc(
         m.name
-      )}',event)"></span>`;
+      )}"></span>`;
       const stats = `<span class="mw-mstat"><span title="downloads">▼ ${num(
         m.downloads
       )}</span><span title="endorsements">★ ${num(m.endorsements)}</span></span>`;
@@ -321,7 +321,7 @@ export function renderCrash(data: CrashData): string {
     </div>
     ${rawBlocks ? `<div class="mw-raws">${rawBlocks}</div>` : ""}
     <div class="mw-card-actions">
-      <button class="mw-btn primary" onclick="mw('prompt','Diagnose this crash from the parsed ModWrench output (exception, call stack, registers, modules, plugins) and suggest likely culprits — do not guess beyond the data.')">Ask AI to diagnose</button>
+      <button class="mw-btn primary" data-mw-act="prompt" data-mw-val="Diagnose this crash from the parsed ModWrench output (exception, call stack, registers, modules, plugins) and suggest likely culprits — do not guess beyond the data.">Ask AI to diagnose</button>
       <span class="mw-note">ModWrench parses; it never guesses the cause — that's the model's job.</span>
     </div>
   </section>`;
@@ -364,7 +364,7 @@ export function renderConflicts(data: ConflictsData): string {
     .map((c) => {
       const sev = SEVERITY[c.severity] ?? { cls: "info", label: esc(c.severity).toUpperCase() };
       const patch = c.patchModId
-        ? `<button class="mw-btn" onclick="mw('prompt','Find the patch mod ${esc(c.patchModId)}')">Patch</button>`
+        ? `<button class="mw-btn" data-mw-act="prompt" data-mw-val="Find the patch mod ${esc(c.patchModId)}">Patch</button>`
         : "";
       return `<div class="mw-crow">
         <span class="mw-sev ${sev.cls}">${sev.label}</span>

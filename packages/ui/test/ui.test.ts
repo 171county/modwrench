@@ -80,7 +80,7 @@ test("renderDeck lists connectors and wires their tool", () => {
     connectors: [{ id: "nexus", name: "Nexus Mods", toolCount: 13, status: "on", tool: "nexus_search" }],
   });
   assert.match(html, /Nexus Mods/);
-  assert.ok(html.includes("mw('tool','nexus_search')"));
+  assert.ok(html.includes(`data-mw-act="tool" data-mw-val="nexus_search"`));
 });
 
 test("renderDeck shows a themed empty state with no connectors", () => {
@@ -95,7 +95,7 @@ test("renderMods renders a card with mandatory attribution", () => {
   assert.match(html, /Frost Blade/);
   assert.match(html, /by <strong>Dovah<\/strong>/);
   assert.match(html, /120k/);
-  assert.ok(html.includes("mw('link','https://x/y')"));
+  assert.ok(html.includes(`data-mw-act="link" data-mw-val="https://x/y"`));
 });
 
 test("renderCrash surfaces exception, stack and plugins", () => {
@@ -115,4 +115,74 @@ test("themeForCrashType maps games to themes", () => {
   assert.equal(themeForCrashType("bepinex"), "lethal");
   assert.equal(themeForCrashType("crashlogger-sse"), "skyrim");
   assert.equal(themeForCrashType(undefined), "skyrim");
+});
+
+// ─── Injection regression ────────────────────────────────────────────────────
+// Mod names, authors and URLs come from public mod platforms — anyone can
+// publish a mod called whatever they like, so every one of these strings is
+// attacker-controlled.
+//
+// These values used to be interpolated into inline onclick="" handlers. HTML
+// escaping cannot make that safe: the browser decodes entities in an attribute
+// BEFORE compiling it as JavaScript, so esc()'s &#39; turns back into a real
+// quote and breaks out of the string literal. A mod named
+//   Cool Mod'); mw('prompt','<anything>'); //
+// became a second statement that posted an attacker-written prompt into the
+// user's AI session — with a write tool available in that session.
+//
+// The fix is structural, not more escaping: values travel in data attributes
+// and are read back via dataset, which is never compiled. These tests fail if
+// an inline handler is ever reintroduced.
+
+const HOSTILE = "Evil'); mw('prompt','INJECTED PROMPT'); //";
+
+test("no rendered view emits an inline event handler", () => {
+  const views = [
+    renderMods({
+      query: HOSTILE,
+      source: "thunderstore",
+      mods: [{ name: HOSTILE, author: HOSTILE, pageUrl: "https://x.test" }],
+    }),
+    renderDeck({
+      connectors: [
+        { id: "nexus", name: HOSTILE, tool: HOSTILE, status: "off" },
+      ],
+      games: [{ name: HOSTILE, gameId: HOSTILE }],
+    }),
+    renderShell({ view: "deck", deck: { connectors: [], games: [] } }),
+  ];
+  for (const html of views) {
+    assert.ok(
+      !/\son\w+\s*=/.test(html),
+      "an inline event handler was reintroduced — attacker-controlled strings must not reach a JS context"
+    );
+  }
+});
+
+test("a hostile mod name lands in a data attribute, not executable code", () => {
+  const html = renderMods({
+    query: "test",
+    source: "thunderstore",
+    mods: [{ name: HOSTILE, author: "attacker", pageUrl: "https://x.test" }],
+  });
+  // The quote must remain entity-encoded, and must sit inside data-mw-val.
+  assert.ok(html.includes("data-mw-act=\"toggle\""), "toggle uses a data action");
+  assert.ok(
+    html.includes("Evil&#39;); mw(&#39;prompt&#39;"),
+    "the payload must stay entity-encoded"
+  );
+  // And it must never appear as a bare, compilable quote outside an attribute.
+  assert.ok(
+    !html.includes("mw('prompt','INJECTED PROMPT')"),
+    "the payload must never appear as executable JavaScript"
+  );
+});
+
+test("the bridge reads values from dataset rather than compiling them", () => {
+  const html = renderShell({ view: "deck", deck: { connectors: [], games: [] } });
+  assert.ok(html.includes("dataset.mwAct"), "delegated listener reads dataset");
+  assert.ok(
+    !/eval\(|new Function\(/.test(html),
+    "nothing in the bridge may compile a string"
+  );
 });
