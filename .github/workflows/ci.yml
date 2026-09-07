@@ -8,10 +8,14 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # ModWrench detects games, mod managers and Proton prefixes through
+    # OS-specific filesystem paths, so a Linux-only matrix cannot exercise the
+    # code most users actually run. Test on all three.
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
         node: [20, 22]
     steps:
       - uses: actions/checkout@v4
@@ -37,3 +41,19 @@ jobs:
 
       - name: Test
         run: npm test
+
+  publishable:
+    # Workspace symlinks make every internal dependency resolve locally, so a
+    # green build says nothing about whether the packages would actually
+    # install for a stranger. This job checks what the build cannot.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Check release readiness
+        run: npm run check:publishable

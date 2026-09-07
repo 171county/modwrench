@@ -22,8 +22,37 @@ and the Workbench Minecraft crashlog parser (→ a separate project).
 
 ## What to verify before publishing
 
-- Clean `tsc` build, tests green, MCP `initialize` + `tools/list` handshake returns the expected tools (14 with no credentials: 7 Thunderstore + 5 Workbench + `mw_activate_platform` + `mw_deck`).
-- `npm view @modwrench/cli dependencies` after publish shows **no** `curseforge` and **no** `modrinth`.
+Run the automated gate first — it checks the things a green build cannot, because
+npm workspaces resolve every internal package through a local symlink:
+
+```bash
+npm run check:release
+```
+
+That fails on a phantom dependency (imported but undeclared), on internal version
+drift, and on a package missing its `prepack` build hook; with `--registry` it also
+warns about any `@modwrench/*` package not yet on npm at the current version. The
+`@modwrench/ui` package being unpublished while five other packages depend on it is
+exactly the failure this catches.
+
+Then confirm by hand:
+
+- Clean `tsc` build, tests green.
+- MCP `initialize` + `tools/list` handshake with no credentials stored returns
+  **17 tools and 5 prompts**: 9 Thunderstore + 6 Workbench + `mw_activate_platform`
+  + `mw_deck`, and prompts `modwrench`, `mw-find`, `mw-crash`, `mw-conflicts`,
+  `mw-order`. Nexus and mod.io correctly report as `skipped`.
+- `npm view @modwrench/cli dependencies` after publish shows **no** `curseforge`
+  and **no** `modrinth`.
+
+## Preferred path: the Release workflow
+
+Pushing a `v*` tag runs `.github/workflows/release.yml`, which builds, tests, runs
+the readiness gate, publishes every package to npm in dependency order (skipping
+any version already published), and only then updates the MCP registry entry. That
+ordering matters: the registry must never advertise a version npm cannot serve.
+
+The manual steps below remain valid for a one-off or for recovering a partial release.
 
 ## Pre-flight
 
@@ -45,7 +74,7 @@ npm publish -w @modwrench/core --access public
 # 1b. UI toolkit (depends on core; consumed by workbench + cli)
 npm publish -w @modwrench/ui --access public
 
-# 2. platform packages (any order; all depend only on core)
+# 2. platform packages (any order; each depends on core AND ui)
 npm publish -w @modwrench/nexus         --access public
 npm publish -w @modwrench/modio         --access public
 npm publish -w @modwrench/thunderstore  --access public
