@@ -149,6 +149,40 @@ export function setStoredToken(name: string, token: StoredToken): void {
   }
 }
 
+/**
+ * Persist a raw credential string — a personal API key — under a service entry.
+ *
+ * Stored verbatim, NOT JSON-wrapped. That is precisely what makes
+ * loadCredential() resolve it as `source: "apikey"`, so callers send the
+ * platform's own key header rather than an OAuth Bearer token. OAuth tokens
+ * take the setStoredToken() path instead; the two must not be mixed up or the
+ * wrong auth header goes on the wire.
+ */
+export function setRawSecret(name: string, value: string): void {
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    throw new Error("[modwrench/core] Refusing to store an empty credential.");
+  }
+  try {
+    const entry = new Entry(service(name), KEYCHAIN_ACCOUNT);
+    entry.setPassword(trimmed);
+    keychainStatus = "available";
+  } catch (err) {
+    if (classifyKeychainError(err) === "unavailable") {
+      keychainStatus = "unavailable";
+      throw new Error(
+        `[modwrench/core] Cannot save credential: OS credential manager ` +
+          `unavailable. This is common on Steam Deck Game Mode, headless Linux, ` +
+          `or systems without libsecret/D-Bus. ModWrench stores and reads ` +
+          `credentials only in the OS credential manager, so a working Secret ` +
+          `Service (e.g. gnome-keyring) is required. ` +
+          `Original error: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+    throw err;
+  }
+}
+
 export function deleteStoredToken(name: string): boolean {
   try {
     const entry = new Entry(service(name), KEYCHAIN_ACCOUNT);

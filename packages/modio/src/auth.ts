@@ -1,6 +1,7 @@
 import { createInterface } from "node:readline/promises";
 import {
   getRawSecret,
+  setRawSecret,
   setStoredToken,
   getStoredToken,
   deleteStoredToken,
@@ -11,13 +12,71 @@ const MODIO_BASE = "https://api.mod.io/v1";
 const SERVICE = "modio";
 
 async function prompt(question: string): Promise<string> {
+  // Without a TTY, readline's question() never settles on EOF — the process
+  // would hang forever instead of failing. Refuse up front so piping this
+  // command, or launching it from an MCP client, produces a clear error.
+  if (!process.stdin.isTTY) {
+    process.stderr.write(
+      "This command needs an interactive terminal to read your input.\n" +
+        "Run it directly in a terminal — not through a pipe, and not from\n" +
+        "inside your MCP client.\n"
+    );
+    process.exit(1);
+  }
   const rl = createInterface({ input: process.stdin, output: process.stderr });
-  const answer = await rl.question(question);
-  rl.close();
-  return answer.trim();
+  try {
+    return (await rl.question(question)).trim();
+  } finally {
+    rl.close();
+  }
 }
 
 // ─── Subcommands ──────────────────────────────────────────────────────────────
+
+/**
+ * Store a mod.io API key in the OS credential manager.
+ *
+ * This is the entry point for mod.io auth: authLogin()'s email exchange is
+ * *initiated* with an API key, so without this command there was no way to get
+ * one into the keychain and `auth login` could never run. Read-only tools work
+ * off the API key alone; `auth login` is only needed for user-scoped calls.
+ */
+export async function authKey(): Promise<void> {
+  process.stderr.write(
+    "Paste your mod.io API key.\n" +
+      "Get one at https://mod.io/me/access (under 'API Access').\n\n" +
+      "It is stored only in your OS credential manager — never in a file,\n" +
+      "never in this repo, never sent anywhere except api.mod.io.\n\n"
+  );
+
+  const key = await prompt("mod.io API key: ");
+  if (!key) {
+    process.stderr.write("No key entered. Nothing stored.\n");
+    process.exit(1);
+  }
+
+  // Validate before storing so a bad paste fails here rather than at first use.
+  const res = await fetch(
+    `${MODIO_BASE}/games?api_key=${encodeURIComponent(key)}&_limit=1`,
+    { headers: { Accept: "application/json" } }
+  );
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    process.stderr.write(
+      `mod.io rejected that key (${res.status}): ` +
+        `${redactSensitiveText(body).slice(0, 200)}\nNothing was stored.\n`
+    );
+    process.exit(1);
+  }
+
+  setRawSecret(SERVICE, key);
+
+  process.stderr.write(
+    "\nKey verified and stored in your OS credential manager.\n" +
+      "Restart your MCP client and the mod.io tools will activate.\n" +
+      "For user-scoped access, you can now also run: modwrench auth login modio\n"
+  );
+}
 
 export async function authLogin(): Promise<void> {
   // mod.io's OAuth email exchange is initiated with the account's API key.
@@ -27,9 +86,11 @@ export async function authLogin(): Promise<void> {
   const apiKey = stored && !stored.trim().startsWith("{") ? stored.trim() : "";
   if (!apiKey) {
     process.stderr.write(
-      "A mod.io API key is required to initiate the email exchange. Store it " +
-        "in your OS credential manager under service `modwrench-modio` " +
-        "(account `default`) first, then re-run auth login.\n"
+      "A mod.io API key is required to start the email exchange.\n\n" +
+        "Run this first:\n\n" +
+        "    modwrench auth key modio\n\n" +
+        "That stores your key (https://mod.io/me/access) in your OS credential\n" +
+        "manager. Then re-run auth login.\n"
     );
     process.exit(1);
   }
