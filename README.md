@@ -4,7 +4,7 @@
 
 ModWrench is a Model Context Protocol (MCP) server that lets your AI assistant talk to mod platforms on your behalf. Discover mods, read changelogs, check versions, browse by tag, manage your modding workflow â€” from inside Claude Desktop, Claude Code, Cursor, ChatGPT, or any MCP-compatible client.
 
-ModWrench is a **bridge**. It holds nothing about you. Your API keys live in your OS keychain. Your conversations stay in your AI client. Nothing is logged, nothing is sent anywhere except the platforms you're already using.
+ModWrench is a **bridge**. It holds nothing about you. Your API keys live in your OS keychain and are read from nowhere else. Nothing is written to disk, no telemetry exists, and nothing reaches any machine we run — because we run none. It talks to the mod platforms you connect, plus GitHub for LOOT's public conflict masterlist. That is the whole list. See **[TRUST.md](TRUST.md)** for every claim, every caveat, and how to verify each one yourself.
 
 Built by a tinkerer who didn't see this coming. The modding community deserves better tooling than what the platforms ship by default â€” so here's a wrench.
 
@@ -84,7 +84,7 @@ The conversation is the interface. Tool names are internal.
 ## Trust posture (the six rules)
 
 1. **No telemetry.** ModWrench does not phone home. Ever.
-2. **No personal data stored, credentials read-only.** You place your token or API key in your OS credential manager (Windows Credential Manager, macOS Keychain, Linux libsecret); ModWrench only ever reads it. It never accepts keys via `.env` or files, never writes them during normal operation, and never holds them in memory longer than the API call that uses them.
+2. **No personal data stored, credentials read-only.** You place your token or API key in your OS credential manager (Windows Credential Manager, macOS Keychain, Linux libsecret); ModWrench only ever reads it. There is no `.env` or file fallback — if the keychain is empty the tool errors out rather than looking elsewhere. The credential is read once at server start and held in memory until the process exits; it is never written to disk. (It is not held "only for the duration of the request" — see [TRUST.md](TRUST.md).)
 3. **Attribution is preserved end-to-end.** Author names, source platform, and original mod URLs appear in every output that mentions a mod. ModWrench will not let the LLM strip credits.
 4. **Permissions are read, not bypassed.** When a mod author says "no asset reuse," ModWrench respects it. No tool in this project will help you violate another modder's stated permissions.
 5. **Rate limits are respected.** ModWrench fails politely on someone else's infrastructure rather than hammering it.
