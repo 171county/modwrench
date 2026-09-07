@@ -193,16 +193,22 @@ export type ProtonPrefix = {
 
 /** Pull the Proton distribution name out of a config_info fonts path. */
 function protonNameFromFontsDir(fontsDir: string): string | null {
-  // e.g. /…/steamapps/common/Proton 9.0/files/share/fonts/  ->  "Proton 9.0"
+  // Valve builds live under steamapps/common/<name>/files/share/fonts/, while
+  // community runners (GE-Proton, Proton-CachyOS) install to
+  // compatibilitytools.d/<name>/files/share/fonts/. Both shapes must resolve —
+  // GE-Proton is what a large share of Linux and Steam Deck modders run.
   // Split on both separators without a regex so the backslash case is exact.
   const BACKSLASH = String.fromCharCode(92);
   const parts = fontsDir
     .split("/")
     .flatMap((p) => p.split(BACKSLASH))
     .filter((p) => p.length > 0);
-  const i = parts.lastIndexOf("common");
-  if (i >= 0 && parts[i + 1] && parts[i + 2] === "files") {
-    return parts[i + 1] ?? null;
+  const filesIdx = parts.lastIndexOf("files");
+  if (filesIdx >= 2) {
+    const parent = parts[filesIdx - 2];
+    if (parent === "common" || parent === "compatibilitytools.d") {
+      return parts[filesIdx - 1] ?? null;
+    }
   }
   return null;
 }
