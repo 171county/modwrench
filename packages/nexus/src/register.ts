@@ -11,6 +11,7 @@ import {
   ModWrenchError,
   type Credential,
 } from "@modwrench/core";
+import { applyAdultPolicy } from "./adult.js";
 
 /**
  * Register all Nexus Mods tools on the given MCP server. Returns metadata
@@ -95,7 +96,8 @@ export function registerNexusTools(
 
   async function nexusRequest<T>(path: string): Promise<T> {
     log("debug", "nexus.request", { path });
-    return httpClient.request<T>(path);
+    const result = await httpClient.request<T>(path);
+    return applyAdultPolicy(result, path);
   }
 
   // GraphQL lives on a separate v2 endpoint (the v1 REST API has no full-text
@@ -132,7 +134,7 @@ export function registerNexusTools(
         "Nexus GraphQL returned no data."
       );
     }
-    return res.data;
+    return applyAdultPolicy(res.data, "graphql");
   }
 
   // ─── Tools ──────────────────────────────────────────────────────────────────
