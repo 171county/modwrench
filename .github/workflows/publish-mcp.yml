@@ -1,10 +1,9 @@
 name: Publish to MCP Registry
 
+# Superseded by release.yml, which publishes npm first and only then updates
+# the registry. Kept for manual re-publishing of registry metadata alone.
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - "v*"
 
 jobs:
   publish:

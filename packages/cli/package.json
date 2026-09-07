@@ -2,7 +2,7 @@
   "name": "@modwrench/cli",
   "version": "0.1.0",
   "mcpName": "io.github.171county/modwrench",
-  "description": "ModWrench \u00e2\u20ac\u201d one MCP entry, every mod platform. Bundles all installed @modwrench/* platform packages into a single combined MCP server.",
+  "description": "ModWrench â€” one MCP entry, every mod platform. Bundles all installed @modwrench/* platform packages into a single combined MCP server.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -30,7 +30,8 @@
     "start": "node dist/index.js",
     "clean": "rimraf dist",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test test/*.test.ts"
+    "test": "node --import tsx --test test/*.test.ts",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
@@ -39,6 +40,10 @@
     "@modwrench/nexus": "0.1.0",
     "@modwrench/thunderstore": "0.1.0",
     "@modwrench/ui": "0.1.0",
-    "@modwrench/workbench": "0.1.0"
+    "@modwrench/workbench": "0.1.0",
+    "zod": "^3.25.76"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

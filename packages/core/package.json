@@ -32,10 +32,14 @@
     "dev": "tsc --watch",
     "clean": "rimraf dist",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test test/*.test.ts"
+    "test": "node --import tsx --test test/*.test.ts",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@napi-rs/keyring": "^1.1.7",
     "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

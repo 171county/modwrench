@@ -1,0 +1,91 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+# The npm packages must exist before the MCP registry entry points at them,
+# otherwise the registry advertises a version nobody can install. These jobs
+# run in order and the registry step is gated on npm succeeding.
+jobs:
+  npm:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Check release readiness
+        run: npm run check:publishable
+
+      # Dependency order matters: every package must be on npm before anything
+      # that depends on it. @modwrench/ui in particular is required by five
+      # other packages — publishing them without it makes all five uninstallable.
+      #   core -> ui -> {nexus, modio, thunderstore, workbench} -> remote -> cli
+      - name: Publish packages in dependency order
+        run: |
+          set -e
+          for pkg in core ui nexus modio thunderstore workbench remote cli; do
+            name="@modwrench/${pkg}"
+            version=$(node -p "require('./packages/${pkg}/package.json').version")
+            if npm view "${name}@${version}" version >/dev/null 2>&1; then
+              echo "SKIP  ${name}@${version} already published"
+            else
+              echo "PUBLISH ${name}@${version}"
+              npm publish --workspace "${name}" --provenance --access public
+            fi
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  mcp-registry:
+    needs: npm
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify server.json matches the published package
+        run: |
+          set -e
+          server_version=$(node -p "require('./server.json').version")
+          pkg_version=$(node -p "require('./packages/cli/package.json').version")
+          if [ "$server_version" != "$pkg_version" ]; then
+            echo "server.json version ($server_version) != @modwrench/cli ($pkg_version)"
+            exit 1
+          fi
+          identifier=$(node -p "require('./server.json').packages[0].identifier")
+          npm view "${identifier}@${pkg_version}" version
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Validate server metadata
+        run: ./mcp-publisher validate server.json
+
+      - name: Authenticate to MCP Registry
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish server metadata
+        run: ./mcp-publisher publish server.json
