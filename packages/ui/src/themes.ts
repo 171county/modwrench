@@ -38,8 +38,10 @@ export type Theme = {
   chrome: string;
 };
 
-// Free / OFL / system-safe stacks. The named webfonts load from Google Fonts via
-// themeFontsHead(); every stack degrades to a strong system fallback if blocked.
+// Free / OFL / system-safe stacks. No webfonts are fetched — see themeFontsHead().
+// Each stack leads with a named face (used if the user happens to have it) and
+// falls back to a strong system font, so panels render correctly offline and
+// contact no third party.
 const F = {
   cinzel: '"Cinzel", "Trajan Pro", Georgia, serif',
   oswald: '"Oswald", "Arial Narrow", "Roboto Condensed", sans-serif',
@@ -259,16 +261,26 @@ export function themeForCrashType(crashType: string | undefined): ThemeId {
   }
 }
 
-/** <link> tags that load the authentic webfonts (graceful system fallback if blocked). */
+/**
+ * Deliberately empty.
+ *
+ * These panels used to load webfonts from Google Fonts. That meant every tool
+ * call returning a UI resource caused the user's client to contact Google —
+ * sending their IP and User-Agent to a third party they never opted into, on a
+ * tool whose entire premise is that it holds nothing about them. It also made
+ * README's "nothing is sent anywhere except the platforms you're already using"
+ * false.
+ *
+ * Every font stack in this file leads with a named face and falls back to a
+ * strong system font, so the panels still render correctly with no webfonts at
+ * all. Losing a typeface is a cheap price for a claim that survives someone
+ * opening DevTools.
+ *
+ * If webfonts are ever wanted back, self-host or inline them — do not reach out
+ * to a third party from a user's machine without asking.
+ */
 export function themeFontsHead(): string {
-  return (
-    '<link rel="preconnect" href="https://fonts.googleapis.com">' +
-    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
-    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?' +
-    "family=Averia+Serif+Libre:wght@400;700&family=Cinzel:wght@500;700&" +
-    "family=IBM+Plex+Mono:wght@400;600&family=Oswald:wght@400;600&" +
-    'family=Share+Tech+Mono&family=VT323&display=swap">'
-  );
+  return "";
 }
 
 /** Emit base var blocks (one per theme) + every theme's chrome CSS. */
