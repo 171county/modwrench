@@ -97,6 +97,40 @@ ModWrench gives an AI assistant better information about your setup. It does not
 
 This is a tool for making a hard job less tedious. It is not a mod manager, not a support desk, and not an authority on your setup. You are.
 
+## How updates reach you — and the one bit of access we do have
+
+The install instructions tell you to run this:
+
+```json
+"args": ["-y", "@modwrench/cli"]
+```
+
+There is no version pinned there, which means **npx fetches the latest published version every time it starts.** When a new version is published, your next launch picks it up automatically.
+
+That is how you get bug fixes, and it is also the honest answer to "could the maintainer push something into my machine later?" **Yes — that is the one channel that exists.** Not by reaching in; by publishing. It is worth understanding rather than glossing over, so here is what constrains it and what you can do about it.
+
+**The source is public.** Any version can be diffed against this repository. MIT means you never have to take a release on faith.
+
+**Releases carry npm provenance.** From 0.1.0 onward, packages are published by a GitHub Actions workflow with `--provenance`, which produces a signed attestation binding the published tarball to the exact public commit and build that produced it. It is not a promise that the code is good — it is cryptographic proof the code on npm is the code in this repo, and not something built on someone's laptop.
+
+You can check it yourself:
+
+```bash
+npm audit signatures
+```
+
+or look for the "Provenance" panel on the package's npm page, which names the source commit and the build run.
+
+Note the honest limit: **0.0.1 was published manually and has no attestation.** Provenance begins at 0.1.0.
+
+**You can pin.** If you would rather decide when to update, pin the version and nothing changes under you:
+
+```json
+"args": ["-y", "@modwrench/cli@0.1.0"]
+```
+
+Pinning is a completely reasonable thing to do with any tool that can read your files, including this one.
+
 ## Check any of this yourself
 
 Do not take the above on faith. The whole point of MIT and a public repo is that you do not have to:
