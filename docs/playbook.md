@@ -126,7 +126,7 @@ tool's zod schema includes a `confirm` boolean (optional, default false).
 When `confirm` is not exactly `true`, the tool returns a preview of what
 it *would* have done and performs no upstream call. Only on a re-call with
 `confirm: true` does the tool actually act. The canonical example is
-`roblox_send_message` in `modwrench/packages/roblox/src/register.ts` — the
+`nexus_get_mod` in `packages/nexus/src/register.ts` — the
 tool description starts with "WRITE ACTION," explains the consequence
 ("sends data to your live game servers"), and the handler short-circuits
 to a preview branch unless `confirm === true`. Same pattern for
@@ -142,7 +142,7 @@ non-idempotent write on a transient 5xx could publish a message twice,
 upload a file twice, or send a notification twice. For a deliberate,
 confirmation-gated action we'd rather fail loud once and let the user
 decide whether to retry. See the `writeClient` declaration in
-`modwrench/packages/roblox/src/register.ts` for the exact shape.
+`packages/nexus/src/register.ts` for the exact shape.
 
 **Rule 3: write tools name themselves loudly.** The tool's MCP description
 string starts with `WRITE ACTION` in all caps. The description explains
@@ -167,7 +167,7 @@ write side because that's where the irreversible actions live.
 
 ## 5. Error envelope
 
-Every wrench product surfaces failures through `ModWrenchError`, the shared
+Every platform package surfaces failures through `ModWrenchError`, the shared
 error type exported from `@modwrench/core`. Three fields matter to the
 caller: `code` (a stable identifier like `nexus_http_error`), `status`
 (the upstream HTTP status when the failure was an HTTP error), and `meta`
@@ -332,7 +332,7 @@ A new wrench is a product, not a feature. Before writing code:
 1. **Name reservation.** Confirm the name is unclaimed across three
    surfaces: the npm scope (`@<wrench>/`), a GitHub repo under the
    umbrella organization, and the matching domain (`<wrench>.dev` or
-   `modwrench.dev/<wrench>` as the umbrella site grows). If any of the
+   `the project site` as the umbrella site grows). If any of the
    three is taken by something unrelated, pick a different name now — it
    is cheaper than renaming later.
 2. **Distinct audience.** A new wrench is justified when its audience
