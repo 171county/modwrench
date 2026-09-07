@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
@@ -63,11 +66,38 @@ export function registerNexusTools(
   // discriminator in this package (where the credential type lives), while the
   // client handles transport-level concerns.
 
-  const USER_AGENT = "ModWrench/0.1.0 (+https://github.com/171county/modwrench)";
+  // Nexus's API Acceptable Use Policy asks every application to identify
+  // itself with Application-Name and Application-Version headers so traffic
+  // can be attributed to the app rather than to the individual whose key is
+  // in use. Sending blank or impersonating metadata is explicitly listed as
+  // unacceptable, so these are not optional.
+  //
+  // The version is read from this package's own manifest rather than
+  // hardcoded — a literal here silently went stale at 0.0.1 across a release.
+  const PKG_VERSION = ((): string => {
+    try {
+      return (
+        JSON.parse(
+          readFileSync(
+            resolve(dirname(fileURLToPath(import.meta.url)), "..", "package.json"),
+            "utf8"
+          )
+        ) as { version?: string }
+      ).version ?? "0.0.0";
+    } catch {
+      return "0.0.0";
+    }
+  })();
+
+  const USER_AGENT = `ModWrench/${PKG_VERSION} (+https://github.com/171county/modwrench)`;
 
   const httpClient = createHttpClient({
     baseUrl: NEXUS_BASE_URL,
     userAgent: USER_AGENT,
+    defaultHeaders: {
+      "Application-Name": "ModWrench",
+      "Application-Version": PKG_VERSION,
+    },
     errorCodePrefix: "nexus",
     authHeaders: (): Record<string, string> => {
       if (credential.source === "keychain") {
