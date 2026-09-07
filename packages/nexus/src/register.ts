@@ -447,7 +447,11 @@ export function registerNexusTools(
         );
       }
       const previewRes = await fetch(file.content_preview_link, {
-        headers: { "User-Agent": USER_AGENT },
+        headers: {
+          "User-Agent": USER_AGENT,
+          "Application-Name": "ModWrench",
+          "Application-Version": PKG_VERSION,
+        },
       });
       if (!previewRes.ok) {
         throw new ModWrenchError(
