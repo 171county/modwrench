@@ -45,6 +45,11 @@ desktop.ini
 # Raw chat transcripts — kept local-only, not project artifacts
 research on modders.md
 
-# Local staging / backups (moved-out code preserved for a separate project port; not shipped)
+# Local staging / backups of removed code; not shipped
 _removed-*/
 _old-node_modules-*/
+
+# Saved reference pages from other projects docs - research only, never shipped
+*.html
+!tiles/*.html
+!packages/**/*.html
