@@ -43,13 +43,14 @@ if (subcmd === "--version" || subcmd === "-v") {
 if (subcmd === "auth") {
   if (!action || !platform) {
     process.stderr.write(
-      "Usage: modwrench auth <login|status|logout> <nexus|modio>\n"
+      "Usage: modwrench auth <login|key|status|logout> <nexus|modio>\n"
     );
     process.exit(1);
   }
 
   type AuthModule = {
     authLogin(): Promise<void>;
+    authKey(): Promise<void>;
     authStatus(): Promise<void>;
     authLogout(): Promise<void>;
   };
@@ -67,11 +68,12 @@ if (subcmd === "auth") {
   }
 
   if (action === "login") await authMod.authLogin();
+  else if (action === "key") await authMod.authKey();
   else if (action === "status") await authMod.authStatus();
   else if (action === "logout") await authMod.authLogout();
   else {
     process.stderr.write(
-      `Unknown action "${action}". Supported: login, status, logout.\n`
+      `Unknown action "${action}". Supported: login, key, status, logout.\n`
     );
     process.exit(1);
   }

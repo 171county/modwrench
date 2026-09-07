@@ -1,11 +1,14 @@
 import { createHash, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { exec } from "node:child_process";
+import { createInterface } from "node:readline/promises";
 import { URL } from "node:url";
 import {
   getEnv,
   setStoredToken,
   getStoredToken,
+  getRawSecret,
+  setRawSecret,
   deleteStoredToken,
   redactSensitiveText,
 } from "@modwrench/core";
@@ -123,13 +126,95 @@ function captureCallback(
 
 // ─── Subcommands ──────────────────────────────────────────────────────────────
 
+async function prompt(question: string): Promise<string> {
+  // Without a TTY, readline's question() never settles on EOF — the process
+  // would hang forever instead of failing. Refuse up front so piping this
+  // command, or launching it from an MCP client, produces a clear error.
+  if (!process.stdin.isTTY) {
+    process.stderr.write(
+      "This command needs an interactive terminal to read your input.\n" +
+        "Run it directly in a terminal — not through a pipe, and not from\n" +
+        "inside your MCP client.\n"
+    );
+    process.exit(1);
+  }
+  const rl = createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    return (await rl.question(question)).trim();
+  } finally {
+    rl.close();
+  }
+}
+
+/**
+ * Store a Nexus personal API key in the OS credential manager.
+ *
+ * This is the auth path that works for everyone. Nexus issues personal API keys
+ * self-service, whereas OAuth client IDs must be requested from Nexus by email —
+ * so for a tool distributed to arbitrary modders, this is the primary route and
+ * authLogin() is the optional upgrade.
+ *
+ * The key is stored raw rather than JSON-wrapped, which is what makes
+ * loadCredential() resolve it as `source: "apikey"` so register.ts sends the
+ * `apikey` header instead of an OAuth Bearer token.
+ */
+export async function authKey(): Promise<void> {
+  process.stderr.write(
+    "Paste your Nexus personal API key.\n" +
+      "Get one at https://www.nexusmods.com/users/myaccount?tab=api+access\n" +
+      "(scroll to 'Personal API Key').\n\n" +
+      "It is stored only in your OS credential manager — never in a file,\n" +
+      "never in this repo, never sent anywhere except api.nexusmods.com.\n\n"
+  );
+
+  const key = await prompt("Nexus API key: ");
+  if (!key) {
+    process.stderr.write("No key entered. Nothing stored.\n");
+    process.exit(1);
+  }
+
+  // Validate before storing so a truncated paste fails here, loudly, rather
+  // than as a confusing 401 on the user's first tool call.
+  const res = await fetch(`${NEXUS_API_BASE}/users/validate.json`, {
+    headers: { apikey: key, Accept: "application/json" },
+  });
+  if (!res.ok) {
+    process.stderr.write(
+      `Nexus rejected that key (${res.status}). Nothing was stored.\n` +
+        "Check that you copied the Personal API Key in full.\n"
+    );
+    process.exit(1);
+  }
+  const data = (await res.json()) as {
+    name?: string;
+    user_id?: number;
+    is_premium?: boolean;
+  };
+
+  setRawSecret(SERVICE, key);
+
+  process.stderr.write(
+    `\nVerified as ${data.name ?? "your account"}` +
+      (data.user_id ? ` (user_id ${data.user_id})` : "") +
+      `${data.is_premium ? " [premium]" : ""}\n` +
+      "Key stored in your OS credential manager.\n" +
+      "Restart your MCP client and the Nexus tools will activate.\n"
+  );
+}
+
 export async function authLogin(): Promise<void> {
   const clientId = getEnv("NEXUS_OAUTH_CLIENT_ID", "");
   if (!clientId) {
     process.stderr.write(
-      "Missing NEXUS_OAUTH_CLIENT_ID. Register a Nexus OAuth app at\n" +
-        "https://www.nexusmods.com/users/myaccount?tab=api+access\n" +
-        "and set NEXUS_OAUTH_CLIENT_ID in your .env, then re-run this command.\n"
+      "Nexus OAuth needs a client ID that Nexus has to issue you by hand.\n\n" +
+        "There is no self-service OAuth app registration. To get a client ID, email\n" +
+        "support@nexusmods.com with your app name, description, logo, source link,\n" +
+        "and callback URI; then set NEXUS_OAUTH_CLIENT_ID and re-run this command.\n\n" +
+        "You almost certainly want this instead:\n\n" +
+        "    modwrench auth key nexus\n\n" +
+        "That stores a personal API key — self-service, no approval needed, and it\n" +
+        "unlocks the same read-only tools. Get one at:\n" +
+        "https://www.nexusmods.com/users/myaccount?tab=api+access\n"
     );
     process.exit(1);
   }
@@ -213,23 +298,33 @@ export async function authLogin(): Promise<void> {
 }
 
 export async function authStatus(): Promise<void> {
-  const stored = getStoredToken(SERVICE);
-  if (!stored) {
+  const raw = getRawSecret(SERVICE);
+  if (!raw) {
     process.stderr.write(
-      "Not signed in. Run: modwrench auth login nexus\n"
+      "Not signed in to Nexus.\n\n" +
+        "  modwrench auth key nexus     personal API key — self-service, works today\n" +
+        "  modwrench auth login nexus   OAuth — needs a client ID issued by Nexus\n"
     );
     process.exit(1);
   }
 
+  // A JSON blob is an OAuth token written by `auth login`; anything else is a
+  // raw personal API key written by `auth key`. The two take different auth
+  // headers, so read the shape before choosing one.
+  const stored = getStoredToken(SERVICE);
+  const viaOAuth = Boolean(stored?.access_token);
   const res = await fetch(`${NEXUS_API_BASE}/users/validate.json`, {
-    headers: {
-      Authorization: `Bearer ${stored.access_token}`,
-      Accept: "application/json",
-    },
+    headers: viaOAuth
+      ? {
+          Authorization: `Bearer ${stored!.access_token}`,
+          Accept: "application/json",
+        }
+      : { apikey: raw.trim(), Accept: "application/json" },
   });
   if (!res.ok) {
     process.stderr.write(
-      `Token rejected by Nexus (${res.status}). Run: modwrench auth login nexus\n`
+      `Credential rejected by Nexus (${res.status}). ` +
+        `Run: modwrench auth key nexus\n`
     );
     process.exit(1);
   }
@@ -240,9 +335,10 @@ export async function authStatus(): Promise<void> {
   };
   process.stderr.write(
     `Signed in as ${data.name} (user_id ${data.user_id})` +
-      `${data.is_premium ? " [premium]" : ""}\n`
+      `${data.is_premium ? " [premium]" : ""} ` +
+      `via ${viaOAuth ? "OAuth token" : "personal API key"}.\n`
   );
-  if (stored.expires_at) {
+  if (stored?.expires_at) {
     const remaining = stored.expires_at - Date.now();
     if (remaining > 0) {
       const days = Math.floor(remaining / (24 * 60 * 60 * 1000));
