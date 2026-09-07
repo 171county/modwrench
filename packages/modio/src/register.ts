@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
+  appIdentity,
   createHttpClient,
   getEnv,
   log,
@@ -16,6 +17,8 @@ import {
  * @modwrench/cli that bundles multiple platforms into one MCP entry.
  */
 import { renderShell, createUIResource, type ModCard } from "@modwrench/ui";
+
+const APP = appIdentity(import.meta.url);
 
 type ModioRow = {
   name: string;
@@ -67,7 +70,8 @@ export function registerModioTools(
 
   const httpClient = createHttpClient({
     baseUrl: MODIO_BASE_URL,
-    userAgent: "ModWrench/0.1.0 (+https://github.com/171county/modwrench)",
+    userAgent: APP.userAgent,
+    defaultHeaders: APP.headers,
     errorCodePrefix: "modio",
     authHeaders: (): Record<string, string> => {
       if (credential.source === "keychain") {

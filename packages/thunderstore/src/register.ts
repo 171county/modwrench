@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { createHttpClient, getEnv, log, ModWrenchError } from "@modwrench/core";
+import { appIdentity, createHttpClient, getEnv, log, ModWrenchError } from "@modwrench/core";
 
 /**
  * Register all Thunderstore tools on the given MCP server.
@@ -15,6 +15,8 @@ import { createHttpClient, getEnv, log, ModWrenchError } from "@modwrench/core";
  */
 import { renderShell, createUIResource, type ModCard } from "@modwrench/ui";
 import { resolveDependencyTree } from "./resolve.js";
+
+const APP = appIdentity(import.meta.url);
 
 type TsRow = {
   name: string;
@@ -57,7 +59,8 @@ export function registerThunderstoreTools(server: McpServer): {
   // API is anonymous.
   const httpClient = createHttpClient({
     baseUrl: BASE_URL,
-    userAgent: "ModWrench/0.1.0 (+https://github.com/171county/modwrench)",
+    userAgent: APP.userAgent,
+    defaultHeaders: APP.headers,
     errorCodePrefix: "thunderstore",
   });
 

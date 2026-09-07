@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
+  appIdentity,
   createHttpClient,
   getEnv,
   log,
@@ -20,6 +21,8 @@ import {
  * @modwrench/cli that bundles multiple platforms into one MCP entry.
  */
 import { renderShell, createUIResource, type ModCard } from "@modwrench/ui";
+
+const APP = appIdentity(import.meta.url);
 
 type NexusRow = {
   mod_id: number;
@@ -73,30 +76,13 @@ export function registerNexusTools(
   // unacceptable, so these are not optional.
   //
   // The version is read from this package's own manifest rather than
-  // hardcoded — a literal here silently went stale at 0.0.1 across a release.
-  const PKG_VERSION = ((): string => {
-    try {
-      return (
-        JSON.parse(
-          readFileSync(
-            resolve(dirname(fileURLToPath(import.meta.url)), "..", "package.json"),
-            "utf8"
-          )
-        ) as { version?: string }
-      ).version ?? "0.0.0";
-    } catch {
-      return "0.0.0";
-    }
-  })();
-
-  const USER_AGENT = `ModWrench/${PKG_VERSION} (+https://github.com/171county/modwrench)`;
-
+  
+  
   const httpClient = createHttpClient({
     baseUrl: NEXUS_BASE_URL,
-    userAgent: USER_AGENT,
+    userAgent: APP.userAgent,
     defaultHeaders: {
-      "Application-Name": "ModWrench",
-      "Application-Version": PKG_VERSION,
+      ...APP.headers,
     },
     errorCodePrefix: "nexus",
     authHeaders: (): Record<string, string> => {
@@ -447,11 +433,7 @@ export function registerNexusTools(
         );
       }
       const previewRes = await fetch(file.content_preview_link, {
-        headers: {
-          "User-Agent": USER_AGENT,
-          "Application-Name": "ModWrench",
-          "Application-Version": PKG_VERSION,
-        },
+        headers: { "User-Agent": APP.userAgent, ...APP.headers },
       });
       if (!previewRes.ok) {
         throw new ModWrenchError(

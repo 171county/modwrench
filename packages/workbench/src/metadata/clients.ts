@@ -1,4 +1,8 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
+  appIdentity,
   createHttpClient,
   getEnv,
   log,
@@ -6,6 +10,8 @@ import {
   type Credential,
   type HttpClient,
 } from "@modwrench/core";
+
+const APP = appIdentity(import.meta.url);
 
 // Minimal HTTP clients for the platforms we already cover via dedicated MCP
 // packages. We re-implement at this layer rather than depending on
@@ -19,7 +25,8 @@ import {
 // via loadCredential; if neither keychain nor env is configured for a given
 // platform, the client is null and the metadata tool surfaces a clear error.
 
-const USER_AGENT = "ModWrench/0.1.0 (+https://github.com/171county/modwrench)";
+
+
 
 // ─── Nexus ────────────────────────────────────────────────────────────────────
 
@@ -41,7 +48,8 @@ export function tryCreateNexusClient(): NexusClient | null {
   const baseUrl = getEnv("NEXUS_BASE_URL", "https://api.nexusmods.com/v1");
   const http: HttpClient = createHttpClient({
     baseUrl,
-    userAgent: USER_AGENT,
+    userAgent: APP.userAgent,
+    defaultHeaders: APP.headers,
     errorCodePrefix: "nexus",
     authHeaders: (): Record<string, string> => {
       if (credential.source === "keychain") {
@@ -82,7 +90,7 @@ export function tryCreateModioClient(): ModioClient | null {
   const baseUrl = getEnv("MODIO_BASE_URL", "https://api.mod.io/v1");
   const http: HttpClient = createHttpClient({
     baseUrl,
-    userAgent: USER_AGENT,
+    userAgent: APP.userAgent,
     errorCodePrefix: "modio",
     authHeaders: (): Record<string, string> => {
       if (credential.source === "keychain") {

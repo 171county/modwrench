@@ -1,5 +1,7 @@
 import { load as yamlLoad } from "js-yaml";
-import { getEnv, log } from "@modwrench/core";
+import { appIdentity, getEnv, log } from "@modwrench/core";
+
+const APP = appIdentity(import.meta.url);
 
 // LOOT publishes a separate masterlist repo per game. Each repo's
 // masterlist.yaml is the community-curated source of truth for load-order
@@ -139,7 +141,7 @@ export async function fetchLootMasterlist(
       const res = await fetch(url, {
         headers: {
           Accept: "text/yaml, text/plain;q=0.9, */*;q=0.5",
-          "User-Agent": "ModWrench/0.1.0 (+https://github.com/171county/modwrench)",
+          "User-Agent": APP.userAgent,
         },
       });
       if (!res.ok) {
