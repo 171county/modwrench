@@ -80,17 +80,17 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 // ─── Registration smoke tests ───────────────────────────────────────────────
 
-test("registerNexusTools: registers 14 tools with an apikey credential", () => {
+test("registerNexusTools: registers 15 tools with an apikey credential", () => {
   const server = new MockMcpServer();
   const result = registerNexusTools(server as unknown as never, APIKEY_CRED);
-  assert.equal(result.toolCount, 14);
-  assert.equal(server.tools.size, 14);
+  assert.equal(result.toolCount, 15);
+  assert.equal(server.tools.size, 15);
 });
 
 test("registerNexusTools: same tool count with keychain credential", () => {
   const server = new MockMcpServer();
   const result = registerNexusTools(server as unknown as never, KEYCHAIN_CRED);
-  assert.equal(result.toolCount, 14);
+  assert.equal(result.toolCount, 15);
 });
 
 test("registerNexusTools: exposes base URL", () => {
@@ -271,4 +271,112 @@ test("adult filter: operator opt-in lets flagged content through", async () => {
   } finally {
     delete process.env.NEXUS_ALLOW_ADULT_CONTENT;
   }
+});
+
+// ─── nexus_endorse_mod — the only write tool ─────────────────────────────────
+// Playbook rule 1 says a write must perform NO upstream call unless
+// confirm === true. That is the property worth guarding: a regression here
+// would mean ModWrench silently acting on someone's Nexus account.
+
+test("endorse: without confirm, performs NO network call and returns a preview", async () => {
+  const server = new MockMcpServer();
+  registerNexusTools(server as unknown as never, APIKEY_CRED);
+  const { calls } = captureFetch(() => jsonResponse({ status: "ok" }));
+
+  const res = await server.invoke("nexus_endorse_mod", {
+    game_domain: "skyrimspecialedition",
+    mod_id: 3863,
+    version: "5.2SE",
+  });
+
+  assert.equal(calls.length, 0, "preview must not touch the network");
+  const text = res.content[0]!.text;
+  assert.ok(text.includes("PREVIEW"));
+  assert.ok(text.includes("nothing has been sent"));
+  assert.ok(text.includes("confirm=true"), "must tell the model how to proceed");
+});
+
+test("endorse: confirm=false is treated as not confirmed", async () => {
+  const server = new MockMcpServer();
+  registerNexusTools(server as unknown as never, APIKEY_CRED);
+  const { calls } = captureFetch(() => jsonResponse({ status: "ok" }));
+
+  await server.invoke("nexus_endorse_mod", {
+    game_domain: "skyrimspecialedition",
+    mod_id: 3863,
+    version: "5.2SE",
+    confirm: false,
+  });
+  assert.equal(calls.length, 0);
+});
+
+test("endorse: confirm=true POSTs to the endorse endpoint with the version", async () => {
+  const server = new MockMcpServer();
+  registerNexusTools(server as unknown as never, APIKEY_CRED);
+  const bodies: string[] = [];
+  globalThis.fetch = async (url, init) => {
+    bodies.push(String(init?.body ?? ""));
+    assert.equal(init?.method, "POST");
+    assert.ok(
+      String(url).endsWith("/games/skyrimspecialedition/mods/3863/endorse.json"),
+      `unexpected url: ${url}`
+    );
+    return jsonResponse({ status: "Endorsed" });
+  };
+
+  const res = await server.invoke("nexus_endorse_mod", {
+    game_domain: "skyrimspecialedition",
+    mod_id: 3863,
+    version: "5.2SE",
+    confirm: true,
+  });
+  assert.ok(bodies[0]!.includes("version=5.2SE"), "version must be sent");
+  assert.ok(res.content[0]!.text.includes("Endorsed mod 3863"));
+});
+
+test("endorse: a 422 explains the likely cause instead of leaking a raw error", async () => {
+  const server = new MockMcpServer();
+  registerNexusTools(server as unknown as never, APIKEY_CRED);
+  captureFetch(() => jsonResponse({ message: "Could not save" }, 422));
+
+  const res = await server.invoke("nexus_endorse_mod", {
+    game_domain: "skyrimspecialedition",
+    mod_id: 3863,
+    version: "5.2SE",
+    confirm: true,
+  });
+  assert.equal(res.isError, true);
+  assert.ok(res.content[0]!.text.includes("downloaded"));
+});
+
+test("endorse: the write path does not retry", async () => {
+  // Playbook rule 2. A retried non-idempotent write could toggle state back.
+  const server = new MockMcpServer();
+  registerNexusTools(server as unknown as never, APIKEY_CRED);
+  let attempts = 0;
+  globalThis.fetch = async () => {
+    attempts += 1;
+    return jsonResponse({ message: "boom" }, 500);
+  };
+
+  await server
+    .invoke("nexus_endorse_mod", {
+      game_domain: "skyrimspecialedition",
+      mod_id: 3863,
+      version: "5.2SE",
+      confirm: true,
+    })
+    .catch(() => undefined);
+
+  assert.equal(attempts, 1, "a 5xx on a write must not be retried");
+});
+
+test("endorse: description is loudly marked as a write action", () => {
+  // Playbook rule 3 — the model only knows this is dangerous if we say so.
+  const server = new MockMcpServer();
+  registerNexusTools(server as unknown as never, APIKEY_CRED);
+  const tool = server.tools.get("nexus_endorse_mod");
+  assert.ok(tool);
+  assert.ok(tool!.description.startsWith("WRITE ACTION"));
+  assert.ok(tool!.description.includes("confirm=true"));
 });
