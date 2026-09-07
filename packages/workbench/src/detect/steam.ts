@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { parseVdf, type VdfObject } from "./vdf.js";
@@ -48,13 +48,22 @@ export function findSteamRoot(): string | null {
 
 /**
  * Resolve all Steam library folders configured for this install. Steam keeps
- * a list of these in steamapps/libraryfolders.vdf so games on a second drive
- * are reachable from the same client.
+ * a list of these in steamapps/libraryfolders.vdf so games on a second drive —
+ * or a Steam Deck's microSD card — are reachable from the same client.
+ *
+ * Two format quirks matter and both appear in the wild:
+ *   - Newer Steam maps each numeric key to an object with a "path" key; older
+ *     Steam maps it directly to the path as a bare string.
+ *   - Steam matches library folder names case-insensitively, and legacy
+ *     installs use "SteamApps" rather than "steamapps".
  */
 export function findSteamLibraries(steamRoot: string): string[] {
-  const libs: string[] = [join(steamRoot, "steamapps")];
-  const vdfPath = join(steamRoot, "steamapps", "libraryfolders.vdf");
-  if (!pathExists(vdfPath)) return libs;
+  const libs: string[] = [];
+  const primary = resolveSteamappsDir(steamRoot);
+  if (primary) libs.push(primary);
+
+  const vdfPath = primary ? join(primary, "libraryfolders.vdf") : null;
+  if (!vdfPath || !pathExists(vdfPath)) return libs;
 
   let parsed: VdfObject | null;
   try {
@@ -65,15 +74,39 @@ export function findSteamLibraries(steamRoot: string): string[] {
   if (!parsed) return libs;
 
   for (const value of Object.values(parsed)) {
-    if (typeof value !== "object") continue;
-    const path = value["path"];
-    if (typeof path !== "string") continue;
-    const steamapps = join(path, "steamapps");
-    if (pathExists(steamapps) && !libs.includes(steamapps)) {
-      libs.push(steamapps);
-    }
+    // Newer Steam: { path: "..." }. Older Steam: the path as a bare string.
+    const path =
+      typeof value === "string"
+        ? value
+        : typeof value === "object" && typeof value["path"] === "string"
+          ? value["path"]
+          : null;
+    if (!path) continue;
+    const steamapps = resolveSteamappsDir(path);
+    if (steamapps && !libs.includes(steamapps)) libs.push(steamapps);
   }
   return libs;
+}
+
+/**
+ * Find the steamapps directory under a library root, matching the directory
+ * name case-insensitively. Legacy installs use "SteamApps"; Steam itself
+ * resolves these case-insensitively, so a case-sensitive filesystem plus a
+ * hardcoded lowercase name silently loses the whole library.
+ */
+function resolveSteamappsDir(libraryRoot: string): string | null {
+  const direct = join(libraryRoot, "steamapps");
+  if (pathExists(direct)) return direct;
+  try {
+    for (const entry of readdirSync(libraryRoot, { withFileTypes: true })) {
+      if (entry.isDirectory() && entry.name.toLowerCase() === "steamapps") {
+        return join(libraryRoot, entry.name);
+      }
+    }
+  } catch {
+    // Unreadable library root — skip it.
+  }
+  return null;
 }
 
 export type InstalledApp = {
@@ -136,26 +169,109 @@ export function listProtonTools(steamRoot: string): string[] {
   return out;
 }
 
+export type ProtonPrefix = {
+  /** The compatdata/<appid> directory Steam actually used. */
+  compatDataPath: string;
+  /** The Wine prefix inside it. */
+  prefixPath: string;
+  /**
+   * Contents of compatdata/<appid>/version.
+   *
+   * This is a PREFIX SCHEMA version, not a Proton release — Proton 10.0-4
+   * writes "10.1000-105", and custom runners write names like "GE-Proton11-6".
+   * Proton only ever compares it for equality to decide whether to run prefix
+   * upgrade steps. Never parse it as <major>.<minor>-<patch>.
+   */
+  prefixVersion: string | null;
+  /**
+   * The Proton installation the prefix is bound to, derived from line 2 of
+   * config_info (the fonts directory inside the Proton distribution). This is
+   * the value a user would recognize as "which Proton" — e.g. "Proton 9.0".
+   */
+  protonBuild: string | null;
+};
+
+/** Pull the Proton distribution name out of a config_info fonts path. */
+function protonNameFromFontsDir(fontsDir: string): string | null {
+  // e.g. /…/steamapps/common/Proton 9.0/files/share/fonts/  ->  "Proton 9.0"
+  // Split on both separators without a regex so the backslash case is exact.
+  const BACKSLASH = String.fromCharCode(92);
+  const parts = fontsDir
+    .split("/")
+    .flatMap((p) => p.split(BACKSLASH))
+    .filter((p) => p.length > 0);
+  const i = parts.lastIndexOf("common");
+  if (i >= 0 && parts[i + 1] && parts[i + 2] === "files") {
+    return parts[i + 1] ?? null;
+  }
+  return null;
+}
+
 /**
- * Look up the Proton version used for a specific game by reading the
- * compatdata/<appid> entry. Returns null if no compat prefix exists (game is
- * running natively or hasn't been launched yet).
+ * Locate the Proton prefix for a game and describe it.
+ *
+ * Steam stores a game's prefix under the SAME library the game is installed in
+ * — `<library>/steamapps/compatdata/<appid>` — not under the primary Steam
+ * root. Looking only under the primary root silently loses every game on a
+ * second drive or a Steam Deck's microSD card, which is where Deck users put
+ * most of their library.
+ *
+ * A prefix and its game can also end up in different libraries, so this scans
+ * every configured library rather than assuming co-location. When more than one
+ * candidate exists, the most recently used wins: pfx.lock is touched on every
+ * launch, so its mtime is the tiebreaker. We require pfx.lock rather than just
+ * pfx because the pfx directory is incomplete until the game has run once.
  */
-export function detectProtonForApp(
-  steamRoot: string,
+export function findProtonPrefix(
+  libraryPaths: string[],
   appId: string
-): string | null {
+): ProtonPrefix | null {
   if (process.platform !== "linux") return null;
-  const compatdataAppDir = join(steamRoot, "steamapps", "compatdata", appId);
-  if (!pathExists(compatdataAppDir)) return null;
-  // version.txt inside the prefix names the Proton build that created it.
-  const versionFile = join(compatdataAppDir, "version");
+
+  const candidates: { dir: string; mtime: number }[] = [];
+  for (const lib of libraryPaths) {
+    const dir = join(lib, "compatdata", appId);
+    const lock = join(dir, "pfx.lock");
+    const pfx = join(dir, "pfx");
+    if (!pathExists(pfx)) continue;
+    let mtime = 0;
+    try {
+      if (pathExists(lock)) mtime = statSync(lock).mtimeMs;
+    } catch {
+      // Unreadable lock — keep the candidate, just without a timestamp.
+    }
+    candidates.push({ dir, mtime });
+  }
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => b.mtime - a.mtime);
+  const compatDataPath = candidates[0]!.dir;
+
+  let prefixVersion: string | null = null;
+  const versionFile = join(compatDataPath, "version");
   if (pathExists(versionFile)) {
     try {
-      return readFileSync(versionFile, "utf8").trim();
+      prefixVersion = readFileSync(versionFile, "utf8").split("\n")[0]?.trim() ?? null;
     } catch {
-      // Fall through.
+      // Leave null.
     }
   }
-  return "unknown";
+
+  let protonBuild: string | null = null;
+  const configInfo = join(compatDataPath, "config_info");
+  if (pathExists(configInfo)) {
+    try {
+      // Line 1 is the prefix version; line 2 is the Proton dist's fonts dir.
+      const fontsDir = readFileSync(configInfo, "utf8").split("\n")[1]?.trim();
+      if (fontsDir) protonBuild = protonNameFromFontsDir(fontsDir);
+    } catch {
+      // Leave null.
+    }
+  }
+
+  return {
+    compatDataPath,
+    prefixPath: join(compatDataPath, "pfx"),
+    prefixVersion,
+    protonBuild,
+  };
 }

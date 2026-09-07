@@ -163,7 +163,16 @@ export async function authKey(): Promise<void> {
     "Paste your Nexus personal API key.\n" +
       "Get one at https://www.nexusmods.com/users/myaccount?tab=api+access\n" +
       "(scroll to 'Personal API Key').\n\n" +
-      "It is stored only in your OS credential manager — never in a file,\n" +
+      "HEADS UP, so you can decide with full information:\n" +
+      "Nexus's API policy tolerates personal API keys for testing and personal\n" +
+      "use, but asks public applications to register and use their own client\n" +
+      "ID instead. ModWrench is not a registered Nexus application yet, so\n" +
+      "right now this is the personal-use path. Nexus reserves the right to\n" +
+      "limit personal keys used this way — that would affect YOUR key, not\n" +
+      "ModWrench's. If you would rather not take that on, skip Nexus; every\n" +
+      "Thunderstore and local diagnostic tool works without it.\n" +
+      "Policy: https://help.nexusmods.com/article/114-api-acceptable-use-policy\n\n" +
+      "The key is stored only in your OS credential manager — never in a file,\n" +
       "never in this repo, never sent anywhere except api.nexusmods.com.\n\n"
   );
 
@@ -206,15 +215,17 @@ export async function authLogin(): Promise<void> {
   const clientId = getEnv("NEXUS_OAUTH_CLIENT_ID", "");
   if (!clientId) {
     process.stderr.write(
-      "Nexus OAuth needs a client ID that Nexus has to issue you by hand.\n\n" +
-        "There is no self-service OAuth app registration. To get a client ID, email\n" +
-        "support@nexusmods.com with your app name, description, logo, source link,\n" +
-        "and callback URI; then set NEXUS_OAUTH_CLIENT_ID and re-run this command.\n\n" +
-        "You almost certainly want this instead:\n\n" +
+      "Nexus OAuth needs a client ID that Nexus issues on request.\n\n" +
+        "This is the correct path for a shared application: email\n" +
+        "support@nexusmods.com with your app name, description, logo, source\n" +
+        "link, and callback URI, then set NEXUS_OAUTH_CLIENT_ID and re-run.\n" +
+        "The PKCE flow here is complete and will work as soon as you have one.\n\n" +
+        "Alternative, for testing or personal use only:\n\n" +
         "    modwrench auth key nexus\n\n" +
-        "That stores a personal API key — self-service, no approval needed, and it\n" +
-        "unlocks the same read-only tools. Get one at:\n" +
-        "https://www.nexusmods.com/users/myaccount?tab=api+access\n"
+        "That uses your personal API key. Nexus tolerates personal keys for\n" +
+        "personal use but not for public applications — read the policy and\n" +
+        "decide for yourself:\n" +
+        "https://help.nexusmods.com/article/114-api-acceptable-use-policy\n"
     );
     process.exit(1);
   }

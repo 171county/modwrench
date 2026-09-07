@@ -2,6 +2,8 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { pathExists } from "../detect/os.js";
+import { findSteamRoot, findSteamLibraries } from "../detect/steam.js";
+import { detectInstalledManagers } from "../detect/manager.js";
 import type { GameDef } from "../detect/games.js";
 import type { LoadOrderResult, LoadOrderMod } from "./types.js";
 
@@ -36,11 +38,26 @@ function parseIni(text: string): Record<string, Record<string, string>> {
 
 // ─── Instance discovery ───────────────────────────────────────────────────────
 
+/**
+ * Where MO2 keeps its global instances.
+ *
+ * On Windows this is %LOCALAPPDATA%\ModOrganizer. On Linux and Steam Deck MO2
+ * runs inside a Wine/Proton prefix, so the same directory sits at a Windows
+ * path inside that prefix — there is nothing under $HOME to find. Rather than
+ * duplicate the prefix-scanning logic, reuse the detector, which already
+ * enumerates every Steam library (SD card included) and both prefix user
+ * names, and reports MO2's real data path.
+ */
 function defaultMo2InstancesRoot(): string | null {
-  if (process.platform !== "win32") return null;
-  const local = process.env.LOCALAPPDATA;
-  if (!local) return null;
-  return join(local, "ModOrganizer");
+  if (process.platform === "win32") {
+    const local = process.env.LOCALAPPDATA;
+    if (!local) return null;
+    return join(local, "ModOrganizer");
+  }
+  const steamRoot = findSteamRoot();
+  const libraries = steamRoot ? findSteamLibraries(steamRoot) : [];
+  const mo2 = detectInstalledManagers(libraries).find((m) => m.name === "mo2");
+  return mo2?.dataPath ?? null;
 }
 
 function readInstanceGameName(instancePath: string): string | null {

@@ -40,7 +40,7 @@ Each command prompts for the key, verifies it against the platform, and stores i
 
 Check status with `auth status nexus`, remove a key with `auth logout nexus`.
 
-> `auth login nexus` (OAuth) also exists, but Nexus issues OAuth client IDs by email request only — use `auth key` unless you have been given a `NEXUS_OAUTH_CLIENT_ID`.
+> **About Nexus keys.** Nexus’s [API Acceptable Use Policy](https://help.nexusmods.com/article/114-api-acceptable-use-policy) tolerates personal API keys for testing and personal use, but asks public applications to register for their own client ID. ModWrench is not a registered Nexus application yet, so connecting Nexus means using your personal key with a third-party tool — and Nexus may limit personal keys used that way. That would affect your key, not ModWrench’s. Skip Nexus if you would rather not; nothing else depends on it. `auth login nexus` (OAuth) is implemented and becomes the default once Nexus issues a client ID.
 
 ## Credential handling
 
