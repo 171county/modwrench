@@ -1,8 +1,8 @@
-﻿# MCPwrench
+# ModWrench
 
 A workshop of focused MCP servers that bring modding platforms, asset libraries, and game-data sources into AI clients (Claude Desktop, Cursor, and any other MCP-compatible host).
 
-The first product line â€” **ModWrench** â€” wraps Nexus Mods and mod.io so a modder can search, inspect, and reason about mods in conversation with an AI instead of clicking through web UIs.
+The first product line — **ModWrench** — wraps Nexus Mods and mod.io so a modder can search, inspect, and reason about mods in conversation with an AI instead of clicking through web UIs.
 
 ## Guiding principles
 
@@ -10,7 +10,7 @@ The first product line â€” **ModWrench** â€” wraps Nexus Mods and mod.
 
 **ModWrench servers never persist secrets to disk.** Credentials are either:
 
-- **(a)** supplied at process start by the MCP client's secure config â€” environment variables passed by Claude Desktop, Cursor, etc.; or
+- **(a)** supplied at process start by the MCP client's secure config — environment variables passed by Claude Desktop, Cursor, etc.; or
 - **(b)** held in the OS-native keychain (Windows Credential Manager, macOS Keychain, libsecret on Linux) after an OAuth flow.
 
 Never in repo-local files. Never in logs. Never echoed in tool responses. Never in shared config that lives in a git history.
@@ -25,11 +25,11 @@ When in doubt, ask: *would a modder, mid-conversation with an AI, plausibly want
 
 ### 3. Fail fast, fail loud.
 
-Missing config errors clearly at boot â€” never silently. HTTP errors from upstream APIs surface with status code and a snippet of the response body. Logs go to stderr as structured JSON, never stdout (which is reserved for MCP protocol traffic).
+Missing config errors clearly at boot — never silently. HTTP errors from upstream APIs surface with status code and a snippet of the response body. Logs go to stderr as structured JSON, never stdout (which is reserved for MCP protocol traffic).
 
 ### 4. Small shared core, no premature abstraction.
 
-`@modwrench/core` provides only what every server actually needs: secret loading, env helpers, structured logging, a shared error type. New utilities go in only when a second server proves they're shared â€” not on speculation.
+`@modwrench/core` provides only what every server actually needs: secret loading, env helpers, structured logging, a shared error type. New utilities go in only when a second server proves they're shared — not on speculation.
 
 ## Authentication roadmap
 
@@ -50,7 +50,7 @@ modwrench-nexus auth logout   # removes token from keychain
 ```
 
 - **Nexus**: standard OAuth2 auth-code + PKCE via Nexus SSO. Browser opens, local loopback receives the callback, token is saved.
-- **mod.io**: email exchange flow (`email_request` â†’ 5-digit code â†’ `email_exchange`). No browser needed â€” user enters the code into the CLI.
+- **mod.io**: email exchange flow (`email_request` â†’ 5-digit code â†’ `email_exchange`). No browser needed — user enters the code into the CLI.
 
 Servers check the keychain first at boot, then fall back to the env-var API key (developer testing path). If neither is present, the server fails with a message pointing to `auth login`.
 
@@ -58,7 +58,7 @@ Servers check the keychain first at boot, then fall back to the env-var API key 
 
 | Package | Purpose | Tools | Auth |
 |---|---|---|---|
-| `@modwrench/core` | Workshop-level shared helpers (secrets, env, logging, errors, keychain) | â€” | â€” |
+| `@modwrench/core` | Workshop-level shared helpers (secrets, env, logging, errors, keychain) | — | — |
 | `@modwrench/nexus` | Nexus Mods MCP server | 12 | API key + OAuth (PKCE auth-code) |
 | `@modwrench/modio` | mod.io MCP server | 11 | API key + OAuth (email magic-code) |
 | `@modwrench/cli` | Meta-server: bundles every installed `@modwrench/*` platform into one MCP entry | 23 (sum) | Delegates to each platform's credential chain |
@@ -68,7 +68,7 @@ Both servers are read-only today; writes (endorse, subscribe, rate, comment) wil
 ## Layout
 
 ```
-mcpwrench/
+modwrench/
 â”œâ”€â”€ packages/
 â”‚   â”œâ”€â”€ core/                              shared helpers
 â”‚   â”œâ”€â”€ nexus/                             Nexus Mods MCP server
@@ -84,8 +84,8 @@ mcpwrench/
 Adding a new server: copy `packages/modio/`, rename, swap the API client, then add an entry to the `platforms` array in `packages/cli/src/index.ts`. The core stays the same.
 
 Each platform package exposes both:
-- `@modwrench/<name>` â€” standalone bin (its own MCP entry, isolated process)
-- `@modwrench/<name>/register` â€” a pure `registerXxxTools(server, credential)` function consumed by `@modwrench/cli`
+- `@modwrench/<name>` — standalone bin (its own MCP entry, isolated process)
+- `@modwrench/<name>/register` — a pure `registerXxxTools(server, credential)` function consumed by `@modwrench/cli`
 
 So the CLI runs every platform in one process, while the per-platform bins remain available for users who want process isolation.
 
@@ -108,7 +108,7 @@ Copy the contents of `claude_desktop_config.example.json` into:
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 
-Adjust the absolute paths if you didn't clone to `C:\Apps\mcpwrench`. Then **fully quit and reopen** Claude Desktop (closing the window is not enough â€” it must restart). The two servers should appear in the MCP indicator.
+Adjust the absolute paths if you didn't clone to `C:\Apps\modwrench`. Then **fully quit and reopen** Claude Desktop (closing the window is not enough — it must restart). The two servers should appear in the MCP indicator.
 
 API keys do **not** belong in either config file. The servers locate the workspace `.env` on their own via `findWorkspaceRoot`.
 
