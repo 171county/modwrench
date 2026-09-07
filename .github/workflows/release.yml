@@ -2,6 +2,13 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      dist_tag:
+        description: "npm dist-tag to publish under. Use beta to publish without moving latest."
+        required: true
+        default: beta
+        type: choice
+        options: [beta, latest]
   push:
     tags:
       - "v*"
@@ -49,15 +56,21 @@ jobs:
             if npm view "${name}@${version}" version >/dev/null 2>&1; then
               echo "SKIP  ${name}@${version} already published"
             else
-              echo "PUBLISH ${name}@${version}"
-              npm publish --workspace "${name}" --provenance --access public
+              echo "PUBLISH ${name}@${version} --tag ${DIST_TAG}"
+              npm publish --workspace "${name}" --provenance --access public --tag "${DIST_TAG}"
             fi
           done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # A tag push is a real release; a manual run defaults to beta so it
+          # cannot move latest by accident.
+          DIST_TAG: ${{ github.event.inputs.dist_tag || (startsWith(github.ref, 'refs/tags/v') && 'latest') || 'beta' }}
 
   mcp-registry:
     needs: npm
+    # The MCP registry advertises one current version. A beta must not become
+    # the version strangers discover, so only a real tag release updates it.
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       id-token: write
