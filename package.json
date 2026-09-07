@@ -2,7 +2,7 @@
   "name": "modwrench",
   "version": "0.1.0",
   "private": true,
-  "description": "ModWrench \u00e2\u20ac\u201d a workshop of MCP servers. First product: ModWrench, an MCP toolkit for modders.",
+  "description": "ModWrench â€” a workshop of MCP servers. First product: ModWrench, an MCP toolkit for modders.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -28,7 +28,9 @@
     "dev": "npm run dev --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "check:publishable": "node scripts/check-publishable.mjs",
+    "check:release": "node scripts/check-publishable.mjs --registry"
   },
   "engines": {
     "node": ">=20.0.0"

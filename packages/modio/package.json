@@ -1,7 +1,7 @@
 {
   "name": "@modwrench/modio",
   "version": "0.1.0",
-  "description": "ModWrench \u00e2\u20ac\u201d mod.io MCP server. Search, browse, and inspect mods on mod.io directly from any MCP-compatible AI client.",
+  "description": "ModWrench â€” mod.io MCP server. Search, browse, and inspect mods on mod.io directly from any MCP-compatible AI client.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -43,12 +43,16 @@
     "start": "node dist/index.js",
     "clean": "rimraf dist",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test test/*.test.ts"
+    "test": "node --import tsx --test test/*.test.ts",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
     "@modwrench/core": "0.1.0",
     "@modwrench/ui": "0.1.0",
     "zod": "^3.23.8"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

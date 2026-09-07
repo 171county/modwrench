@@ -31,9 +31,13 @@
     "dev": "tsx watch src/index.ts",
     "clean": "rimraf dist",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test test/*.test.ts"
+    "test": "node --import tsx --test test/*.test.ts",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@modwrench/core": "0.1.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

@@ -100,9 +100,15 @@ You'll need [Node.js 20+](https://nodejs.org/) and an MCP-compatible client.
 
 ModWrench is published on npm as `@modwrench/cli`. The command below pulls the current public package and starts the stdio MCP server.
 
-### Claude Desktop / Claude Code
+### Claude Code
 
-Add this to your MCP config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows, equivalent path on Linux):
+The one-liner (registers it for every project):
+
+```bash
+claude mcp add --scope user modwrench -- npx -y @modwrench/cli
+```
+
+Or commit a `.mcp.json` at your repo root to share it with your team:
 
 ```json
 {
@@ -115,11 +121,47 @@ Add this to your MCP config (`~/Library/Application Support/Claude/claude_deskto
 }
 ```
 
-Restart your client, then put your credentials in your OS credential manager — ModWrench only reads them, and never accepts a key via `.env` or a file. For Nexus and mod.io you can run `modwrench auth login nexus` / `modwrench auth login modio` once; the OAuth flow deposits the token into your keychain for you. If you'd rather use an API key (for Nexus or mod.io) instead of OAuth, store it yourself under service `modwrench-<platform>`, account `default`. Either way the credential lives only in your keychain — ModWrench never sees it as a file.
+Claude Code reads `~/.claude.json` and project `.mcp.json`. It does **not** read `claude_desktop_config.json` — that file is Claude Desktop's.
 
-### Cursor / Continue / Cline / Roo Code
+### Claude Desktop
 
-Add to `.cursor/mcp.json` or your client's equivalent:
+Add this to `claude_desktop_config.json` (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+
+```json
+{
+  "mcpServers": {
+    "modwrench": {
+      "command": "npx",
+      "args": ["-y", "@modwrench/cli"]
+    }
+  }
+}
+```
+
+### Connecting your accounts
+
+Thunderstore and the local workbench tools work immediately — no account, no key. Nexus and mod.io need a credential, and the fastest route for both is a personal API key:
+
+```bash
+npx -y @modwrench/cli auth key nexus
+npx -y @modwrench/cli auth key modio
+```
+
+Each command prompts for the key, verifies it against the platform, and stores it in your OS credential manager (Windows Credential Manager, macOS Keychain, Linux libsecret). Get the keys at [nexusmods.com API access](https://www.nexusmods.com/users/myaccount?tab=api+access) and [mod.io/me/access](https://mod.io/me/access). Restart your client afterwards and the new tools activate.
+
+Check what's connected at any time with `auth status`, and remove a key with `auth logout`:
+
+```bash
+npx -y @modwrench/cli auth status nexus
+```
+
+> **On OAuth:** `auth login nexus` also exists, but Nexus does not hand out OAuth client IDs self-service — you have to request one by email. Unless you've been issued a `NEXUS_OAUTH_CLIENT_ID`, use `auth key`. For mod.io, `auth login modio` upgrades an API key to a user-scoped OAuth token via an email code.
+
+ModWrench reads credentials **only** from your OS credential manager — never from `.env`, never from a file on disk, and it never writes one anywhere else.
+
+### Cursor / Cline / Roo Code / Continue
+
+Each client has its own config location — Cursor uses `.cursor/mcp.json` (or `~/.cursor/mcp.json` globally), Cline and Roo Code use their VS Code extension settings, and Continue uses `~/.continue/config.yaml`. All of them accept the same server definition:
 
 ```json
 {
