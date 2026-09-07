@@ -1,0 +1,125 @@
+# What ModWrench does, and what it won't
+
+Every claim on this page was checked against the code before it was written here, and every one of them is something you can verify yourself. The last section shows you how.
+
+Where a claim needed a caveat to stay true, the caveat is here instead of being left out. A list like this is only worth anything if the awkward parts are on it.
+
+---
+
+## What ModWrench will never do
+
+- **Never download, install, or delete a mod.** No tool does it. There is no download code in this repository.
+- **Never modify your load order, your mod files, or your game files.** Every local tool opens files read-only. There is not a single filesystem write call in the workbench package.
+- **Never upload anything to a mod platform.** No endorse, vote, rate, comment, subscribe, or publish call exists in the code. On Nexus the OAuth scope is `public` — read-only — so it could not write even if asked to.
+- **Never generate mod content.** ModWrench reads and explains. It produces no assets, no code, no voices, no text intended to ship inside anyone's mod.
+- **Never rate, rank, or score a mod.** It will tell you what a mod is and what it does. It will not tell you which mod is "best," and it will not review someone's work back at them.
+- **Never send anything to the maintainer.** There is no analytics SDK, no crash reporting, no telemetry, no phone-home. No network destination in this codebase belongs to us.
+- **Never store your data.** Nothing is written to disk. There is no database and no cache of your data — the only thing held in memory is LOOT's public masterlist, and it dies with the process.
+- **Never ask for a password.** ModWrench never sees or handles your platform password.
+
+## There is no ModWrench service
+
+There is no account, no login to us, no server we operate. Nothing you do reaches a machine we control, because there is no such machine. ModWrench is a program your editor starts on your computer and stops when you close it.
+
+Two clarifications so that is exact rather than merely reassuring:
+
+1. The repo includes an optional HTTP transport package (`@modwrench/remote`) that **you** may choose to run on your own machine. It binds to `127.0.0.1`, is stateless, exposes only the public Thunderstore tools, and is not published to npm.
+2. `modwrench auth login nexus` briefly opens a listener on `127.0.0.1` to catch the OAuth redirect from your browser. It closes the moment login completes or after five minutes.
+
+The ModWrench *package* is listed on npm and the MCP server registry. That registers the software. It does not register you.
+
+## Every place ModWrench connects
+
+The complete list, from the shipped code:
+
+| Destination | When | Why |
+|---|---|---|
+| `api.nexusmods.com` | Nexus tools | Mod data |
+| `users.nexusmods.com` | `auth login nexus` only | OAuth |
+| `api.mod.io` | mod.io tools | Mod data |
+| `thunderstore.io` | Thunderstore tools | Mod data |
+| `raw.githubusercontent.com` | Conflict tools | LOOT's public masterlist |
+
+That last one is worth naming because it is not a mod platform: conflict checking downloads LOOT's community-maintained masterlist from their GitHub repo. It receives your IP address, like any HTTP request, and nothing else — no mod data, no credentials, no file paths.
+
+Platform base URLs are environment variables you can override, so you can point ModWrench at a proxy and watch every byte it sends.
+
+## Your credentials
+
+**Read only from your OS credential manager.** Windows Credential Manager, macOS Keychain, or Linux libsecret. The credential loader has no environment-variable fallback and no file fallback — if nothing is in the keychain, the tool fails with an error rather than looking somewhere else.
+
+**Stored only there.** Written when you run `auth key` or `auth login`, removed when you run `auth logout`, never copied to a file.
+
+**Held in memory for as long as the server runs.** Not "only for the duration of the request" — that would be a nicer sentence and it is not what the code does. The credential is read once at startup and lives in the process until it exits.
+
+**Not logged.** No log line in the codebase includes a key or token, and logs go to stderr, never to a file. Credential-bearing URL parameters are stripped from HTTP error messages, and the auth commands run upstream error bodies through a redactor before printing. To be precise rather than flattering: redaction is applied at those specific points, not as a blanket filter over every possible output path.
+
+ModWrench does read a `.env` at startup, but only for non-secret operational config — log level, API base-URL overrides, Steam root — and, if you register your own Nexus OAuth application, that app's client ID. **Your Nexus or mod.io key never comes from there.**
+
+## What leaves your machine — read this one
+
+This is the part most tools would leave out.
+
+ModWrench hands its results to the AI client you connected it to. If that client runs a hosted model, **the results go to that provider.** That is how every MCP server works, but it matters more here because of what these particular tools read:
+
+- **Crash logs come back close to verbatim.** For Crash Logger SSE and Buffout 4, every named section is passed through as raw text so the model can actually read it. `mw_diagnose_crash` returns the whole parsed log plus the correlation.
+- **Paths with your username in them do go out.** `mw_detect_environment` returns your mod manager's data folder, Steam root, game install paths, and Proton prefix. `mw_read_load_order` returns the profile folder it read. On Windows those live under `C:\Users\<you>\`; on Linux and Steam Deck under `/home/<you>/`.
+- Crash logs may carry paths of their own, depending on which crash logger and which mods produced them. That part is up to the log, not to ModWrench.
+
+ModWrench keeps none of it — nothing written, nothing cached, nothing uploaded. But it cannot control what your AI client does with a tool result, and it cannot un-send it. If that matters to you, use a local model, or don't point the crash tools at anything you would not paste into a chat window.
+
+## For mod authors
+
+If you make mods, ModWrench touches your work. So, plainly:
+
+- It **describes** mods. It does not **review** them. No ratings, no scores, no rankings, no "best mod for X."
+- It links back to your mod page. It is meant to send people to you, not to stand in front of you.
+- It never redistributes your files. It has no download code at all.
+- It never republishes your catalogue. Every request is per-user and on demand; there is no mirror and no bulk fetch.
+
+One thing it does that you should know about, because it is the part you might object to: **`mw_diagnose_crash` can name a specific mod as the likely cause of a crash.** That is an automated tool making a negative statement about your work, to a user, without you in the room.
+
+We think the honest mitigations are: it is a heuristic and says so, it reports what it correlated rather than pronouncing a verdict, and the user is told to verify. If you think that is not enough, [open an issue](https://github.com/171county/modwrench/issues) — that objection is legitimate and we would rather hear it from you than about you.
+
+## What ModWrench is bad at
+
+- **Crash diagnosis is a heuristic, not an authority.** It correlates a parsed crash log against your installed mods and known conflicts. It can be confidently wrong, and it will be.
+- **Coverage is a fixed list.** Local diagnostics know 15 games — 9 Bethesda Creation Engine titles (Skyrim SE/LE/VR, Fallout 4, Fallout 4 VR, Fallout: New Vegas, Fallout 3, Starfield, Oblivion) and 6 Unity/BepInEx titles (Lethal Company, Valheim, R.E.P.O., Risk of Rain 2, Dyson Sphere Program, BONEWORKS). Your game may not be there.
+- **Four crash log formats:** Crash Logger SSE, Buffout 4, NetScriptFramework, BepInEx. An unrecognized format returns a clear error, not a guess.
+- **Three mod managers:** MO2 and r2modman properly; Vortex only well enough to notice it exists.
+- **It is early software.** It has bugs you will find before we do.
+
+## It is on you
+
+ModWrench gives an AI assistant better information about your setup. It does not make the assistant right, and it does not make you safe.
+
+**Check what it tells you before you act on it.** Do not delete a mod, reorder a load order, or rebuild a profile because a language model was confident. Back up your saves and your profile before you change anything on the strength of a diagnosis. If ModWrench names a culprit, treat that as a lead to verify — not a verdict.
+
+This is a tool for making a hard job less tedious. It is not a mod manager, not a support desk, and not an authority on your setup. You are.
+
+## Check any of this yourself
+
+Do not take the above on faith. The whole point of MIT and a public repo is that you do not have to:
+
+```bash
+git clone https://github.com/171county/modwrench.git
+cd modwrench
+
+# Every network destination in the shipped code
+grep -rhoE "https://[a-zA-Z0-9.-]+" packages/*/src --include=*.ts | sort -u
+
+# Every filesystem write (the local tools should have none)
+grep -rn "writeFile\|appendFile\|createWriteStream\|rmSync\|unlink" packages/workbench/src
+
+# Every non-GET request
+grep -rn "method:" packages/*/src --include=*.ts
+
+# Where credentials come from
+cat packages/core/src/auth.ts
+```
+
+If any of those turn up something this page does not mention, that is a bug in this page. [Report it](https://github.com/171county/modwrench/issues) and it gets fixed or this page gets corrected.
+
+---
+
+*Last verified against the code on 2026-09-07. If you find a gap between this document and the source, the source is the truth and this document is wrong.*
