@@ -10,7 +10,7 @@ Where a claim needed a caveat to stay true, the caveat is here instead of being 
 
 - **Never download, install, or delete a mod.** No tool does it. There is no download code in this repository.
 - **Never modify your load order, your mod files, or your game files.** Every local tool opens files read-only. There is not a single filesystem write call in the workbench package.
-- **Never upload anything to a mod platform.** No endorse, vote, rate, comment, subscribe, or publish call exists in the code. On Nexus the OAuth scope is `public` — read-only — so it could not write even if asked to.
+- **One write action, and only on your say-so.** ModWrench can endorse a mod on Nexus — crediting its author — when you ask it to. It asks first, every time, and shows you exactly what it will do before it does anything. Nothing else writes: no votes, no ratings, no comments, no subscriptions, no uploads. Details below.
 - **Never generate mod content.** ModWrench reads and explains. It produces no assets, no code, no voices, no text intended to ship inside anyone's mod.
 - **Never rate, rank, or score a mod.** It will tell you what a mod is and what it does. It will not tell you which mod is "best," and it will not review someone's work back at them.
 - **Never send anything to the maintainer.** There is no analytics SDK, no crash reporting, no telemetry, no phone-home. No network destination in this codebase belongs to us.
@@ -57,6 +57,21 @@ Platform base URLs are environment variables you can override, so you can point 
 
 ModWrench does read a `.env` at startup, but only for non-secret operational config — log level, API base-URL overrides, Steam root — and, if you register your own Nexus OAuth application, that app's client ID. **Your Nexus or mod.io key never comes from there.**
 
+## The one thing ModWrench can write
+
+ModWrench has exactly one action that changes anything outside your machine: **endorsing a mod on Nexus.**
+
+It exists because endorsements are how mod authors get credited, and because a tool that helps you find the mod that fixed your crash should be able to say thanks to the person who made it. It gives authors something rather than taking a page visit away.
+
+**It cannot happen by accident.** The tool performs no network call at all unless you have confirmed. Ask for an endorsement and the first thing that comes back is a preview — which mod, which version, that it is public and shows your username. Only a second, explicitly confirmed call actually sends it. There is a test asserting that the unconfirmed path touches the network zero times, because "it asks first" is worth guarding rather than promising.
+
+Two more details, since they are the kind of thing worth knowing:
+
+- The write path **does not retry**. A normal read that fails is retried a few times; an endorsement that fails is reported to you once. Retrying a write you cannot see the result of is how things get done twice.
+- You can undo it any time on the mod page. ModWrench does not need to be involved.
+
+**A correction, because an earlier version of this page got it wrong.** It said the Nexus OAuth scope is read-only "so it could not write even if asked." That was misleading. A Nexus personal API key — the credential most people will use — carries your full account permissions and has no scope restriction at all. The reason ModWrench did not write was that no write code existed, not that the credential forbade it. Now one write exists, it is gated as described, and this paragraph is here rather than deleted because a trust document that quietly fixes its own mistakes is not one.
+
 ## Adult content
 
 Nexus tags some mods as adult content. On their own site that content is hidden from signed-out visitors, off by default for signed-in ones, and released only after an age check. Their Terms of Service put the same duty on tools like this one, in a single sentence: *"Third parties who use our APIs are responsible for filtering the content returned."*
@@ -90,6 +105,7 @@ If you make mods, ModWrench touches your work. So, plainly:
 - It **describes** mods. It does not **review** them. No ratings, no scores, no rankings, no "best mod for X."
 - It links back to your mod page. It is meant to send people to you, not to stand in front of you.
 - It never redistributes your files. It has no download code at all.
+- It can **endorse** your mod when a user asks it to — the one write it performs, and it exists to credit you.
 - It never republishes your catalogue. Every request is per-user and on demand; there is no mirror and no bulk fetch.
 
 One thing it does that you should know about, because it is the part you might object to: **`mw_diagnose_crash` can name a specific mod as the likely cause of a crash.** That is an automated tool making a negative statement about your work, to a user, without you in the room.
