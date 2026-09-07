@@ -3,7 +3,7 @@
 This release cuts a coherent `0.1.0` line across every package and supersedes the
 drifted `0.0.1` packages already on npm. It also finalizes the platform lineup:
 **Nexus, mod.io, Thunderstore, and the local Workbench.** Minecraft and CurseForge
-were removed — they belong in the sibling a separate project project, not ModWrench.
+were removed — Minecraft and CurseForge tooling is out of scope for ModWrench.
 
 ## Final platform lineup (0.1.0)
 
@@ -17,8 +17,8 @@ were removed — they belong in the sibling a separate project project, not ModW
 | `@modwrench/workbench` | Local diagnostics: crashlog parse, load order, conflicts, env detect |
 | `@modwrench/cli` | Meta-server bundling the above behind one MCP entry |
 
-Removed from ModWrench: `@modwrench/curseforge` and `@modwrench/modrinth` (→ a separate project),
-and the Workbench Minecraft crashlog parser (→ a separate project).
+Removed from ModWrench: `@modwrench/curseforge`, `@modwrench/modrinth`, and the
+Workbench Minecraft crashlog parser — all out of scope.
 
 ## What to verify before publishing
 
@@ -104,8 +104,8 @@ Then reconnect it in your MCP client (config uses `npx -y @modwrench/cli`).
 ## Deprecate the superseded packages
 
 ```bash
-npm deprecate "@modwrench/modrinth@0.0.1"   "Moved to a separate project; not part of ModWrench."
-npm deprecate "@modwrench/curseforge@*"      "Not part of ModWrench; CurseForge/Minecraft tooling belongs to a separate project."   # only if a curseforge version was ever published
+npm deprecate "@modwrench/modrinth@0.0.1"   "Not part of ModWrench."
+npm deprecate "@modwrench/curseforge@*"      "Not part of ModWrench."   # only if a curseforge version was ever published
 npm deprecate "@modwrench/cli@0.0.1"        "Superseded by 0.1.0 (platform lineup finalized: Nexus, mod.io, Thunderstore, Workbench). Use @modwrench/cli@latest."
 ```
 

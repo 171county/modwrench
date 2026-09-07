@@ -10,7 +10,7 @@ The user types ONE thing — "my game keeps crashing on the bridge to Whiterun" 
 
 ## License & Positioning
 
-- ModWrench core: Apache 2.0
+- ModWrench core: MIT
 - ModWrench reads no personal data; all auth tokens stay in OS keychain (Windows Credential Manager, macOS Keychain, Linux libsecret via `@napi-rs/keyring`)
 - Crash logs and load orders are processed in-memory and never persisted by ModWrench
 - The user's AI client (Claude, ChatGPT) sees the conversation; ModWrench does not

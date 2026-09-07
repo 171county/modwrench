@@ -1,17 +1,10 @@
 # The ModWrench Playbook
 
-The canonical cross-product spec. Every wrench product under the ModWrench
-umbrella follows the rules in this document.
+The spec ModWrench is built to. When the rules and the code disagree, the code
+wins and this doc gets a PR.
 
-This doc lives in the ModWrench repo because that's where the umbrella started,
-but it is **not** a ModWrench-specific document. Sibling repos (a separate project,
-a separate project, a separate project, and any future wrench product) link here from their
-own `CONTRIBUTING.md`. When the rules and the code disagree, the code wins and
-this doc gets a PR.
-
-If you are about to start a new wrench product, read this end to end first.
-If you are adding a tool to an existing wrench, the sections you most often
-need are [The trust posture](#2-the-trust-posture),
+If you are adding a tool, the sections you most often need are
+[The trust posture](#2-the-trust-posture),
 [Read-by-default, publish-with-confirmation](#4-read-by-default-publish-with-confirmation),
 [Tool naming conventions](#6-tool-naming-conventions), and
 [Fail loud philosophy](#7-fail-loud-philosophy).
@@ -27,41 +20,9 @@ distinct audience with its own vocabulary, trust expectations, and platform
 mix — but they all sit on the same engineering core and the same trust posture
 so that a contributor moving between them finds familiar patterns.
 
-The current product line:
-
-- **ModWrench** — for modders. Wraps Nexus Mods, mod.io, Thunderstore,
-  and a local workbench for crashlog parsing and environment detection.
-  Audience: people who mod Skyrim, Fallout, Lethal Company, Valheim, and
-  the long tail of native-moddable PC games. (Minecraft and CurseForge
-  belong to a separate project, not ModWrench.)
-- **a separate project** — for Roblox and UEFN creators. Wraps the Roblox Open Cloud
-  surface (universes, places, datastores, assets, MessagingService) and is
-  ready to wrap UEFN the day Epic ships a public creator-data API.
-  Audience: experience developers shipping to Roblox and Fortnite Creative.
-- **a separate project** — for AAA studios. Wraps internal build, telemetry, and
-  publishing surfaces that the major engine and platform vendors expose to
-  shipped-game teams. Audience: developers inside studios that already pay
-  for the underlying tooling.
-- **a separate project** — for community comms. Wraps the read-only surfaces
-  of community platforms (forums, chat, issue trackers) that a maintainer
-  needs to keep a pulse on without sitting in every channel. Audience:
-  open-source maintainers, community managers, and small studios who answer
-  their own players.
-
-Every wrench product depends on `@modwrench/core`. The core is deliberately
-small: it provides credential resolution against the OS credential manager
-(read-only — no env-var or on-disk fallback), a shared HTTP client that handles 429s and 5xxs the same
-way everywhere, a structured `ModWrenchError` envelope, structured stderr
-logging that never collides with the MCP protocol on stdout, and a couple
-of environment helpers. New utilities go into core only after a second wrench
-proves they're shared — never on speculation.
-
-A wrench product is an npm scope (`@<wrench>/`) containing one platform
-package per upstream service, optional local packages for things that aren't
-APIs (e.g. ModWrench's `@modwrench/workbench` reads the filesystem), and a
-meta-server package (`@<wrench>/cli`) that composes every installed platform
-into one MCP entry. Users install one wrench, configure their AI client once,
-and never think about transport plumbing again.
+ModWrench wraps Nexus Mods, mod.io, Thunderstore, and a local workbench for
+crashlog parsing and environment detection. Audience: people who mod Skyrim,
+Fallout, Lethal Company, Valheim, and the long tail of native-moddable PC games.
 
 ---
 
@@ -281,8 +242,7 @@ every platform's tools into one namespace.
 short prefix for tools that aren't tied to one upstream platform. ModWrench
 uses `mw_` for the workbench tools (`mw_detect_environment`,
 `mw_read_load_order`, `mw_parse_crashlog`, `mw_query_mod_metadata`,
-`mw_check_known_conflicts`). a separate project uses `myne_` for cross-platform
-helpers. a separate project uses `def_`. a separate project uses `fow_`. The prefix is
+`mw_check_known_conflicts`). The prefix is
 the product, not the company — when a meta-tool clearly belongs to one
 product's vocabulary, it gets that product's prefix even if the
 implementation lives in a shared package.
@@ -335,7 +295,7 @@ been removed" — which would be a lie.
 **No fake tools when the upstream API doesn't exist.** A wrench product
 will not paper over a missing capability with a tool that returns
 plausible-looking data. The canonical example is the UEFN package in
-a separate project — `modwrench/packages/uefn/src/register.ts` is fully scaffolded
+
 (takes a credential, sets a base URL, logs its status on boot) and
 registers exactly zero tools. The top-of-file comment explains why:
 
@@ -411,7 +371,7 @@ Once the name and the audience are settled, the engineering shape:
    issue templates, the maintainer's contact). Do not restate the
    umbrella's trust posture — link to it, so when it changes here it
    changes everywhere.
-8. **Stay under the same license.** Apache 2.0 across the umbrella,
+8. **Stay under the same license.** MIT,
    contributor sign-off via DCO, no CLA. The license is part of the
    umbrella's promise to its audience and is not negotiable per
    wrench.

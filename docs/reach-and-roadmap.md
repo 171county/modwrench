@@ -89,7 +89,7 @@ The platform layer is already deep: **nexus 14, mod.io 17, thunderstore 9 tools;
 5. **Modpack / Collection precheck** — read a Nexus Collection or Wabbajack manifest, diff against what's installed / the local build. Feeds the resolver.
 6. **Update / deleted watchlist** — what in your order has an update or was pulled; when a mod is deleted on one platform, find it on another (a safety win — steers people off malware-laden Discord mirrors; lives the gift-economy values).
 
-**Skip (restraint = trust):** reimplementing DynDOLOD / Nemesis / xEdit / Smash engines, editing or resaving saves (`.ess` / `.fos`), BethINI auto-tuning, mod-authoring toolkits (different persona), anything Minecraft / CurseForge (→ a separate project). ModWrench *reads and reasons over* the real tools' output; it never pretends to replace them.
+**Skip (restraint = trust):** reimplementing DynDOLOD / Nemesis / xEdit / Smash engines, editing or resaving saves (`.ess` / `.fos`), BethINI auto-tuning, mod-authoring toolkits (different persona), anything Minecraft / CurseForge (out of scope). ModWrench *reads and reasons over* the real tools' output; it never pretends to replace them.
 
 ---
 

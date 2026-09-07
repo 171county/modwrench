@@ -8,17 +8,14 @@ This document is currently maintained by hand. When [release-please](https://git
 
 ---
 
-## [0.1.0] — 2026-09-12
+## [Unreleased]
 
-First release since 0.0.1 that is installable from npm: every `@modwrench/*` workspace
-published at a matching version, `@modwrench/curseforge` and `@modwrench/remote` published
-for the first time, and the MCP Registry entry (`io.github.171county/modwrench`) updated
-to point at `@modwrench/cli@0.1.0`.
+Everything since 0.0.1 is currently shipping to `main` without version tags. The next published release will collect these entries under a real version heading.
 
 ### Removed
 
-- **CurseForge platform removed from ModWrench.** `@modwrench/curseforge` and all CurseForge wiring were pulled out — CurseForge (a Minecraft-centric host) belongs in the sibling a separate project project, not ModWrench.
-- **Minecraft support removed from the Workbench.** The Minecraft crash-report parser and the Forge/Fabric/NeoForge loader + `minecraft` game-family detection were removed and staged for a separate project. ModWrench's local diagnostics now target the Bethesda Creation Engine and Unity/BepInEx families only. Final platform lineup: Nexus, mod.io, Thunderstore, and the local Workbench.
+- **CurseForge platform removed from ModWrench.** `@modwrench/curseforge` and all CurseForge wiring were pulled out — CurseForge is a Minecraft-centric host and is out of scope for ModWrench.
+- **Minecraft support removed from the Workbench.** The Minecraft crash-report parser and the Forge/Fabric/NeoForge loader + `minecraft` game-family detection were removed as out of scope. ModWrench's local diagnostics now target the Bethesda Creation Engine and Unity/BepInEx families only. Final platform lineup: Nexus, mod.io, Thunderstore, and the local Workbench.
 
 ### Added
 
@@ -44,7 +41,7 @@ to point at `@modwrench/cli@0.1.0`.
 
 ### Removed
 
-- **Modrinth platform moved to MyneWrench** — Modrinth (the open-source Minecraft hub) was removed from ModWrench and now lives in the sibling MyneWrench project, where Minecraft-dev creator tooling belongs. ModWrench no longer ships `@modwrench/modrinth`. (2026-06-25)
+- **Modrinth platform removed** — Modrinth (the open-source Minecraft hub) is out of scope for ModWrench, which targets native game modding. ModWrench no longer ships `@modwrench/modrinth`. (2026-06-25)
 
 ### Changed
 
