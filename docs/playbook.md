@@ -126,13 +126,10 @@ tool's zod schema includes a `confirm` boolean (optional, default false).
 When `confirm` is not exactly `true`, the tool returns a preview of what
 it *would* have done and performs no upstream call. Only on a re-call with
 `confirm: true` does the tool actually act. The canonical example is
-`nexus_get_mod` in `packages/nexus/src/register.ts` — the
+`nexus_endorse_mod` in `packages/nexus/src/register.ts` — the
 tool description starts with "WRITE ACTION," explains the consequence
-("sends data to your live game servers"), and the handler short-circuits
-to a preview branch unless `confirm === true`. Same pattern for
-`roblox_publish_place`, which additionally validates the local file exists
-during the preview so the user finds out about a typo'd path before they
-say yes.
+("endorses publicly, as you, on your Nexus account"), and the handler short-circuits
+to a preview branch unless `confirm === true`.
 
 **Rule 2: writes use a separate HTTP client with retries disabled.** The
 shared `createHttpClient()` factory in `packages/core/src/http.ts` accepts
@@ -155,7 +152,7 @@ model learns the dance — the framework can't enforce a UX it can't see.
 The preview itself is structured prose, not a serialized payload. It lists
 the inputs the tool will use, names the destination ("universe 12345,
 topic `live-config`"), and ends with the exact re-call instruction
-("Re-call `roblox_send_message` with `confirm=true` to actually send.").
+("Re-call `nexus_endorse_mod` with confirm=true to actually endorse.").
 A good preview is something a creator can read aloud and recognize as
 matching their intent before they approve.
 
@@ -178,11 +175,11 @@ human can read the message and the body snippet and understand what
 actually went wrong, and our own logs preserve the URL for debugging.
 
 Error codes are platform-prefixed. The shared HTTP client takes an
-`errorCodePrefix` option (e.g. `"nexus"`, `"roblox"`, `"modio"`) and uses
+`errorCodePrefix` option (e.g. `"nexus"`, `"thunderstore"`, `"modio"`) and uses
 it to construct the code: a non-2xx response becomes
 `<prefix>_http_error`, a network failure (DNS, connection reset) becomes
 `<prefix>_network_error`, and exhausting retries on 429 or 5xx becomes
-`<prefix>_retries_exhausted`. This means a caller sees `roblox_http_error`
+`<prefix>_retries_exhausted`. This means a caller sees `nexus_http_error`
 rather than a generic `http_error` and can branch accordingly. New error
 codes within a platform follow the same pattern — `<prefix>_<reason>`,
 lowercase, underscore-separated.
@@ -249,7 +246,7 @@ implementation lives in a shared package.
 
 **Write tools start their description with `WRITE ACTION`.** All caps,
 followed by an em-dash, followed by a one-sentence statement of what
-changes upstream. Example, verbatim from `roblox_send_message`:
+changes upstream. Example, verbatim from `nexus_endorse_mod`:
 
 > WRITE ACTION — sends data to your live game servers. Publishes a
 > message to a MessagingService topic in a running experience; every
@@ -261,7 +258,7 @@ narrate consequences and request confirmation before invoking.
 
 **Descriptions tell the model how to chain.** If a tool's natural caller
 needs an ID, the description names the discovery tool: "Use
-`roblox_list_datastores` to find datastore names" or "Discover universe
+`nexus_list_games` to find game domains" or "Discover mod
 IDs in the Creator Dashboard URL." The LLM learns the dependency from the
 text, not from a separate schema.
 

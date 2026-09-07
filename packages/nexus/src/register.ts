@@ -624,5 +624,123 @@ export function registerNexusTools(
     }
   );
 
-  return { toolCount: 14, baseUrl: NEXUS_BASE_URL };
+  // ─── Write client ───────────────────────────────────────────────────────────
+  // Playbook rule 2: writes get their own client with retries disabled. An
+  // endorsement is not idempotent in a way we can reason about from here — a
+  // transient 5xx that actually succeeded upstream, retried, could toggle state
+  // back. Fail loud once and let the person decide.
+  const writeClient = createHttpClient({
+    baseUrl: NEXUS_BASE_URL,
+    userAgent: APP.userAgent,
+    defaultHeaders: APP.headers,
+    errorCodePrefix: "nexus",
+    retry: { maxAttempts: 1 },
+    authHeaders: (): Record<string, string> => {
+      if (credential.source === "keychain") {
+        return { Authorization: `Bearer ${credential.accessToken}` };
+      }
+      return { apikey: credential.apiKey };
+    },
+  });
+
+  // Tool 15: Endorse a mod — the only write action in ModWrench.
+  server.tool(
+    "nexus_endorse_mod",
+    "WRITE ACTION. Endorses a mod on Nexus Mods using the signed-in user's own " +
+      "account — a public, visible action attributed to them, and the main way a " +
+      "mod author gets credit. This is the ONLY tool in ModWrench that changes " +
+      "anything on a mod platform; everything else is read-only. " +
+      "Nexus requires you to have downloaded the mod before you can endorse it. " +
+      "Behave like this: call it once WITHOUT confirm to get a preview, show the " +
+      "preview to the user, wait for them to say yes, then re-call with " +
+      "confirm=true. Never pass confirm=true on the first call, and never endorse " +
+      "a mod the user did not ask you to endorse.",
+    {
+      game_domain: z
+        .string()
+        .describe("The game's domain name (e.g. 'skyrimspecialedition')."),
+      mod_id: z.number().int().positive().describe("The numeric mod ID."),
+      version: z
+        .string()
+        .describe(
+          "The mod version being endorsed — Nexus requires this. Use the " +
+            "version reported by nexus_get_mod."
+        ),
+      confirm: z
+        .boolean()
+        .optional()
+        .describe(
+          "Must be exactly true to actually endorse. Omit it first to preview."
+        ),
+    },
+    async ({ game_domain, mod_id, version, confirm }) => {
+      const modUrl = `https://www.nexusmods.com/${game_domain}/mods/${mod_id}`;
+
+      // Playbook rule 1: no upstream call at all unless confirm === true.
+      if (confirm !== true) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text:
+                `PREVIEW — nothing has been sent to Nexus.\n\n` +
+                `This would endorse mod ${mod_id} (version ${version}) in ` +
+                `${game_domain}, as you, on your Nexus account.\n` +
+                `${modUrl}\n\n` +
+                `The endorsement is public and shows your username. You can undo ` +
+                `it later on the mod page. Nexus requires that you have already ` +
+                `downloaded this mod.\n\n` +
+                `To go ahead, re-call nexus_endorse_mod with confirm=true.`,
+            },
+          ],
+        };
+      }
+
+      try {
+        await writeClient.request<unknown>(
+          `/games/${game_domain}/mods/${mod_id}/endorse.json`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({ version }).toString(),
+          }
+        );
+      } catch (err) {
+        // 422 is what Nexus returns when it will not save the endorsement. The
+        // API spec does not say why, but the usual cause is not having
+        // downloaded the mod. Say what we know without inventing a reason.
+        const status =
+          err instanceof ModWrenchError ? err.status : undefined;
+        if (status === 422) {
+          return {
+            isError: true,
+            content: [
+              {
+                type: "text" as const,
+                text:
+                  `Nexus declined to save the endorsement (422). The most common ` +
+                  `cause is not having downloaded this mod yet — Nexus requires ` +
+                  `that before you can endorse. Check the version is correct too ` +
+                  `(you passed "${version}").\n${modUrl}`,
+              },
+            ],
+          };
+        }
+        throw err;
+      }
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text:
+              `Endorsed mod ${mod_id} (version ${version}) in ${game_domain}.\n` +
+              `${modUrl}\n\nThe author can see this. Thanks for crediting them.`,
+          },
+        ],
+      };
+    }
+  );
+
+  return { toolCount: 15, baseUrl: NEXUS_BASE_URL };
 }
