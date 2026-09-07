@@ -141,7 +141,7 @@ In recommended order:
    - 7 tools: list/get communities, list/get/search mods, version history, top mods
    - Read-only public API, no auth required
 
-> Note: Modrinth, CurseForge, and all Minecraft support live in the sibling a separate project project, not ModWrench. ModWrench targets native game modding (Bethesda Creation Engine + Unity/BepInEx); Minecraft-and-CurseForge creator tooling belongs to a separate project.
+> Note: Modrinth, CurseForge, and Minecraft support are out of scope. ModWrench targets native game modding (Bethesda Creation Engine + Unity/BepInEx).
 
 ---
 
