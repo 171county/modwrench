@@ -9,7 +9,7 @@ import {
   findSteamLibraries,
   findInstalledApp,
   listProtonTools,
-  detectProtonForApp,
+  findProtonPrefix,
 } from "./steam.js";
 import { KNOWN_GAMES, type GameDef } from "./games.js";
 import { detectModLoader } from "./loader.js";
@@ -27,7 +27,15 @@ export type DetectedGame = {
   family: GameDef["family"];
   modManager: ManagerName | "none";
   modLoader: string;
+  /**
+   * The Proton distribution this prefix is bound to (e.g. "Proton 9.0",
+   * "GE-Proton11-6"). Falls back to the prefix schema version read from
+   * compatdata/<appid>/version when config_info is unreadable — that value
+   * (e.g. "10.1000-105") is NOT a Proton release number.
+   */
   protonVersion?: string;
+  /** Absolute path to the Wine prefix; where MO2/Vortex state lives on Linux. */
+  protonPrefixPath?: string;
 };
 
 export type DetectEnvironmentResult = {
@@ -57,18 +65,20 @@ export function detectEnvironment(): DetectEnvironmentResult {
   const isSteamDeck = detectSteamDeck();
   const isGameMode = detectGameMode();
   const steamRoot = findSteamRoot();
-  const managers: DetectedManager[] = detectInstalledManagers();
+  // Libraries first: on Linux the mod managers live inside Proton prefixes
+  // under these libraries, so manager detection depends on having them.
+  const libraries = steamRoot ? findSteamLibraries(steamRoot) : [];
+  const managers: DetectedManager[] = detectInstalledManagers(libraries);
 
   const detectedGames: DetectedGame[] = [];
 
   if (steamRoot) {
-    const libraries = findSteamLibraries(steamRoot);
     for (const game of KNOWN_GAMES) {
       const app = findInstalledApp(libraries, game.steamAppId);
       if (!app) continue;
       const loader = detectModLoader(app.installDir, game);
       const manager = inferManagerForGame(game, managers) ?? "none";
-      const proton = detectProtonForApp(steamRoot, game.steamAppId);
+      const proton = findProtonPrefix(libraries, game.steamAppId);
       const entry: DetectedGame = {
         gameId: game.gameId,
         gameName: app.name,
@@ -77,7 +87,13 @@ export function detectEnvironment(): DetectEnvironmentResult {
         modManager: manager,
         modLoader: loader,
       };
-      if (proton) entry.protonVersion = proton;
+      if (proton) {
+        // Prefer the recognizable Proton distribution name; fall back to the
+        // prefix schema version, which is NOT a Proton release number.
+        entry.protonVersion =
+          proton.protonBuild ?? proton.prefixVersion ?? "unknown";
+        entry.protonPrefixPath = proton.prefixPath;
+      }
       detectedGames.push(entry);
     }
   }

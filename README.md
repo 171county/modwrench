@@ -140,7 +140,9 @@ Add this to `claude_desktop_config.json` (`~/Library/Application Support/Claude/
 
 ### Connecting your accounts
 
-Thunderstore and the local workbench tools work immediately — no account, no key. Nexus and mod.io need a credential, and the fastest route for both is a personal API key:
+**Thunderstore and every local diagnostic tool work immediately** — no account, no key, nothing to configure. That is most of what ModWrench does.
+
+Nexus and mod.io need a credential:
 
 ```bash
 npx -y @modwrench/cli auth key nexus
@@ -149,13 +151,14 @@ npx -y @modwrench/cli auth key modio
 
 Each command prompts for the key, verifies it against the platform, and stores it in your OS credential manager (Windows Credential Manager, macOS Keychain, Linux libsecret). Get the keys at [nexusmods.com API access](https://www.nexusmods.com/users/myaccount?tab=api+access) and [mod.io/me/access](https://mod.io/me/access). Restart your client afterwards and the new tools activate.
 
-Check what's connected at any time with `auth status`, and remove a key with `auth logout`:
+Check what is connected with `auth status nexus`, remove a key with `auth logout nexus`.
 
-```bash
-npx -y @modwrench/cli auth status nexus
-```
-
-> **On OAuth:** `auth login nexus` also exists, but Nexus does not hand out OAuth client IDs self-service — you have to request one by email. Unless you've been issued a `NEXUS_OAUTH_CLIENT_ID`, use `auth key`. For mod.io, `auth login modio` upgrades an API key to a user-scoped OAuth token via an email code.
+> **About Nexus keys — read this before you connect.**
+> Nexus's [API Acceptable Use Policy](https://help.nexusmods.com/article/114-api-acceptable-use-policy) tolerates personal API keys for testing and personal use, but asks public applications to register and use their own client ID. **ModWrench is not a registered Nexus application yet.** Until it is, connecting Nexus means using your personal key for a third-party tool, and Nexus reserves the right to limit personal keys used that way — which would affect your key, not ModWrench's.
+>
+> We would rather you know that up front than find out later. If you would rather not take that on, skip Nexus. Nothing else in ModWrench depends on it.
+>
+> The OAuth path (`auth login nexus`) is fully implemented and will become the default the moment Nexus issues a client ID.
 
 ModWrench reads credentials **only** from your OS credential manager — never from `.env`, never from a file on disk, and it never writes one anywhere else.
 
