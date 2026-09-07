@@ -126,6 +126,59 @@ export function log(
   process.stderr.write(JSON.stringify(entry) + "\n");
 }
 
+// ─── Application identity ─────────────────────────────────────────────────────
+// Nexus's API Acceptable Use Policy requires an application to identify itself
+// with Application-Name and Application-Version headers, and lists blank or
+// impersonating request metadata as unacceptable. mod.io's API Access Terms
+// carry a similar identification requirement.
+//
+// The version is resolved from the calling package's own manifest rather than
+// written as a literal, because literals drift: every platform package was
+// still announcing itself as 0.0.1 one release after 0.1.0 shipped.
+
+/**
+ * Build the User-Agent and application-identification headers for an outbound
+ * request, resolving the version from the calling package's package.json.
+ *
+ * Pass `import.meta.url` from the calling module. Walks upward until it finds a
+ * package.json belonging to this project, so it does not care how deeply nested
+ * the calling file is inside dist/.
+ */
+export function appIdentity(importMetaUrl: string): {
+  userAgent: string;
+  headers: Record<string, string>;
+} {
+  let version = "0.0.0";
+  try {
+    let dir = dirname(fileURLToPath(importMetaUrl));
+    for (let i = 0; i < 6; i++) {
+      const candidate = resolve(dir, "package.json");
+      if (existsSync(candidate)) {
+        const pkg = JSON.parse(readFileSync(candidate, "utf8")) as {
+          name?: string;
+          version?: string;
+        };
+        if (pkg.name?.startsWith("@modwrench/") && pkg.version) {
+          version = pkg.version;
+          break;
+        }
+      }
+      const parent = dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+  } catch {
+    // Fall through to the placeholder rather than failing a request over it.
+  }
+  return {
+    userAgent: `ModWrench/${version} (+https://github.com/171county/modwrench)`,
+    headers: {
+      "Application-Name": "ModWrench",
+      "Application-Version": version,
+    },
+  };
+}
+
 // ─── Auth & keychain ──────────────────────────────────────────────────────────
 
 export * from "./auth.js";
