@@ -235,7 +235,7 @@ body{
 function themeSwitcher(active: ThemeId): string {
   return THEME_IDS.map(
     (id) =>
-      `<button class="mw-theme${id === active ? " on" : ""}" data-t="${id}" title="${esc(THEMES[id].game)}" onclick="mwTheme('${id}')"></button>`
+      `<button class="mw-theme${id === active ? " on" : ""}" data-t="${id}" title="${esc(THEMES[id].game)}" data-mw-act="theme" data-mw-val="${esc(id)}"></button>`
   ).join("");
 }
 
@@ -250,13 +250,32 @@ function tabs(active: ShellView): string {
   return items
     .map(
       ([v, label, tool]) =>
-        `<button class="mw-tab${v === active ? " on" : ""}" onclick="${
-          v === active ? "void 0" : `mw('tool','${tool}')`
-        }">${label}</button>`
+        `<button class="mw-tab${v === active ? " on" : ""}"${
+          v === active ? "" : ` data-mw-act="tool" data-mw-val="${esc(tool)}"`
+        }>${label}</button>`
     )
     .join("");
 }
 
+// Why the panel uses data attributes and one delegated listener, rather than
+// inline event handlers:
+//
+// Mod names, authors and URLs come from public mod platforms — anyone can
+// publish a mod called whatever they like, so every one of those strings is
+// attacker-controlled. They used to be interpolated into inline handlers.
+// HTML escaping cannot make that safe, because the browser decodes entities in
+// an attribute BEFORE compiling it as JavaScript: esc()'s &#39; turns back into
+// a real quote and breaks out of the string literal. A mod named
+//
+//     Cool Mod'); mw('prompt','<anything the attacker wants'); //
+//
+// became a second statement that posted an attacker-written prompt straight
+// into the user's AI session.
+//
+// Values now travel in data attributes and are read back through dataset at
+// click time. dataset returns a string and nothing here compiles it, so the
+// injection is structurally impossible rather than escaped against. There are
+// regression tests asserting no rendered view emits an inline handler.
 const BRIDGE = `
 function post(type,payload){
   var msg={type:type,messageId:'mw-'+Date.now(),payload:payload};
@@ -274,9 +293,20 @@ function mw(kind,value){
 function mwTheme(id){document.documentElement.setAttribute('data-theme',id);
   var b=document.querySelectorAll('.mw-theme');b.forEach(function(x){x.classList.toggle('on',x.getAttribute('data-t')===id);});
   flash('theme · '+id);}
-function mwToggle(el,name,ev){if(ev)ev.stopPropagation();var on=el.getAttribute('data-on')==='1';
-  el.setAttribute('data-on',on?'0':'1');flash((on?'\u25CB disable ':'\u25CF enable ')+name);
+function mwToggle(el,name){var on=el.getAttribute('data-on')==='1';
+  el.setAttribute('data-on',on?'0':'1');flash((on?'○ disable ':'● enable ')+name);
   post('prompt',(on?'Disable ':'Enable ')+name);}
+
+// One delegated listener for every action. See the note above BRIDGE.
+document.addEventListener('click',function(e){
+  var t=e.target&&e.target.closest&&e.target.closest('[data-mw-act]');
+  if(!t)return;
+  var act=t.dataset.mwAct;
+  var val=t.dataset.mwVal||'';
+  if(act==='toggle'){e.stopPropagation();mwToggle(t,val);return;}
+  if(act==='theme'){mwTheme(val);return;}
+  if(act==='tool'||act==='prompt'||act==='link'||act==='notify'){mw(act,val);}
+});
 document.addEventListener('pointerdown',function(e){
   var t=e.target&&e.target.closest&&e.target.closest('.mw-btn,.mw-lrow,.mw-mrow,.mw-game,.mw-tab,.mw-theme,.mw-toggle');
   if(!t)return;t.classList.add('mw-press');setTimeout(function(){t.classList.remove('mw-press');},170);
