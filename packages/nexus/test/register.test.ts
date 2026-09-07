@@ -204,3 +204,71 @@ test("HTTP 401 surfaces as nexus_http_error", async () => {
       err.code === "nexus_http_error" && err.status === 401
   );
 });
+
+// ─── Adult content filtering, through the real tool path ─────────────────────
+// The unit tests in adult.test.ts prove the filter works. These prove it is
+// actually wired into the request path, which is the part that could silently
+// regress if someone adds a tool that bypasses nexusRequest.
+
+test("adult filter: nexus_get_mod redacts a flagged mod", async () => {
+  delete process.env.NEXUS_ALLOW_ADULT_CONTENT;
+  const server = new MockMcpServer();
+  registerNexusTools(server as unknown as never, APIKEY_CRED);
+  captureFetch(() =>
+    jsonResponse({
+      mod_id: 99,
+      name: "Flagged Mod",
+      summary: "should not reach the model",
+      contains_adult_content: true,
+    })
+  );
+
+  const res = await server.invoke("nexus_get_mod", {
+    game_domain: "skyrimspecialedition",
+    mod_id: 99,
+  });
+  const text = res.content[0]!.text;
+  assert.ok(text.includes("filtered"), "response should be marked filtered");
+  assert.ok(
+    !text.includes("should not reach the model"),
+    "flagged content must not survive into the tool result"
+  );
+});
+
+test("adult filter: list endpoints drop flagged entries but keep clean ones", async () => {
+  delete process.env.NEXUS_ALLOW_ADULT_CONTENT;
+  const server = new MockMcpServer();
+  registerNexusTools(server as unknown as never, APIKEY_CRED);
+  captureFetch(() =>
+    jsonResponse([
+      { mod_id: 1, name: "Clean Mod", contains_adult_content: false },
+      { mod_id: 2, name: "Flagged Mod", contains_adult_content: true },
+    ])
+  );
+
+  const res = await server.invoke("nexus_latest_added", {
+    game_domain: "skyrimspecialedition",
+  });
+  const text = res.content[0]!.text;
+  assert.ok(text.includes("Clean Mod"), "clean entries must survive");
+  assert.ok(!text.includes("Flagged Mod"), "flagged entries must be dropped");
+});
+
+test("adult filter: operator opt-in lets flagged content through", async () => {
+  process.env.NEXUS_ALLOW_ADULT_CONTENT = "true";
+  try {
+    const server = new MockMcpServer();
+    registerNexusTools(server as unknown as never, APIKEY_CRED);
+    captureFetch(() =>
+      jsonResponse([
+        { mod_id: 2, name: "Flagged Mod", contains_adult_content: true },
+      ])
+    );
+    const res = await server.invoke("nexus_latest_added", {
+      game_domain: "skyrimspecialedition",
+    });
+    assert.ok(res.content[0]!.text.includes("Flagged Mod"));
+  } finally {
+    delete process.env.NEXUS_ALLOW_ADULT_CONTENT;
+  }
+});
