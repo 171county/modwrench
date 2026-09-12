@@ -18,7 +18,7 @@ const credential = loadCredential({
 
 const server = new McpServer({
   name: "modwrench-curseforge",
-  version: "0.0.1",
+  version: "0.1.0",
 });
 
 const { toolCount, baseUrl } = registerCurseForgeTools(server, credential);

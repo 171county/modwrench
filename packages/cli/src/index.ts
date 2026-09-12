@@ -128,7 +128,7 @@ const platforms: PlatformDef[] = [
 const server = new McpServer(
   {
     name: "modwrench",
-    version: "0.0.1",
+    version: "0.1.0",
   },
   {
     // listChanged advertises to MCP clients that the tool catalog can change

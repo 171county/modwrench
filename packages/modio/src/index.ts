@@ -32,7 +32,7 @@ const credential = loadCredential({
 
 const server = new McpServer({
   name: "modwrench-modio",
-  version: "0.0.1",
+  version: "0.1.0",
 });
 
 const { toolCount, baseUrl } = registerModioTools(server, credential);

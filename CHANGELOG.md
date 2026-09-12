@@ -8,9 +8,12 @@ This document is currently maintained by hand. When [release-please](https://git
 
 ---
 
-## [Unreleased]
+## [0.1.0] — 2026-09-12
 
-Everything since 0.0.1 is currently shipping to `main` without version tags. The next published release will collect these entries under a real version heading.
+First release since 0.0.1 that is installable from npm: every `@modwrench/*` workspace
+published at a matching version, `@modwrench/curseforge` and `@modwrench/remote` published
+for the first time, and the MCP Registry entry (`io.github.171county/modwrench`) updated
+to point at `@modwrench/cli@0.1.0`.
 
 ### Added
 

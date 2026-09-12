@@ -19,7 +19,7 @@ import {
 // via loadCredential; if neither keychain nor env is configured for a given
 // platform, the client is null and the metadata tool surfaces a clear error.
 
-const USER_AGENT = "ModWrench/0.0.1 (+https://github.com/171county/modwrench)";
+const USER_AGENT = "ModWrench/0.1.0 (+https://github.com/171county/modwrench)";
 
 // ─── Nexus ────────────────────────────────────────────────────────────────────
 

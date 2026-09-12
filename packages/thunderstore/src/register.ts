@@ -24,7 +24,7 @@ export function registerThunderstoreTools(server: McpServer): {
   // API is anonymous.
   const httpClient = createHttpClient({
     baseUrl: BASE_URL,
-    userAgent: "ModWrench/0.0.1 (+https://github.com/171county/modwrench)",
+    userAgent: "ModWrench/0.1.0 (+https://github.com/171county/modwrench)",
     errorCodePrefix: "thunderstore",
   });
 
