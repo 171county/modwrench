@@ -9,7 +9,7 @@ ModWrench handles API tokens. We take that seriously — the project's [trust po
 The two channels we accept:
 
 1. **GitHub Private Vulnerability Reporting** — preferred. Use the [Report a vulnerability](https://github.com/171county/modwrench/security/advisories/new) button on the repo's Security tab. This creates a private advisory only the maintainers can see.
-2. **Email** — `seanelogic@gmail.com` with a clear subject line like `[modwrench security]`. PGP welcome but not required.
+2. **Email** — `171county@gmail.com` with a clear subject line like `[modwrench security]`. PGP welcome but not required.
 
 When you report, please include:
 
