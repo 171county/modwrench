@@ -8,9 +8,18 @@ This document is currently maintained by hand. When [release-please](https://git
 
 ---
 
-## [Unreleased]
+## [0.1.1] — 2026-09-12
 
-Everything since 0.0.1 is currently shipping to `main` without version tags. The next published release will collect these entries under a real version heading.
+The real 0.1.x cut: keychain-only credentials, native-modding scope (CurseForge and Minecraft
+support removed), the stateless `@modwrench/ui` MCP-UI package, `nexus_endorse_mod` (first
+write action, explicit opt-in), adult-content filtering on Nexus, recursive dependency
+resolver with crash-to-culprit correlation, Linux/Steam Deck detection fixes, TRUST.md, and
+the tag-gated release workflow with npm provenance. Published by CI from the `v0.1.1` tag.
+
+## [0.1.0] — 2026-09-12 (superseded)
+
+Published in error from a stale checkout within the hour before 0.1.1; superseded
+immediately. If you installed `@modwrench/*@0.1.0`, upgrade to 0.1.1.
 
 ### Removed
 
