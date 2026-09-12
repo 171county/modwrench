@@ -44,7 +44,7 @@ export function registerCurseForgeTools(
 
   const httpClient = createHttpClient({
     baseUrl: CURSEFORGE_BASE_URL,
-    userAgent: "ModWrench/0.0.1 (+https://github.com/171county/modwrench)",
+    userAgent: "ModWrench/0.1.0 (+https://github.com/171county/modwrench)",
     errorCodePrefix: "curseforge",
     defaultHeaders: { Accept: "application/json" },
     authHeaders: (): Record<string, string> => {

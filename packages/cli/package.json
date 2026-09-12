@@ -1,6 +1,6 @@
 {
     "name":  "@modwrench/cli",
-    "version":  "0.0.1",
+    "version":  "0.1.0",
     "mcpName":  "io.github.171county/modwrench",
     "description":  "ModWrench â€” one MCP entry, every mod platform. Bundles all installed @modwrench/* platform packages into a single combined MCP server.",
     "license":  "MIT",
@@ -33,12 +33,12 @@
                     "test":  "node --import tsx --test test/*.test.ts"
                 },
     "dependencies":  {
-                         "@modwrench/core":  "0.0.1",
-                         "@modwrench/curseforge":  "0.0.1",
-                         "@modwrench/modio":  "0.0.1",
-                         "@modwrench/nexus":  "0.0.1",
-                         "@modwrench/thunderstore":  "0.0.1",
-                         "@modwrench/workbench":  "0.0.1",
+                         "@modwrench/core":  "0.1.0",
+                         "@modwrench/curseforge":  "0.1.0",
+                         "@modwrench/modio":  "0.1.0",
+                         "@modwrench/nexus":  "0.1.0",
+                         "@modwrench/thunderstore":  "0.1.0",
+                         "@modwrench/workbench":  "0.1.0",
                          "@modelcontextprotocol/sdk":  "^1.0.4"
                      }
 }

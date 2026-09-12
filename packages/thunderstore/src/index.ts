@@ -11,7 +11,7 @@ import { registerThunderstoreTools } from "./register.js";
 
 const server = new McpServer({
   name: "modwrench-thunderstore",
-  version: "0.0.1",
+  version: "0.1.0",
 });
 
 const { toolCount, baseUrl } = registerThunderstoreTools(server);
