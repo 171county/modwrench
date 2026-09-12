@@ -1,6 +1,6 @@
 {
   "name": "@modwrench/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared core library for ModWrench servers â€” auth, secrets, logging, errors.",
   "license": "MIT",
   "repository": {
