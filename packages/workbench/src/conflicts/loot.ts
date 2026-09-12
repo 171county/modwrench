@@ -139,7 +139,7 @@ export async function fetchLootMasterlist(
       const res = await fetch(url, {
         headers: {
           Accept: "text/yaml, text/plain;q=0.9, */*;q=0.5",
-          "User-Agent": "ModWrench/0.0.1 (+https://github.com/171county/modwrench)",
+          "User-Agent": "ModWrench/0.1.0 (+https://github.com/171county/modwrench)",
         },
       });
       if (!res.ok) {

@@ -31,7 +31,7 @@ export function registerNexusTools(
   // discriminator in this package (where the credential type lives), while the
   // client handles transport-level concerns.
 
-  const USER_AGENT = "ModWrench/0.0.1 (+https://github.com/171county/modwrench)";
+  const USER_AGENT = "ModWrench/0.1.0 (+https://github.com/171county/modwrench)";
 
   const httpClient = createHttpClient({
     baseUrl: NEXUS_BASE_URL,

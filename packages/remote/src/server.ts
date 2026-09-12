@@ -22,7 +22,7 @@ export type StartRemoteServerOptions = RemoteAppOptions & {
 export function createRemoteMcpServer(): McpServer {
   const server = new McpServer({
     name: "modwrench-remote",
-    version: "0.0.1",
+    version: "0.1.0",
   });
 
   registerThunderstoreTools(server);
