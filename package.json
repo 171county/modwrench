@@ -1,6 +1,6 @@
 {
   "name": "modwrench",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "ModWrench — an MCP toolkit for modders.",
   "license": "MIT",
