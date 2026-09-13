@@ -1,0 +1,16 @@
+{
+  // Typechecking covers src AND test. The build config (tsconfig.json) is
+  // deliberately narrower — it has rootDir "./src" and emits to dist, so tests
+  // must not be in its graph. Without this second config, test files are parsed
+  // by tsx at run time with the types stripped and never checked at all, which
+  // is how test fixtures silently drifted from the exported types.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false
+  },
+  "include": ["src/**/*", "test/**/*"]
+}
