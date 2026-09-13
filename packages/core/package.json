@@ -36,8 +36,7 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "@napi-rs/keyring": "^1.1.7",
-    "dotenv": "^16.4.5"
+    "@napi-rs/keyring": "^1.1.7"
   },
   "engines": {
     "node": ">=20.0.0"

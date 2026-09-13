@@ -1,57 +1,23 @@
-import { config as loadDotenv } from "dotenv";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// ─── Locate the workspace root ────────────────────────────────────────────────
-// Walk up from this file's location until we find a package.json that declares
-// "workspaces" — that's the monorepo root, regardless of where the process was
-// launched from. Falls back to process.cwd() if no workspace marker is found
-// (which lets the core package work fine even outside a monorepo).
-
-function findWorkspaceRoot(startDir: string): string {
-  let current = startDir;
-  // Safety bound: don't walk forever even on weird filesystems.
-  for (let i = 0; i < 20; i++) {
-    const pkgPath = resolve(current, "package.json");
-    if (existsSync(pkgPath)) {
-      try {
-        const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
-        if (pkg && Array.isArray(pkg.workspaces)) {
-          return current;
-        }
-      } catch {
-        // Ignore malformed package.json and keep walking.
-      }
-    }
-    const parent = dirname(current);
-    if (parent === current) break; // hit filesystem root
-    current = parent;
-  }
-  return startDir;
-}
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-const WORKSPACE_ROOT = findWorkspaceRoot(HERE);
-
-loadDotenv({ path: resolve(WORKSPACE_ROOT, ".env") });
-
-// ─── Secret & env helpers ─────────────────────────────────────────────────────
-
-/**
- * Retrieve a secret from environment variables.
- * Throws a clear error if the secret is missing — fail fast, fail loud.
- */
-export function getSecret(name: string): string {
-  const value = process.env[name];
-  if (!value || value.trim() === "") {
-    throw new Error(
-      `[modwrench/core] Missing required secret: ${name}. ` +
-        `Check your .env file at the workspace root (${WORKSPACE_ROOT}).`
-    );
-  }
-  return value;
-}
+// ─── Env helpers ───────────────────────────────────────────────────────
+//
+// There is deliberately no secret-from-environment helper in this file.
+// Credentials come from the OS credential manager and from nowhere else — see
+// auth.ts, which is the whole credential path.
+//
+// This module used to export getSecret() ("retrieve a secret from environment
+// variables") and to call dotenv's config() at import time, which read a .env
+// file off the user's disk every time any ModWrench package loaded. Nothing
+// consumed either one, so no credential ever actually came from them — but a
+// guarantee that holds only because nobody calls the wrong function is not a
+// guarantee. Both are gone, and dotenv is no longer a dependency, so "keychain
+// only, no file, no env var" is now structural rather than incidental.
+//
+// getEnv() below is for NON-SECRET operational config only: base URLs, ports,
+// host bindings. Never route a credential through it.
 
 /**
  * Retrieve an optional environment variable with a fallback default.
