@@ -147,6 +147,8 @@ export function appIdentity(importMetaUrl: string): {
 
 // ─── Auth & keychain ──────────────────────────────────────────────────────────
 
+export * from "./adult.js";
+
 export * from "./auth.js";
 
 // ─── Shared HTTP client ───────────────────────────────────────────────────────
