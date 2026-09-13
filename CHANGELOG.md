@@ -4,7 +4,7 @@ All notable changes to ModWrench will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once a 1.0 is published.
 
-This document is currently maintained by hand. When [release-please](https://github.com/googleapis/release-please) is set up alongside the npm publish pipeline (see [ROADMAP.md](ROADMAP.md)), it will take over generating changelog entries from conventional commits.
+This document is currently maintained by hand. When [release-please](https://github.com/googleapis/release-please) is set up alongside the npm publish pipeline, it will take over generating changelog entries from conventional commits.
 
 ---
 
@@ -39,9 +39,9 @@ immediately. If you installed `@modwrench/*@0.1.0`, upgrade to 0.1.1.
 - **`modwrench` meta-CLI** with `auth <action> <platform>` subcommand routing and `--version` / `-v` flags. Composes every installed `@modwrench/*` platform into one MCP entry.
 - **`SECURITY.md`** — vulnerability disclosure policy, scope, credential-handling rules, 90-day coordinated disclosure timeline.
 - **`ROADMAP.md`** — canonical "where this is going" doc covering v2.5 dynamic catalog, v2.6 local toolchain integrations, v3 publishing, and deferred items.
-- **Dynamic catalog architecture spec** ([docs/dynamic-catalog-architecture.md](docs/dynamic-catalog-architecture.md)) — design for boot-time auto-activation of platforms based on workbench detection, plus an `mw_activate_platform` meta-tool for runtime opt-in. Trigger for build is the 4th platform.
-- **Contributor walkthrough** ([docs/adding-a-platform.md](docs/adding-a-platform.md)) — step-by-step guide for adding a new `@modwrench/<platform>` package, with trust-posture non-negotiables.
-- **Remote deployment docs** ([docs/remote-deployment.md](docs/remote-deployment.md)) — current MVP scope, local run instructions, remote client URL shape, and remaining hosted-auth work.
+- **Dynamic catalog architecture spec** — design for boot-time auto-activation of platforms based on workbench detection, plus an `mw_activate_platform` meta-tool for runtime opt-in. Trigger for build is the 4th platform.
+- **Contributor walkthrough** — step-by-step guide for adding a new `@modwrench/<platform>` package, with trust-posture non-negotiables.
+- **Remote deployment docs** — current MVP scope, local run instructions, remote client URL shape, and remaining hosted-auth work.
 - **Steam Deck / headless Linux keychain fallback** — `getStoredToken` now classifies errors as `no-entry` vs `unavailable`, emits a one-time warning when libsecret/D-Bus is missing, and `loadCredential`'s error message explains the real cause. New `getKeychainStatus()` export.
 - **Gitleaks workflow** ([.github/workflows/gitleaks.yml](.github/workflows/gitleaks.yml)) with custom Nexus + mod.io key patterns covering the gap where GitHub's free secret scanning has no partner pattern for those providers.
 - **CI test step** running `npm test` across all workspaces on Node 20 + 22.

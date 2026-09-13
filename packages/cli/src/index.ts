@@ -91,8 +91,6 @@ if (subcmd === "auth") {
 //     to pull the platform in without restarting the server
 //   - Notify clients via notifications/tools/list_changed whenever the
 //     catalog changes (listChanged capability declared below)
-//
-// See docs/dynamic-catalog-architecture.md for the full design.
 
 const platforms: PlatformDef[] = [
   {
