@@ -14,6 +14,37 @@ Documentation was audited against the source, and the code was changed where a
 claim could not be made true otherwise. Nothing here alters what the tools do.
 
 ### Fixed
+- **Adult-content filtering did not cover every path to Nexus.** Nexus's terms
+  put the filtering duty on API consumers, and TRUST.md promised the filter
+  "covers every Nexus tool — including any added later". It did not.
+  `@modwrench/workbench` builds its own Nexus REST client for
+  `mw_query_mod_metadata` and returned responses unfiltered, so a direct id
+  lookup surfaced in full what `@modwrench/nexus` would have withheld. The
+  policy moved to `@modwrench/core` — one implementation, both callers — and the
+  Workbench client now applies it. `packages/nexus/src/adult.ts` re-exports it,
+  so existing imports and tests are unchanged. Guarded by four new tests,
+  including a source-level check that fails if that client is ever rebuilt
+  without the filter.
+- **Documented the one Nexus tool the filter still cannot cover.**
+  `nexus_search` runs on the v2 GraphQL endpoint and its query does not request
+  an adult field; the filter reads a flag off the record, so with no flag there
+  is nothing to act on. Named as a known exception in TRUST.md rather than left
+  inside an absolute "never". Closing it means adding the adult field to the
+  GraphQL selection set, which needs checking against the live schema first.
+- **Disclosed a sixth network destination.** `nexus_file_preview` follows the
+  `content_preview_link` the Nexus API returns — a CDN host rather than a fixed
+  endpoint, and the only request in the tree to a host not known ahead of time.
+  It carries no credential. Three documents claimed a complete list and omitted
+  it.
+- **Corrected "never writes it anywhere" and "read once at start-up."** `auth
+  key`, `auth login` and `auth logout` write to the credential manager, and
+  credentials are read at platform activation — which `mw_activate_platform` can
+  trigger mid-session — while `mw_query_mod_metadata` re-reads per call.
+- **Scoped the environment-variable claim.** `auth login nexus` reads
+  `NEXUS_OAUTH_CLIENT_ID` and `NEXUS_OAUTH_CLIENT_SECRET` from the environment.
+  Those are OAuth application credentials issued to an application operator, not
+  a user's account key — so the docs say that, instead of an absolute one grep
+  falsifies.
 
 - **`@modwrench/core` no longer reads a `.env` file.** It called dotenv's
   `config()` at import time, locating the target by walking up from the
