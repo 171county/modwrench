@@ -4,9 +4,103 @@ All notable changes to ModWrench will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once a 1.0 is published.
 
-This document is currently maintained by hand. When [release-please](https://github.com/googleapis/release-please) is set up alongside the npm publish pipeline (see [ROADMAP.md](ROADMAP.md)), it will take over generating changelog entries from conventional commits.
+This document is currently maintained by hand. When [release-please](https://github.com/googleapis/release-please) is set up alongside the npm publish pipeline, it will take over generating changelog entries from conventional commits.
 
 ---
+
+## [0.2.0] — 2026-09-12
+
+Documentation was audited against the source, and the code was changed where a
+claim could not be made true otherwise. Nothing here alters what the tools do.
+
+### Fixed
+- **Adult-content filtering did not cover every path to Nexus.** Nexus's terms
+  put the filtering duty on API consumers, and TRUST.md promised the filter
+  "covers every Nexus tool — including any added later". It did not.
+  `@modwrench/workbench` builds its own Nexus REST client for
+  `mw_query_mod_metadata` and returned responses unfiltered, so a direct id
+  lookup surfaced in full what `@modwrench/nexus` would have withheld. The
+  policy moved to `@modwrench/core` — one implementation, both callers — and the
+  Workbench client now applies it. `packages/nexus/src/adult.ts` re-exports it,
+  so existing imports and tests are unchanged. Guarded by four new tests,
+  including a source-level check that fails if that client is ever rebuilt
+  without the filter.
+- **`nexus_search` now asks Nexus for the adult flag.** It runs on the v2
+  GraphQL endpoint and its selection set omitted the field entirely, so the
+  filter had nothing to read and passed every adult-tagged mod through — on the
+  only Nexus tool with real keyword search. The field is requested when
+  filtering is active, and omitted when the operator has opted in. If the schema
+  rejects it, the tool **fails closed**: it returns an error naming the fix
+  rather than results it cannot check, because returning unchecked results with
+  a warning is still returning them. Five new tests cover the request shape, the
+  filtering, the fail-closed path, the opt-in path, and that an unrelated
+  GraphQL error is not misread as a missing field.
+- **Disclosed a sixth network destination.** `nexus_file_preview` follows the
+  `content_preview_link` the Nexus API returns — a CDN host rather than a fixed
+  endpoint, and the only request in the tree to a host not known ahead of time.
+  It carries no credential. Three documents claimed a complete list and omitted
+  it.
+- **Corrected "never writes it anywhere" and "read once at start-up."** `auth
+  key`, `auth login` and `auth logout` write to the credential manager, and
+  credentials are read at platform activation — which `mw_activate_platform` can
+  trigger mid-session — while `mw_query_mod_metadata` re-reads per call.
+- **Scoped the environment-variable claim.** `auth login nexus` reads
+  `NEXUS_OAUTH_CLIENT_ID` and `NEXUS_OAUTH_CLIENT_SECRET` from the environment.
+  Those are OAuth application credentials issued to an application operator, not
+  a user's account key — so the docs say that, instead of an absolute one grep
+  falsifies.
+
+- **`@modwrench/core` no longer reads a `.env` file.** It called dotenv's
+  `config()` at import time, locating the target by walking up from the
+  installed package for a `package.json` with a `workspaces` array — so
+  installed inside another monorepo it could read that project's `.env` into
+  ModWrench's process. No credential ever came from it, but README said "there
+  is no `.env` or file fallback". Removed, along with the `dotenv` dependency.
+- **Removed `getSecret()` from `@modwrench/core`.** An exported
+  secret-from-environment reader that nothing called. **Breaking change to the
+  public API of `@modwrench/core`**; no package in this repo used it.
+  Credentials now come from the OS credential manager and structurally cannot
+  come from anywhere else.
+- **Corrected every "read-only" claim.** `nexus_endorse_mod` POSTs an
+  endorsement to Nexus. Six documents said the project performs no writes,
+  including a draft letter to Nexus Mods stating "no such call exists in the
+  code". The tool itself was always gated and documented in TRUST.md; the other
+  documents had not caught up.
+- **Corrected every tool count.** Actual: nexus 15, mod.io 17, Thunderstore 9,
+  workbench 6, cli 2 — 49, of which 48 read.
+- **Removed the README demo transcript.** It named three real mods and three
+  real authors, attached invented download and endorsement figures, and claimed
+  their work was CC-licensed.
+- **Dropped the claim that ModWrench never ranks mods.** Four tools surface a
+  platform's own popularity and rating figures. TRUST.md now says so.
+- **`@modwrench/remote` is published to npm.** TRUST.md said it was not.
+- **Corrected the credential-lifetime claim** in `.env.example` and on the npm
+  package page: the credential is read once at start-up and held until the
+  process exits, not "no longer than the request that uses them".
+- **Relicensed note:** the project is MIT from 0.1.0 onward. The 0.0.1 entry
+  below records Apache 2.0, which was accurate at the time.
+- **ui tests are typechecked.** `tsconfig.json` covered only `src/`, and `npm
+  test` runs through tsx, which strips types without checking them — so test
+  fixtures had drifted from the exported types. Added
+  `packages/ui/tsconfig.typecheck.json` and fixed the drift it found.
+
+### Removed
+
+- **Twelve documentation files, 2,776 lines.** VISION, ROADMAP, RELEASE and the
+  whole of `docs/`. They were internal strategy, unbuilt plans, superseded
+  design notes, and in several cases claims the code contradicted. Volume was
+  the defect: 4,002 lines of markdown for a 0.1.1 project is 4,002 lines that
+  can drift. Git retains all of them.
+- **`.claude/skills/`** — thirteen files of cross-product authoring tooling that
+  did not belong in this repository.
+
+### Changed
+
+- **README rewritten**, 340 lines to 111: what it is, what it does, how to use
+  it, what it connects to, and the one thing it writes. The host table is
+  generated from the URLs actually requested in `packages/*/src`.
+- **CONTRIBUTING rewritten**, 233 lines to 75.
+- **TRUST.md** corrected in three places and re-verified against the code.
 
 ## [0.1.1] — 2026-09-12
 
@@ -39,9 +133,9 @@ immediately. If you installed `@modwrench/*@0.1.0`, upgrade to 0.1.1.
 - **`modwrench` meta-CLI** with `auth <action> <platform>` subcommand routing and `--version` / `-v` flags. Composes every installed `@modwrench/*` platform into one MCP entry.
 - **`SECURITY.md`** — vulnerability disclosure policy, scope, credential-handling rules, 90-day coordinated disclosure timeline.
 - **`ROADMAP.md`** — canonical "where this is going" doc covering v2.5 dynamic catalog, v2.6 local toolchain integrations, v3 publishing, and deferred items.
-- **Dynamic catalog architecture spec** ([docs/dynamic-catalog-architecture.md](docs/dynamic-catalog-architecture.md)) — design for boot-time auto-activation of platforms based on workbench detection, plus an `mw_activate_platform` meta-tool for runtime opt-in. Trigger for build is the 4th platform.
-- **Contributor walkthrough** ([docs/adding-a-platform.md](docs/adding-a-platform.md)) — step-by-step guide for adding a new `@modwrench/<platform>` package, with trust-posture non-negotiables.
-- **Remote deployment docs** ([docs/remote-deployment.md](docs/remote-deployment.md)) — current MVP scope, local run instructions, remote client URL shape, and remaining hosted-auth work.
+- **Dynamic catalog architecture spec** — design for boot-time auto-activation of platforms based on workbench detection, plus an `mw_activate_platform` meta-tool for runtime opt-in. Trigger for build is the 4th platform.
+- **Contributor walkthrough** — step-by-step guide for adding a new `@modwrench/<platform>` package, with trust-posture non-negotiables.
+- **Remote deployment docs** — current MVP scope, local run instructions, remote client URL shape, and remaining hosted-auth work.
 - **Steam Deck / headless Linux keychain fallback** — `getStoredToken` now classifies errors as `no-entry` vs `unavailable`, emits a one-time warning when libsecret/D-Bus is missing, and `loadCredential`'s error message explains the real cause. New `getKeychainStatus()` export.
 - **Gitleaks workflow** ([.github/workflows/gitleaks.yml](.github/workflows/gitleaks.yml)) with custom Nexus + mod.io key patterns covering the gap where GitHub's free secret scanning has no partner pattern for those providers.
 - **CI test step** running `npm test` across all workspaces on Node 20 + 22.

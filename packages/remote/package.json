@@ -1,6 +1,6 @@
 {
   "name": "@modwrench/remote",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "ModWrench remote Streamable HTTP MCP server for remote-capable clients.",
   "license": "MIT",
   "repository": {
@@ -38,14 +38,14 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "clean": "rimraf dist",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
     "test": "node --import tsx --test test/*.test.ts",
     "prepack": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
-    "@modwrench/core": "0.1.1",
-    "@modwrench/thunderstore": "0.1.1",
+    "@modwrench/core": "0.2.0",
+    "@modwrench/thunderstore": "0.2.0",
     "express": "^5.2.1"
   },
   "devDependencies": {

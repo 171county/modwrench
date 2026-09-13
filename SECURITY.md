@@ -1,6 +1,6 @@
 # Security Policy
 
-ModWrench handles API tokens. We take that seriously — the project's [trust posture](README.md#trust-posture-the-six-rules) is engineered into the code, not just stated in marketing copy. If you've found a vulnerability or believe the trust posture is being violated, this document tells you how to reach us privately.
+ModWrench handles API tokens. We take that seriously — what it does with them is written down in [TRUST.md](TRUST.md), with the commands to check each claim yourself. If you've found a vulnerability or believe the trust posture is being violated, this document tells you how to reach us privately.
 
 ## Reporting a vulnerability
 
@@ -29,7 +29,7 @@ In scope:
 - The MCP servers' protocol surface (anything reachable via stdio / Streamable HTTP)
 - Credential handling, especially the OAuth flows in `@modwrench/nexus` and `@modwrench/modio`
 - The OS keychain integration in `@modwrench/core`
-- The CLI binaries (`modwrench`, `modwrench-nexus`, `modwrench-modio`, `modwrench-thunderstore`, `modwrench-workbench`)
+- The CLI binaries (`modwrench`, `modwrench-nexus`, `modwrench-modio`, `modwrench-thunderstore`, `modwrench-workbench`, `modwrench-remote`)
 - The bundled GitHub Actions workflows in this repo
 
 Reports for upstream projects:
@@ -44,8 +44,10 @@ Reports for upstream projects:
 For transparency, the rules ModWrench's code enforces:
 
 1. **OAuth tokens live in the OS keychain only.** Windows Credential Manager, macOS Keychain, or Linux libsecret. We use [`@napi-rs/keyring`](https://github.com/napi-rs/keyring-rs/tree/main/crates/keyring-node) to access the platform-native APIs. Tokens are never written to a file ModWrench creates.
-2. **All credentials are read from the OS credential manager only.** Whether it's an OAuth token or a raw API key, you place it in your OS credential manager (service `modwrench-<platform>`); ModWrench only reads it. It never reads a credential from an environment variable, a `.env`, or any file on disk, and never writes one during normal operation.
-3. **No telemetry. Ever.** ModWrench makes no outbound network connections except to the platforms whose APIs you've configured (Nexus Mods, mod.io, Thunderstore, GitHub for LOOT masterlist fetches). There is no analytics endpoint.
+2. **Your credentials are read from the OS credential manager only.** Whether it's an OAuth token or a raw API key, you place it in your OS credential manager (service `modwrench-<platform>`); the server only reads it. The credential loader has no environment-variable, `.env`, or file fallback. Writes happen only in `auth key` / `auth login` / `auth logout`, and only against that same credential manager.
+
+   One narrow exception, stated rather than omitted: `auth login nexus` reads `NEXUS_OAUTH_CLIENT_ID` and `NEXUS_OAUTH_CLIENT_SECRET` from the environment. Those are OAuth *application* credentials that Nexus issues to whoever operates an application — they are not your account credential, and your key still never comes from the environment.
+3. **No telemetry. Ever.** ModWrench makes no outbound network connections except to the platforms whose APIs you've configured (Nexus Mods, mod.io, Thunderstore, GitHub for LOOT masterlist fetches). There is no analytics endpoint. One call follows a URL rather than a fixed host: `nexus_file_preview` fetches the `content_preview_link` that the Nexus API returns for a file, with no credential attached (`packages/nexus/src/register.ts`).
 4. **Logs go to stderr as JSON.** API keys and OAuth tokens are never logged. If you find one in a log line, that's a vulnerability — report it.
 5. **The repo enforces secret-scanning at the GitHub layer** (partner patterns + push protection) plus a custom [gitleaks workflow](.github/workflows/gitleaks.yml) that catches Nexus and mod.io key shapes specifically. Commits containing credential-shaped strings are blocked before landing.
 
