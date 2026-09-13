@@ -8,14 +8,15 @@ The first product line — **ModWrench** — wraps Nexus Mods and mod.io so a mo
 
 ### 1. The wrench holds tools, not keys.
 
-**ModWrench servers never persist secrets to disk.** Credentials are either:
+**ModWrench servers never persist secrets to disk, and never read them from anywhere but the OS credential manager.** There is exactly one credential source:
 
-- **(a)** supplied at process start by the MCP client's secure config — environment variables passed by Claude Desktop, Cursor, etc.; or
-- **(b)** held in the OS-native keychain (Windows Credential Manager, macOS Keychain, libsecret on Linux) after an OAuth flow.
+- The OS-native credential manager (Windows Credential Manager, macOS Keychain, libsecret on Linux) — holding either an API key the user placed there themselves, or a token written by `auth login` after an OAuth flow.
+
+There is no second path. Not environment variables passed by the MCP client, not `.env`, not a config file, not a command-line flag. If the credential manager is empty or unreachable, the server fails with a hint pointing at `auth login` rather than looking elsewhere. The whole credential path is `packages/core/src/auth.ts` — it is short on purpose, so it can be read in full.
 
 Never in repo-local files. Never in logs. Never echoed in tool responses. Never in shared config that lives in a git history.
 
-`.env` is a developer convenience for local testing only. It is gitignored and is **not** a deployment mechanism. If you find yourself reaching for a "ship the .env to production" workaround, the answer is to wire OAuth instead.
+`.env` holds non-secret operational config only — base URLs, ports, host bindings; see `.env.example`. It is gitignored, it is not a deployment mechanism, and it is **not** a credential path.
 
 ### 2. Lean tool surfaces.
 
@@ -52,7 +53,7 @@ modwrench-nexus auth logout   # removes token from keychain
 - **Nexus**: standard OAuth2 auth-code + PKCE via Nexus SSO. Browser opens, local loopback receives the callback, token is saved.
 - **mod.io**: email exchange flow (`email_request` â†’ 5-digit code â†’ `email_exchange`). No browser needed — user enters the code into the CLI.
 
-Servers check the keychain first at boot, then fall back to the env-var API key (developer testing path). If neither is present, the server fails with a message pointing to `auth login`.
+Servers read the credential from the OS credential manager at boot, and from nowhere else. There is no env-var or `.env` fallback. If nothing is stored — or the credential manager cannot be reached, which happens on Steam Deck Game Mode and on headless Linux without libsecret — the server fails with a message naming the real cause and pointing at `auth login`.
 
 ## Current state
 
@@ -74,7 +75,7 @@ modwrench/
 â”‚   â”œâ”€â”€ nexus/                             Nexus Mods MCP server
 â”‚   â”œâ”€â”€ modio/                             mod.io MCP server
 â”‚   â””â”€â”€ cli/                               meta-server bundling every platform
-â”œâ”€â”€ .env                                   gitignored, developer-local secrets
+â”œâ”€â”€ .env                                   gitignored, non-secret local config only
 â”œâ”€â”€ .env.example                           template
 â”œâ”€â”€ .mcp.json                              Claude Code project-scoped server config
 â”œâ”€â”€ claude_desktop_config.example.json     Claude Desktop config template
@@ -110,5 +111,5 @@ Copy the contents of `claude_desktop_config.example.json` into:
 
 Adjust the absolute paths if you didn't clone to `C:\Apps\modwrench`. Then **fully quit and reopen** Claude Desktop (closing the window is not enough — it must restart). The two servers should appear in the MCP indicator.
 
-API keys do **not** belong in either config file. The servers locate the workspace `.env` on their own via `findWorkspaceRoot`.
+API keys do **not** belong in either config file — or in any file. Servers read credentials only from the OS credential manager. Put yours there with `auth login`, or add it yourself under the service name `modwrench-<platform>`.
 
