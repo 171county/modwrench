@@ -1,6 +1,6 @@
 # Security Policy
 
-ModWrench handles API tokens. We take that seriously — the project's [trust posture](README.md#trust-posture-the-six-rules) is engineered into the code, not just stated in marketing copy. If you've found a vulnerability or believe the trust posture is being violated, this document tells you how to reach us privately.
+ModWrench handles API tokens. We take that seriously — what it does with them is written down in [TRUST.md](TRUST.md), with the commands to check each claim yourself. If you've found a vulnerability or believe the trust posture is being violated, this document tells you how to reach us privately.
 
 ## Reporting a vulnerability
 
@@ -29,7 +29,7 @@ In scope:
 - The MCP servers' protocol surface (anything reachable via stdio / Streamable HTTP)
 - Credential handling, especially the OAuth flows in `@modwrench/nexus` and `@modwrench/modio`
 - The OS keychain integration in `@modwrench/core`
-- The CLI binaries (`modwrench`, `modwrench-nexus`, `modwrench-modio`, `modwrench-thunderstore`, `modwrench-workbench`)
+- The CLI binaries (`modwrench`, `modwrench-nexus`, `modwrench-modio`, `modwrench-thunderstore`, `modwrench-workbench`, `modwrench-remote`)
 - The bundled GitHub Actions workflows in this repo
 
 Reports for upstream projects:
