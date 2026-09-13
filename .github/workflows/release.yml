@@ -88,7 +88,30 @@ jobs:
             exit 1
           fi
           identifier=$(node -p "require('./server.json').packages[0].identifier")
-          npm view "${identifier}@${pkg_version}" version
+
+          # npm's read replicas lag its write path. On the 0.2.0 release this
+          # step ran 8 seconds after the npm job finished and got a 404 for a
+          # package npm had just accepted -- npm publish had even printed "Your
+          # package is being processed and may take a few minutes to become
+          # available" for this exact package. The guard was right to check and
+          # wrong to check only once, so the release needed a manual re-run.
+          #
+          # Retry rather than sleep blindly: succeed the moment it appears.
+          for attempt in $(seq 1 10); do
+            if npm view "${identifier}@${pkg_version}" version; then
+              echo "Confirmed ${identifier}@${pkg_version} is visible on npm."
+              exit 0
+            fi
+            echo "Attempt ${attempt}/10: ${identifier}@${pkg_version} not visible yet; waiting 15s."
+            sleep 15
+          done
+
+          echo "::error::${identifier}@${pkg_version} never became visible on npm after ~150s."
+          echo "The npm job reported success, so the publish itself likely worked."
+          echo "Check https://www.npmjs.com/package/${identifier} before re-running:"
+          echo "  - visible now  -> propagation was just slow, re-run this job"
+          echo "  - still absent -> the publish did not land, investigate the npm job"
+          exit 1
 
       - name: Install mcp-publisher
         run: |
