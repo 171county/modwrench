@@ -25,12 +25,16 @@ claim could not be made true otherwise. Nothing here alters what the tools do.
   so existing imports and tests are unchanged. Guarded by four new tests,
   including a source-level check that fails if that client is ever rebuilt
   without the filter.
-- **Documented the one Nexus tool the filter still cannot cover.**
-  `nexus_search` runs on the v2 GraphQL endpoint and its query does not request
-  an adult field; the filter reads a flag off the record, so with no flag there
-  is nothing to act on. Named as a known exception in TRUST.md rather than left
-  inside an absolute "never". Closing it means adding the adult field to the
-  GraphQL selection set, which needs checking against the live schema first.
+- **`nexus_search` now asks Nexus for the adult flag.** It runs on the v2
+  GraphQL endpoint and its selection set omitted the field entirely, so the
+  filter had nothing to read and passed every adult-tagged mod through — on the
+  only Nexus tool with real keyword search. The field is requested when
+  filtering is active, and omitted when the operator has opted in. If the schema
+  rejects it, the tool **fails closed**: it returns an error naming the fix
+  rather than results it cannot check, because returning unchecked results with
+  a warning is still returning them. Five new tests cover the request shape, the
+  filtering, the fail-closed path, the opt-in path, and that an unrelated
+  GraphQL error is not misread as a missing field.
 - **Disclosed a sixth network destination.** `nexus_file_preview` follows the
   `content_preview_link` the Nexus API returns — a CDN host rather than a fixed
   endpoint, and the only request in the tree to a host not known ahead of time.
