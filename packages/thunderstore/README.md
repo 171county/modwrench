@@ -1,6 +1,6 @@
 # @modwrench/thunderstore
 
-ModWrench's Thunderstore platform package. Read-only MCP tools for discovering and inspecting mods on Thunderstore — the dominant platform for Unity co-op games (Lethal Company, Valheim, R.E.P.O., Risk of Rain 2, Dyson Sphere Program, BONEWORKS, and 270+ others).
+ModWrench's Thunderstore platform package. Read-only MCP tools for discovering and inspecting mods on Thunderstore — the dominant platform for Unity co-op games (Lethal Company, Valheim, R.E.P.O., Risk of Rain 2, Dyson Sphere Program, BONEWORKS, and many others).
 
 Closes the v2 workbench loop: `mw_read_load_order` parses r2modman profiles locally; Thunderstore's tools enrich each installed mod with author, version, downloads, and current page URL.
 
@@ -12,11 +12,13 @@ Closes the v2 workbench loop: `mw_read_load_order` parses r2modman profiles loca
 - `thunderstore_get_mod` — single mod's metadata (latest version, total downloads, community listings)
 - `thunderstore_search_mods` — substring search within a community
 - `thunderstore_mod_versions` — full version history of a specific mod
-- `thunderstore_top_mods` — highest-rated mods in a community
+- `thunderstore_top_mods` — highest-rated mods in a community, by Thunderstore's own rating
+- `thunderstore_mod_dependencies` — a mod's declared dependencies
+- `thunderstore_resolve_dependencies` — walk a mod's full dependency tree
 
 ## Auth
 
-Read-only public API — no credentials required. Tools work anonymously. When v3 write/publishing support lands, OAuth will be added; until then, no env vars needed.
+Read-only public API — no credentials required, no environment variables needed. Every tool here works anonymously.
 
 ## Usage
 

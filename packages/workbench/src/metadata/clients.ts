@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   appIdentity,
+  applyAdultPolicy,
   createHttpClient,
   getEnv,
   log,
@@ -21,9 +22,10 @@ const APP = appIdentity(import.meta.url);
 //
 // Both clients use the shared @modwrench/core HTTP client for retry/backoff
 // /429 handling /concurrency cap — keeps behavior consistent with what the
-// platform packages do. Credentials are loaded best-effort at register time
-// via loadCredential; if neither keychain nor env is configured for a given
-// platform, the client is null and the metadata tool surfaces a clear error.
+// platform packages do. Credentials are loaded via loadCredential when a client
+// is constructed, which happens per tool invocation; if the credential manager
+// holds nothing for a given platform, the client is null and the metadata tool
+// surfaces a clear error.
 
 
 
@@ -62,7 +64,11 @@ export function tryCreateNexusClient(): NexusClient | null {
     baseUrl,
     async request<T>(path: string): Promise<T> {
       log("debug", "workbench.nexus.request", { path });
-      return http.request<T>(path);
+      // Nexus requires third-party API consumers to filter adult-tagged
+      // content, and this client is a second, independent path to Nexus that
+      // previously had no filter on it at all — so mw_query_mod_metadata
+      // returned by id what the Nexus package's own tools would have withheld.
+      return applyAdultPolicy(await http.request<T>(path), path);
     },
   };
 }
