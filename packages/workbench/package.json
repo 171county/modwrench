@@ -1,6 +1,6 @@
 {
   "name": "@modwrench/workbench",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "ModWrench â€” the modder workbench. Atomic MCP tools for environment detection, load-order parsing, crashlog analysis, and known-conflict lookups.",
   "license": "MIT",
   "repository": {
@@ -49,8 +49,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
-    "@modwrench/core": "0.1.1",
-    "@modwrench/ui": "0.1.1",
+    "@modwrench/core": "0.2.0",
+    "@modwrench/ui": "0.2.0",
     "js-yaml": "^4.1.0",
     "zod": "^3.23.8"
   },
