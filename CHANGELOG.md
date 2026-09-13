@@ -8,7 +8,7 @@ This document is currently maintained by hand. When [release-please](https://git
 
 ---
 
-## [Unreleased]
+## [0.2.0] — 2026-09-12
 
 Documentation was audited against the source, and the code was changed where a
 claim could not be made true otherwise. Nothing here alters what the tools do.
