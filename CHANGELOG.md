@@ -8,6 +8,65 @@ This document is currently maintained by hand. When [release-please](https://git
 
 ---
 
+## [Unreleased]
+
+Documentation was audited against the source, and the code was changed where a
+claim could not be made true otherwise. Nothing here alters what the tools do.
+
+### Fixed
+
+- **`@modwrench/core` no longer reads a `.env` file.** It called dotenv's
+  `config()` at import time, locating the target by walking up from the
+  installed package for a `package.json` with a `workspaces` array — so
+  installed inside another monorepo it could read that project's `.env` into
+  ModWrench's process. No credential ever came from it, but README said "there
+  is no `.env` or file fallback". Removed, along with the `dotenv` dependency.
+- **Removed `getSecret()` from `@modwrench/core`.** An exported
+  secret-from-environment reader that nothing called. **Breaking change to the
+  public API of `@modwrench/core`**; no package in this repo used it.
+  Credentials now come from the OS credential manager and structurally cannot
+  come from anywhere else.
+- **Corrected every "read-only" claim.** `nexus_endorse_mod` POSTs an
+  endorsement to Nexus. Six documents said the project performs no writes,
+  including a draft letter to Nexus Mods stating "no such call exists in the
+  code". The tool itself was always gated and documented in TRUST.md; the other
+  documents had not caught up.
+- **Corrected every tool count.** Actual: nexus 15, mod.io 17, Thunderstore 9,
+  workbench 6, cli 2 — 49, of which 48 read.
+- **Removed the README demo transcript.** It named three real mods and three
+  real authors, attached invented download and endorsement figures, and claimed
+  their work was CC-licensed.
+- **Dropped the claim that ModWrench never ranks mods.** Four tools surface a
+  platform's own popularity and rating figures. TRUST.md now says so.
+- **`@modwrench/remote` is published to npm.** TRUST.md said it was not.
+- **Corrected the credential-lifetime claim** in `.env.example` and on the npm
+  package page: the credential is read once at start-up and held until the
+  process exits, not "no longer than the request that uses them".
+- **Relicensed note:** the project is MIT from 0.1.0 onward. The 0.0.1 entry
+  below records Apache 2.0, which was accurate at the time.
+- **ui tests are typechecked.** `tsconfig.json` covered only `src/`, and `npm
+  test` runs through tsx, which strips types without checking them — so test
+  fixtures had drifted from the exported types. Added
+  `packages/ui/tsconfig.typecheck.json` and fixed the drift it found.
+
+### Removed
+
+- **Twelve documentation files, 2,776 lines.** VISION, ROADMAP, RELEASE and the
+  whole of `docs/`. They were internal strategy, unbuilt plans, superseded
+  design notes, and in several cases claims the code contradicted. Volume was
+  the defect: 4,002 lines of markdown for a 0.1.1 project is 4,002 lines that
+  can drift. Git retains all of them.
+- **`.claude/skills/`** — thirteen files of cross-product authoring tooling that
+  did not belong in this repository.
+
+### Changed
+
+- **README rewritten**, 340 lines to 111: what it is, what it does, how to use
+  it, what it connects to, and the one thing it writes. The host table is
+  generated from the URLs actually requested in `packages/*/src`.
+- **CONTRIBUTING rewritten**, 233 lines to 75.
+- **TRUST.md** corrected in three places and re-verified against the code.
+
 ## [0.1.1] — 2026-09-12
 
 The real 0.1.x cut: keychain-only credentials, native-modding scope (CurseForge and Minecraft

@@ -44,7 +44,9 @@ Check status with `auth status nexus`, remove a key with `auth logout nexus`.
 
 ## Credential handling
 
-ModWrench reads credentials **only** from your OS credential manager. Never from `.env`, never from a file on disk, and it never writes one anywhere else. Keys are held no longer than the request that uses them.
+ModWrench reads credentials **only** from your OS credential manager. Never from `.env`, never from an environment variable, never from a file on disk — those paths do not exist in the code. The key is read once when the server starts and held in memory until it exits. ModWrench never writes it anywhere.
+
+Full detail, with the commands to verify any of it: [TRUST.md](https://github.com/171county/modwrench/blob/main/TRUST.md).
 
 ## Requirements
 

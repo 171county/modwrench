@@ -74,11 +74,14 @@ Everything ModWrench talks to, and nothing else:
 
 | Host | When |
 |---|---|
-| `api.nexusmods.com`, `www.nexusmods.com`, `users.nexusmods.com` | if you connected Nexus |
-| `api.mod.io`, `mod.io` | if you connected mod.io |
+| `api.nexusmods.com` | Nexus mod data — only if you connected Nexus |
+| `users.nexusmods.com` | only while `auth login nexus` completes an OAuth sign-in |
+| `api.mod.io` | mod.io mod data — only if you connected mod.io |
 | `thunderstore.io` | Thunderstore's public read API |
-| `github.com`, `raw.githubusercontent.com` | LOOT's public conflict masterlist |
-| `127.0.0.1` | local loopback that receives the OAuth callback, if you use `auth login` |
+| `raw.githubusercontent.com` | LOOT's public conflict masterlist |
+| `127.0.0.1` | a local listener that catches the OAuth redirect, during `auth login` only |
+
+Other domains show up in ModWrench's *output* — `www.nexusmods.com` and `mod.io` links back to mod pages — but it does not fetch them. Your browser does, if you click one.
 
 No telemetry. No analytics. No accounts. Nothing is sent to us, because there is no us to send it to — no server is run for this project.
 

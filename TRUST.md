@@ -12,7 +12,7 @@ Where a claim needed a caveat to stay true, the caveat is here instead of being 
 - **Never modify your load order, your mod files, or your game files.** Every local tool opens files read-only. There is not a single filesystem write call in the workbench package.
 - **One write action, and only on your say-so.** ModWrench can endorse a mod on Nexus — crediting its author — when you ask it to. It asks first, every time, and shows you exactly what it will do before it does anything. Nothing else writes: no votes, no ratings, no comments, no subscriptions, no uploads. Details below.
 - **Never generate mod content.** ModWrench reads and explains. It produces no assets, no code, no voices, no text intended to ship inside anyone's mod.
-- **Never rate, rank, or score a mod.** It will tell you what a mod is and what it does. It will not tell you which mod is "best," and it will not review someone's work back at them.
+- **Never rate, rank, or score a mod itself.** It will tell you what a mod is and what it does, and it will not review someone's work back at them. It does pass through a platform's *own* published figures — Nexus trending, mod.io popular, Thunderstore top-rated — because those are the platform's numbers, not ModWrench's opinion.
 - **Never send anything to the maintainer.** There is no analytics SDK, no crash reporting, no telemetry, no phone-home. No network destination in this codebase belongs to us.
 - **Never store your data.** Nothing is written to disk. There is no database and no cache of your data — the only thing held in memory is LOOT's public masterlist, and it dies with the process.
 - **Never ask for a password.** ModWrench never sees or handles your platform password.
@@ -24,7 +24,7 @@ There is no account, no login to us, no server we operate. Nothing you do reache
 
 Two clarifications so that is exact rather than merely reassuring:
 
-1. The repo includes an optional HTTP transport package (`@modwrench/remote`) that **you** may choose to run on your own machine. It binds to `127.0.0.1`, is stateless, exposes only the public Thunderstore tools, and is not published to npm.
+1. The repo includes an optional HTTP transport package (`@modwrench/remote`), which is published to npm and which **you** may choose to run — on your own machine or your own host. It defaults to binding `127.0.0.1`, creates a fresh stateless server per request, and exposes only the public Thunderstore tools: it holds no credential and touches no files. Nobody runs an instance of it for you.
 2. `modwrench auth login nexus` briefly opens a listener on `127.0.0.1` to catch the OAuth redirect from your browser. It closes the moment login completes or after five minutes.
 
 The ModWrench *package* is listed on npm and the MCP server registry. That registers the software. It does not register you.
@@ -55,7 +55,7 @@ Platform base URLs are environment variables you can override, so you can point 
 
 **Not logged.** No log line in the codebase includes a key or token, and logs go to stderr, never to a file. Credential-bearing URL parameters are stripped from HTTP error messages, and the auth commands run upstream error bodies through a redactor before printing. To be precise rather than flattering: redaction is applied at those specific points, not as a blanket filter over every possible output path.
 
-ModWrench does read a `.env` at startup, but only for non-secret operational config — log level, API base-URL overrides, Steam root — and, if you register your own Nexus OAuth application, that app's client ID. **Your Nexus or mod.io key never comes from there.**
+**No `.env` is read at all.** ModWrench used to load one at startup for non-secret settings; that code was removed, along with its `dotenv` dependency, so there is no file-reading path left in the credential library to argue about. Non-secret operational settings — log level, API base-URL overrides, Steam root, the adult-content switch below — are plain environment variables you set in your MCP client's config.
 
 ## The one thing ModWrench can write
 
@@ -187,4 +187,4 @@ If any of those turn up something this page does not mention, that is a bug in t
 
 ---
 
-*Last verified against the code on 2026-09-07. If you find a gap between this document and the source, the source is the truth and this document is wrong.*
+*Last verified against the code on 2026-09-12. If you find a gap between this document and the source, the source is the truth and this document is wrong.*
