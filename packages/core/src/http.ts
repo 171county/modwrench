@@ -1,4 +1,4 @@
-// Shared HTTP client for every MCPwrench platform package. Centralizes the
+// Shared HTTP client for every ModWrench platform package. Centralizes the
 // concerns that each platform shouldn't re-implement individually:
 //
 //   - 429 handling with Retry-After parsing (seconds OR HTTP date)

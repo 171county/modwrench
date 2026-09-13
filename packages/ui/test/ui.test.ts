@@ -140,14 +140,13 @@ test("no rendered view emits an inline event handler", () => {
   const views = [
     renderMods({
       query: HOSTILE,
-      source: "thunderstore",
       mods: [{ name: HOSTILE, author: HOSTILE, pageUrl: "https://x.test" }],
     }),
     renderDeck({
       connectors: [
         { id: "nexus", name: HOSTILE, tool: HOSTILE, status: "off" },
       ],
-      games: [{ name: HOSTILE, gameId: HOSTILE }],
+      games: [{ id: "skyrim", name: HOSTILE, note: HOSTILE }],
     }),
     renderShell({ view: "deck", deck: { connectors: [], games: [] } }),
   ];
@@ -162,7 +161,6 @@ test("no rendered view emits an inline event handler", () => {
 test("a hostile mod name lands in a data attribute, not executable code", () => {
   const html = renderMods({
     query: "test",
-    source: "thunderstore",
     mods: [{ name: HOSTILE, author: "attacker", pageUrl: "https://x.test" }],
   });
   // The quote must remain entity-encoded, and must sit inside data-mw-val.
