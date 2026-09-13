@@ -32,7 +32,7 @@ class MockMcpServer {
   invoke(
     name: string,
     args: Record<string, unknown> = {}
-  ): Promise<ReturnType<ToolHandler>> {
+  ): ReturnType<ToolHandler> {
     const tool = this.tools.get(name);
     if (!tool) throw new Error(`tool not registered: ${name}`);
     return tool.handler(args);

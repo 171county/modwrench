@@ -63,9 +63,13 @@ test("createHttpClient: basic GET returns parsed JSON", async () => {
 });
 
 test("createHttpClient: User-Agent header is set", async () => {
-  let capturedHeaders: Headers | null = null;
+  // Collected rather than assigned to a `let`: TypeScript's flow analysis does
+  // not see assignments made inside the fetch stub, so a nullable local would
+  // still read as null here. An array sidesteps that, and lets the test also
+  // assert the request was made exactly once.
+  const calls: Headers[] = [];
   globalThis.fetch = async (_url, init) => {
-    capturedHeaders = new Headers(init?.headers);
+    calls.push(new Headers(init?.headers));
     return makeJsonResponse({});
   };
   const client = createHttpClient({
@@ -73,8 +77,8 @@ test("createHttpClient: User-Agent header is set", async () => {
     userAgent: "ModWrench-test/1.0",
   });
   await client.request("/x");
-  assert.ok(capturedHeaders);
-  assert.equal(capturedHeaders!.get("user-agent"), "ModWrench-test/1.0");
+  assert.equal(calls.length, 1, "expected exactly one fetch");
+  assert.equal(calls[0].get("user-agent"), "ModWrench-test/1.0");
 });
 
 test("createHttpClient: authHeaders callback is invoked per request", async () => {
