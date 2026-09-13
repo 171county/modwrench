@@ -62,9 +62,11 @@ Each command prompts for the key, verifies it against the platform, and stores i
 
 ## Your credentials
 
-Your key lives in your operating system's credential manager — Windows Credential Manager, macOS Keychain, or libsecret on Linux. ModWrench reads it from there and nowhere else. Not from a `.env`, not from a config file, not from an environment variable. Those paths do not exist in the code. If the credential manager is empty or unreachable, ModWrench stops and tells you why instead of looking elsewhere.
+Your key lives in your operating system's credential manager — Windows Credential Manager, macOS Keychain, or libsecret on Linux. The server reads it from there and nowhere else: there is no `.env` path, no config-file path and no environment-variable path in the credential loader. If the credential manager is empty or unreachable, ModWrench stops and tells you why instead of looking elsewhere.
 
-The key is read once when the server starts and held in memory until the process exits. ModWrench never writes it anywhere.
+The key is read when its platform activates — at start-up, or mid-session if you activate one later — and held in memory until the process exits. The cross-platform lookup `mw_query_mod_metadata` re-reads it from the credential manager on each call.
+
+The only things that ever write a credential are `auth key` and `auth login`, which put it into that same credential manager; `auth logout` removes it. Nothing writes it to a file.
 
 You can revoke or rotate it on Nexus or mod.io whenever you want. There is nothing to clean up on this end.
 
@@ -80,6 +82,7 @@ Everything ModWrench talks to, and nothing else:
 | `thunderstore.io` | Thunderstore's public read API |
 | `raw.githubusercontent.com` | LOOT's public conflict masterlist |
 | `127.0.0.1` | a local listener that catches the OAuth redirect, during `auth login` only |
+| whatever CDN host Nexus names in a file's `content_preview_link` | `nexus_file_preview` only — Nexus serves archive listings off-API, so this one call follows a URL Nexus returns rather than a fixed host. Sent with no credential |
 
 Other domains show up in ModWrench's *output* — `www.nexusmods.com` and `mod.io` links back to mod pages — but it does not fetch them. Your browser does, if you click one.
 
