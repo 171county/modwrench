@@ -11,7 +11,7 @@ import {
   ModWrenchError,
   type Credential,
 } from "@modwrench/core";
-import { applyAdultPolicy } from "./adult.js";
+import { adultContentAllowed, applyAdultPolicy } from "./adult.js";
 
 /**
  * Register all Nexus Mods tools on the given MCP server. Returns metadata
@@ -108,6 +108,32 @@ export function registerNexusTools(
     "NEXUS_GRAPHQL_URL",
     "https://api.nexusmods.com/v2/graphql"
   );
+
+  // The adult flag on the v2 `mods` node. This name must match the schema
+  // exactly: GraphQL rejects an unknown field at validation time, which fails
+  // the whole query rather than just omitting the value.
+  //
+  // It matters because the filter in @modwrench/core decides by reading a flag
+  // off the record. If the query does not ask for the flag, nothing is flagged,
+  // and the filter silently passes every adult mod through — which is exactly
+  // what this tool did before. Asking for the field is the whole fix.
+  const GQL_ADULT_FIELD = "adult";
+
+  /** A GraphQL validation failure caused by GQL_ADULT_FIELD not existing. */
+  function isUnknownAdultFieldError(err: unknown): boolean {
+    if (!(err instanceof ModWrenchError) || err.code !== "nexus_graphql_error") {
+      return false;
+    }
+    const msg = err.message.toLowerCase();
+    return (
+      msg.includes(GQL_ADULT_FIELD.toLowerCase()) &&
+      (msg.includes("cannot query field") ||
+        msg.includes("unknown field") ||
+        msg.includes("undefined field") ||
+        msg.includes("doesn't exist") ||
+        msg.includes("does not exist"))
+    );
+  }
 
   async function nexusGraphQL<T>(
     query: string,
@@ -526,7 +552,11 @@ export function registerNexusTools(
       if (game_domain) {
         filter.gameDomainName = [{ value: game_domain, op: "EQUALS" }];
       }
-      const gqlQuery = `query ModWrenchSearch($filter: ModsFilter, $count: Int!) {
+      // Ask for the adult flag only when it will be used. The filter runs on
+      // whatever the response carries, so without this field every adult mod
+      // passed straight through — this tool was the one hole in the filter.
+      const buildQuery = (withAdultField: boolean): string =>
+        `query ModWrenchSearch($filter: ModsFilter, $count: Int!) {
   mods(
     filter: $filter
     count: $count
@@ -541,11 +571,12 @@ export function registerNexusTools(
       uploader { name }
       game { domainName name }
       downloads
-      endorsements
+      endorsements${withAdultField ? `\n      ${GQL_ADULT_FIELD}` : ""}
     }
   }
 }`;
-      const data = await nexusGraphQL<{
+
+      type SearchData = {
         mods: {
           totalCount: number;
           nodes: Array<{
@@ -559,7 +590,32 @@ export function registerNexusTools(
             endorsements: number;
           }>;
         };
-      }>(gqlQuery, { filter, count });
+      };
+
+      let data: SearchData;
+      if (adultContentAllowed()) {
+        // Opted in, so there is nothing to filter and no reason to ask for the
+        // flag at all.
+        data = await nexusGraphQL<SearchData>(buildQuery(false), { filter, count });
+      } else {
+        try {
+          data = await nexusGraphQL<SearchData>(buildQuery(true), { filter, count });
+        } catch (err) {
+          if (!isUnknownAdultFieldError(err)) throw err;
+          // The schema has no field by that name, so results from this endpoint
+          // cannot be checked. Nexus puts the filtering duty on API consumers,
+          // so this fails closed: no results rather than unchecked results.
+          // The alternative — returning them with a warning — is still
+          // returning them.
+          log("error", "nexus.search_adult_field_unknown", {
+            field: GQL_ADULT_FIELD,
+          });
+          throw new ModWrenchError(
+            "nexus_adult_unverifiable",
+            `Nexus search is unavailable. ModWrench asks the v2 GraphQL API for a "${GQL_ADULT_FIELD}" field so it can filter adult-tagged mods, and this schema has no such field. Rather than hand back results it cannot check — Nexus requires third-party tools to filter what they return — search is disabled instead. To fix: set GQL_ADULT_FIELD in packages/nexus/src/register.ts to the schema's real adult field name. To accept unfiltered search results deliberately, set NEXUS_ALLOW_ADULT_CONTENT=true. Every other Nexus tool is unaffected.`
+          );
+        }
+      }
 
       const hits = data.mods.nodes.map((m) => ({
         mod_id: m.modId,

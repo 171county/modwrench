@@ -16,7 +16,7 @@ Where a claim needed a caveat to stay true, the caveat is here instead of being 
 - **Never send anything to the maintainer.** There is no analytics SDK, no crash reporting, no telemetry, no phone-home. No network destination in this codebase belongs to us.
 - **Never store your data.** Nothing is written to disk. There is no database and no cache of your data — the only thing held in memory is LOOT's public masterlist, and it dies with the process.
 - **Never ask for a password.** ModWrench never sees or handles your platform password.
-- **Filter adult-tagged Nexus content by default**, unless you explicitly enable it yourself. This is a filter, not an absolute — it depends on Nexus marking the record, and one search tool does not receive that marking. The exception is named below rather than left for you to find.
+- **Filter adult-tagged Nexus content by default**, unless you explicitly enable it yourself. Every Nexus tool asks Nexus for the adult flag and drops what is flagged. If a request cannot get that flag, the tool fails rather than returning results it could not check — see below.
 
 ## There is no ModWrench service
 
@@ -78,9 +78,11 @@ Nexus tags some mods as adult content. On their own site that content is hidden 
 
 **ModWrench filters it out by default.** Adult-tagged entries are dropped from lists and replaced with a short notice when you ask for one directly. The filter lives in `@modwrench/core` and sits in the shared request path of both packages that talk to Nexus — `@modwrench/nexus` and the Workbench's own client — so a tool added to either inherits it.
 
-**One tool is not covered, and you should know which.** `nexus_search` runs against Nexus's v2 GraphQL endpoint, and its query does not request an adult field. The filter reads a flag off the record; where no flag is returned, there is nothing to act on, so adult-tagged mods can appear in `nexus_search` results. Every other Nexus tool goes through the v1 REST API, which returns `contains_adult_content`, and is filtered. Fixing this means adding the adult field to the GraphQL query, which is tracked as a bug rather than described here as though it were already done.
+**What happens if Nexus changes the schema.** The filter decides by reading a flag off each record, so a tool only gets filtered if its request asks Nexus for that flag. `nexus_search` runs against the v2 GraphQL endpoint and now asks for it explicitly. If Nexus ever renames or removes that field, the query fails validation rather than quietly returning unflagged records — and `nexus_search` then **refuses to return results at all** rather than hand you a list it cannot check. You get an error naming the problem and the one-line fix. Every other Nexus tool uses the v1 REST API, which returns `contains_adult_content` on every mod record.
 
-*(An earlier version of this page said the filter "covers every Nexus tool — including any added later." That was false twice over: `nexus_search` was never covered, and `mw_query_mod_metadata` in the Workbench package reached Nexus through a second client with no filter on it at all. The Workbench gap is fixed and has a test; the search gap is the known exception above.)*
+That is a deliberate choice about which way to fail. Returning unchecked results with a warning attached is still returning them, and the duty Nexus places on third-party tools is to filter, not to caveat.
+
+*(An earlier version of this page said the filter "covers every Nexus tool — including any added later." That was false twice over. `nexus_search` never asked for the flag, so the filter was a guaranteed no-op on the only tool with real keyword search. And `mw_query_mod_metadata` in the Workbench package reached Nexus through a second client with no filter on it at all. Both are fixed, and both now have tests — including one that asserts the search request itself still contains the field, because a response-level test would have passed throughout the entire period this was broken.)*
 
 If you want it, you turn it on yourself, on your own machine:
 
