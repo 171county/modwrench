@@ -8,6 +8,42 @@ This document is currently maintained by hand. When [release-please](https://git
 
 ---
 
+## [0.2.3] — 2026-09-15
+
+### Added
+- **`MODWRENCH_UI=off` turns the MCP-UI panels off.** Found by running ModWrench
+  in Cline, where the answer was excellent — an 11-package Thunderstore
+  dependency tree with install order and nine authors credited — and roughly
+  28kb of panel source had been pasted into the transcript ahead of it.
+
+  That is the real failure mode for MCP-UI today, and not the one expected. A
+  client that does not support `ui://` resources does not quietly ignore them;
+  it puts the HTML into the conversation as text, so the model reads markup and
+  minified JavaScript it can do nothing with. Measured: one panel is 27.6kb,
+  about 8,820 tokens, near 7% of a 128k context window — and a four-tool answer
+  spends over a quarter of the window on markup that was never drawn.
+
+  `MODWRENCH_UI=off` (also `0`, `false`, `none`) shrinks the payload to 129
+  bytes, a 219x reduction, taking that 28% down to 0.13%. The block keeps its
+  shape — same type, uri, mimeType and meta — with only the HTML swapped for one
+  line naming the variable that caused it, so a user who forgot they set it can
+  work out why the UI vanished. Panels remain on by default; this is opt-out.
+
+### Changed
+- **The README now shows the panel before describing it,** with both views above
+  the fold, rendered from the published package rather than a working tree.
+- **VS Code is documented, with the right config key.** The install section did
+  not mention it, and the JSON it gave uses `mcpServers` — VS Code's native MCP
+  config uses `servers`, so a VS Code user copying that block would have got a
+  config that silently does nothing.
+
+### Fixed
+- **The npm visibility guard waits as long as npm says.** Three releases measured
+  the lag against a 150-second window: 0.2.0 failed, 0.2.1 passed, 0.2.2 failed.
+  npm states "may take a few minutes" on every publish, so the window is now ten
+  minutes to match. `@modwrench/cli` publishes last of the eight, which puts it
+  at the back of the propagation queue every release.
+
 ## [0.2.2] — 2026-09-15
 
 ### Fixed

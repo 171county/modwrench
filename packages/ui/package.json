@@ -1,6 +1,6 @@
 {
   "name": "@modwrench/ui",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "ModWrench — stateless MCP-UI toolkit. Themed interactive UI (mod deck, mod cards, crashlog panel) returned as ui:// resources from ModWrench tools, with four flagship-game themes (Skyrim, Fallout, Lethal Company, Valheim). Holds no state; every view is rendered fresh from a tool result.",
   "license": "MIT",
   "repository": {
@@ -35,7 +35,7 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "@modwrench/core": "0.2.2"
+    "@modwrench/core": "0.2.3"
   },
   "engines": {
     "node": ">=20.0.0"
