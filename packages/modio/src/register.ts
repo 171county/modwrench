@@ -26,6 +26,7 @@ type ModioRow = {
   downloads?: number;
   rating?: number;
   summary?: string;
+  pageUrl?: string;
 };
 
 /** mod.io mod lists/search -> a themed mods ui:// resource. */
@@ -37,6 +38,10 @@ function modioModsUI(query: string, rows: ModioRow[]) {
     downloads: r.downloads,
     endorsements: r.rating,
     summary: r.summary,
+    // README promises every output naming a mod carries a link back to its
+    // page. mod.io returns profile_url on every mod object; the card dropped
+    // it, so the assistant could not cite the author's page even when asked.
+    pageUrl: r.pageUrl,
   }));
   return createUIResource({
     uri: "ui://modwrench/mods",
@@ -207,6 +212,7 @@ export function registerModioTools(
           name: string;
           name_id: string;
           summary: string;
+          profile_url: string;
           submitted_by: { username: string };
           stats: {
             downloads_total: number;
@@ -225,6 +231,7 @@ export function registerModioTools(
         name_id: m.name_id,
         name: m.name,
         author: m.submitted_by?.username,
+        pageUrl: m.profile_url,
         downloads: m.stats?.downloads_total,
         subscribers: m.stats?.subscribers_total,
         rating: m.stats?.ratings_weighted_aggregate,
@@ -305,6 +312,7 @@ export function registerModioTools(
           name: string;
           name_id: string;
           summary: string;
+          profile_url: string;
           submitted_by: { username: string };
           stats: { downloads_total: number; ratings_weighted_aggregate: number };
         }>
@@ -320,6 +328,7 @@ export function registerModioTools(
         name_id: m.name_id,
         name: m.name,
         author: m.submitted_by?.username,
+        pageUrl: m.profile_url,
         downloads: m.stats?.downloads_total,
         rating: m.stats?.ratings_weighted_aggregate,
         summary: m.summary,
@@ -408,6 +417,7 @@ export function registerModioTools(
           name: string;
           name_id: string;
           summary: string;
+          profile_url: string;
           submitted_by: { username: string };
           stats: {
             popularity_rank_position: number;
@@ -425,6 +435,7 @@ export function registerModioTools(
         name_id: m.name_id,
         name: m.name,
         author: m.submitted_by?.username,
+        pageUrl: m.profile_url,
         rank: m.stats?.popularity_rank_position,
         downloads: m.stats?.downloads_total,
         rating: m.stats?.ratings_weighted_aggregate,

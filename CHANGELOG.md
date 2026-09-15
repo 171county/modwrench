@@ -8,6 +8,74 @@ This document is currently maintained by hand. When [release-please](https://git
 
 ---
 
+## [0.2.1] — 2026-09-15
+
+An audit of the published 0.2.0 tarballs against README.md and TRUST.md found
+eleven places where the two disagreed. Every one of them ran the same direction:
+the documents promised more than the code delivered, never less. Four were code
+defects and are fixed; seven were overclaims and the claims are now scoped to
+what the code actually does.
+
+### Fixed
+- **`auth status modio` reported a working setup as broken.** `auth key` stores
+  a raw API key; `authStatus` checked for a credential with the JSON reader,
+  which threw on every raw key, was swallowed, and printed "Not signed in" with
+  exit 1 on a credential that had stored correctly. It then pointed users at
+  `auth login modio` — undocumented, and itself requiring the key they had just
+  stored. The one verification step the README offers now works. `@modwrench/nexus`
+  already had the correct pattern; mod.io now mirrors it.
+- **`nexus_file_preview` never passed through the adult-content filter.** The
+  tool follows a CDN URL Nexus names at runtime, so it leaves the shared request
+  path and the policy was never applied to what it returned. Filtering that
+  response would not have helped — an archive listing carries no adult flag, so
+  the filter is structurally a no-op on it. The flag is on the mod record, so
+  the tool now checks that first and refuses rather than returning an
+  adult-tagged mod's archive listing unlabelled.
+- **The withheld-content notice was generated and then discarded.** The filter
+  replaces a flagged record with a marker carrying its own explanation;
+  `mw_query_mod_metadata` handed that straight to the normalizer, which builds
+  from named fields only. The result was `found: true` with name and author
+  `undefined` and a page URL ending in `/undefined` — success reported for a
+  request that had actually been withheld. It now reports the withholding, with
+  the reason.
+- **The three mod.io discovery tools dropped the link back to the author.**
+  `modio_list_mods`, `modio_search_mods` and `modio_popular` hand-build their
+  summaries and never copied `profile_url` across, so the assistant could not
+  cite an author's page even when asked. The UI card had the same gap.
+
+### Changed — documentation corrected to match the code
+- **The adult-filter guarantee is now scoped.** TRUST.md claimed every Nexus
+  tool fails closed when it cannot verify the flag. Two do. The rest rely on the
+  flag being present, and some endpoints return records that carry no flag at
+  all — changelogs, update lists, file records. A new section names each one in
+  a table instead of implying a guarantee the code cannot keep.
+- **The destination table was short by one.** `nexus_file_preview` contacts a
+  Nexus CDN host chosen at runtime. The README disclosed it; the TRUST.md table
+  that claims to be complete did not.
+- **"Watch every byte it sends" was not true of the auth path.** Base URLs are
+  overridable for the tool paths, but `nexus/auth.ts` and `modio/auth.ts` use
+  hardcoded hosts — so the one request carrying your freshly-pasted credential
+  is the one request the documented proxy technique cannot intercept. Named,
+  along with two other paths no variable controls.
+- **GitHub learns which game you mod.** TRUST.md said `raw.githubusercontent.com`
+  receives your IP "and nothing else". The masterlist URL contains the game name.
+- **The page's own verification recipe returned four hosts it never mentioned.**
+  They are a User-Agent string, a policy link and two "where to get your key"
+  links — text, not connections — but a reader following the instruction hit the
+  page's own "that is a bug in this page" condition on the first try. All nine
+  hits are now accounted for, and a second grep finds requests built from
+  runtime values, which a literal-matching grep cannot see.
+- **The attribution promise is scoped to what can carry attribution.** Platform
+  outputs carry author, platform and link. The crash and conflict tools work
+  from plugin filenames on the user's own disk and cannot attribute them without
+  a network lookup per suspect — so they are named as the gap they are, in the
+  section mod authors read.
+- **Two shipped surfaces were undisclosed:** the bundled community conflict list
+  (which ships empty) and the five slash commands.
+- **Stale version references.** The README said v0.1.1 and TRUST.md's pinning
+  example pinned `0.1.0` — two releases behind, and before the adult-filter fix
+  the same document described as shipped.
+
 ## [0.2.0] — 2026-09-12
 
 Documentation was audited against the source, and the code was changed where a

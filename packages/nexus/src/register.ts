@@ -448,6 +448,32 @@ export function registerNexusTools(
       file_id: z.number().int().positive().describe("The numeric file ID."),
     },
     async ({ game_domain, mod_id, file_id }) => {
+      // This tool leaves the shared request path: the preview lives on a CDN
+      // URL Nexus names at runtime, so the payload it returns never passes
+      // through applyAdultPolicy. Filtering the CDN response would not help
+      // either — it is a folder/filename tree carrying no adult flag, so
+      // isAdult() is structurally false on it no matter what the mod is.
+      //
+      // The flag lives on the MOD record. Check that first and refuse, so an
+      // adult-tagged mod's archive listing — whose filenames are frequently
+      // explicit in themselves — cannot come back unlabelled. nexusRequest
+      // applies the policy, so a filtered mod arrives as the redaction marker.
+      if (!adultContentAllowed()) {
+        const mod = await nexusRequest<Record<string, unknown>>(
+          `/games/${game_domain}/mods/${mod_id}.json`
+        );
+        if ((mod as { filtered?: boolean }).filtered === true) {
+          throw new ModWrenchError(
+            "nexus_adult_filtered",
+            `Mod ${mod_id} (${game_domain}) is flagged as adult content on Nexus Mods, ` +
+              `so ModWrench will not return its archive listing. Nexus requires ` +
+              `third-party API consumers to filter what they return. To see it, view ` +
+              `the mod on nexusmods.com while signed in with adult content enabled, ` +
+              `or set NEXUS_ALLOW_ADULT_CONTENT=true to opt in deliberately.`
+          );
+        }
+      }
+
       // content_preview is served via a CDN URL stored on the file metadata,
       // not as a direct API endpoint. Fetch the file first to get the link,
       // then follow it (no auth header — it's a public S3-style URL).
