@@ -8,6 +8,46 @@ This document is currently maintained by hand. When [release-please](https://git
 
 ---
 
+## [0.2.4] — 2026-09-15
+
+A metadata release: nothing inside the server changed. Everything here is
+about what the packages look like from the outside, because that is what a
+stranger sees first, and it was wrong.
+
+### Fixed
+- **Six published package descriptions showed mojibake on npm.** The em-dash
+  in `@modwrench/cli`, `@modwrench/core`, `@modwrench/nexus`,
+  `@modwrench/modio`, `@modwrench/thunderstore` and `@modwrench/workbench`
+  had been double-encoded — UTF-8 bytes read back as Windows-1252 and saved
+  as UTF-8 again — so npm rendered a three-character mojibake where each
+  em-dash should be, on every package page. A description is baked into the
+  published tarball and a published version cannot be overwritten, so a
+  release was the only way to ship the fix. All six now carry the em-dash as
+  the JSON escape `\u2014`, which no editor codepage can re-encode.
+- **The release gate now catches it before it can happen again.**
+  `check-publishable.mjs` already refused phantom dependencies and internal
+  version drift; it now also refuses any package or `server.json` description
+  containing the Windows-1252 signature of a double-encoded character. The
+  check runs on every release before npm publish — the only place this
+  defect class is still fixable.
+
+### Added
+- **npm keywords, on all eight packages.** None of them had a `keywords`
+  field, so npm search could not find any of them by the words a modder or
+  an MCP user would actually type.
+- **GitHub Releases.** Tags `v0.1.0` through `v0.2.3` were pushed, but
+  release.yml published only to npm and the MCP registry, so the Releases
+  page stayed empty the whole time. A new job, gated on a tag push and on
+  npm succeeding, extracts this CHANGELOG's section for the tagged version
+  and publishes it as the release body. A tag whose version has no CHANGELOG
+  section fails the release instead of shipping auto-generated notes.
+
+### Changed
+- **The README status line no longer names a version.** It read "Early —
+  v0.2.1" against packages at 0.2.3 — a line that goes stale the moment it
+  is written. It now reads "Early — pre-1.0", which cannot drift. The top of
+  the page now carries CI, npm and license badges as well.
+
 ## [0.2.3] — 2026-09-15
 
 ### Added
