@@ -34,7 +34,27 @@ Requires Node.js 20 or newer.
 claude mcp add --scope user modwrench -- npx -y @modwrench/cli
 ```
 
-**Claude Desktop, Cursor, Cline, Continue, Roo Code** — add to your client's MCP config:
+**VS Code** — open the Command Palette (`Ctrl+Shift+P`), run **MCP: Add Server**, choose
+**Command (stdio)**, and enter `npx -y @modwrench/cli`. Letting VS Code write the config is
+the reliable route, because its key is `servers` rather than the `mcpServers` other clients
+use. If you would rather edit `mcp.json` by hand:
+
+```json
+{
+  "servers": {
+    "modwrench": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modwrench/cli"]
+    }
+  }
+}
+```
+
+MCP tools only load in **Agent** mode, not Ask — switch the mode dropdown in the chat box.
+
+**Claude Desktop, Cursor, Cline, Continue, Roo Code** — add to your client's MCP config.
+Note the key here is `mcpServers`, which is *not* what VS Code uses:
 
 ```json
 {
