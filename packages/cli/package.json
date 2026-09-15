@@ -1,8 +1,22 @@
 {
   "name": "@modwrench/cli",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "mcpName": "io.github.171county/modwrench",
-  "description": "ModWrench â€” one MCP entry, every mod platform. Bundles all installed @modwrench/* platform packages into a single combined MCP server.",
+  "description": "ModWrench \u2014 one MCP entry, every mod platform. Bundles all installed @modwrench/* platform packages into a single combined MCP server.",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "modding",
+    "nexus-mods",
+    "modio",
+    "thunderstore",
+    "skyrim",
+    "crash-analysis",
+    "load-order",
+    "steam-deck",
+    "ai-tools"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -35,12 +49,12 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
-    "@modwrench/core": "0.2.3",
-    "@modwrench/modio": "0.2.3",
-    "@modwrench/nexus": "0.2.3",
-    "@modwrench/thunderstore": "0.2.3",
-    "@modwrench/ui": "0.2.3",
-    "@modwrench/workbench": "0.2.3",
+    "@modwrench/core": "0.2.4",
+    "@modwrench/modio": "0.2.4",
+    "@modwrench/nexus": "0.2.4",
+    "@modwrench/thunderstore": "0.2.4",
+    "@modwrench/ui": "0.2.4",
+    "@modwrench/workbench": "0.2.4",
     "zod": "^3.25.76"
   },
   "engines": {

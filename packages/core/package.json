@@ -1,7 +1,15 @@
 {
   "name": "@modwrench/core",
-  "version": "0.2.3",
-  "description": "Shared core library for ModWrench servers â€” auth, secrets, logging, errors.",
+  "version": "0.2.4",
+  "description": "Shared core library for ModWrench servers \u2014 auth, secrets, logging, errors.",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "auth",
+    "keychain",
+    "credentials",
+    "secrets"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",

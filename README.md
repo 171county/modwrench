@@ -1,5 +1,9 @@
 # ModWrench
 
+[![CI](https://github.com/171county/modwrench/actions/workflows/ci.yml/badge.svg)](https://github.com/171county/modwrench/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@modwrench/cli)](https://www.npmjs.com/package/@modwrench/cli)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 An MCP server that connects your AI assistant to mod platforms and to your own modding setup, so you can ask questions in your AI client instead of clicking through web UIs.
 
 It runs on your machine. No account, no service, no server anyone operates.
@@ -171,7 +175,7 @@ The endorse tool exists for the same reason: it's the one way a bridge like this
 
 ## Status
 
-Early — v0.2.1. It will have bugs, and it is not perfect.
+Early — pre-1.0. It will have bugs, and it is not perfect.
 
 The source is open so you can check anything on this page rather than taking it on faith. [TRUST.md](TRUST.md) lists each claim with the command to verify it yourself. If you find one that isn't true, that's a bug — [file it](https://github.com/171county/modwrench/issues).
 
