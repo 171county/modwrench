@@ -3,7 +3,7 @@
   "name": "io.github.171county/modwrench",
   "title": "ModWrench",
   "description": "One MCP server for mod platforms and local modding diagnostics. No data kept.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "repository": {
     "url": "https://github.com/171county/modwrench",
     "source": "github"
@@ -13,7 +13,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@modwrench/cli",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "transport": {
         "type": "stdio"
       }
