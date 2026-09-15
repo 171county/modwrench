@@ -40,6 +40,63 @@ if (subcmd === "--version" || subcmd === "-v") {
   process.exit(0);
 }
 
+// `modwrench --help` used to fall through to the MCP boot below: the server
+// started on stdio, printed one JSON log line, and sat there. To anyone
+// curious enough to type the most obvious command first, ModWrench looked
+// broken in the first ten seconds. Every unrecognized argument did the same.
+//
+// The text below is therefore the first thing a stranger reads, and it has one
+// job beyond listing commands: say that this is a server an AI client starts,
+// not a program you run yourself. Someone who does not know what MCP is will
+// otherwise run it, see nothing happen, and conclude it does not work.
+function usage(): string {
+  return `ModWrench ${PKG_VERSION} — mod platforms and local modding diagnostics, for your AI client.
+
+ModWrench is an MCP server. You do not run it directly — your AI client starts
+it for you. Running this command on its own just waits for a client to talk to
+it over stdin, which looks like nothing happening.
+
+SET IT UP
+
+  Claude Code:
+    claude mcp add --scope user modwrench -- npx -y @modwrench/cli
+
+  Claude Desktop, Cursor, Cline, Roo Code — add to your client's MCP config:
+    {
+      "mcpServers": {
+        "modwrench": { "command": "npx", "args": ["-y", "@modwrench/cli"] }
+      }
+    }
+
+  Restart your client. Thunderstore and the local Workbench tools work straight
+  away — no account, no key.
+
+CONNECT A PLATFORM (optional — only Nexus and mod.io need one)
+
+  modwrench auth key nexus        store a personal API key
+  modwrench auth key modio        store a personal API key
+  modwrench auth login <platform> OAuth sign-in instead of a key
+  modwrench auth status <platform>  check what is stored
+  modwrench auth logout <platform>  remove it
+
+  Keys are read only from your OS credential manager. There is no .env path,
+  no config-file path and no environment-variable path.
+
+OTHER
+
+  modwrench --version             print the version
+  modwrench --help                this text
+
+  Docs and source:  https://github.com/171county/modwrench
+  What it does and will not do:  https://github.com/171county/modwrench/blob/main/TRUST.md
+`;
+}
+
+if (subcmd === "--help" || subcmd === "-h" || subcmd === "help") {
+  process.stdout.write(usage());
+  process.exit(0);
+}
+
 if (subcmd === "auth") {
   if (!action || !platform) {
     process.stderr.write(
@@ -78,6 +135,17 @@ if (subcmd === "auth") {
     process.exit(1);
   }
   process.exit(0);
+}
+
+// Anything else that was typed is a mistake, not a request to start the server.
+// An MCP client launches this with no arguments at all, so a present-but-
+// unrecognized argv[2] can only have come from a person at a prompt — and
+// silently booting the server at them is the behavior this guard replaces.
+if (subcmd !== undefined) {
+  process.stderr.write(
+    `Unknown command "${subcmd}".\n\n${usage()}`
+  );
+  process.exit(1);
 }
 
 // ─── Meta-server boot — v2.5 dynamic catalog architecture ────────────────────
