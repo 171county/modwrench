@@ -1,6 +1,6 @@
 {
   "name": "@modwrench/thunderstore",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "ModWrench â€” Thunderstore MCP server. Discover and inspect mods on Thunderstore (Lethal Company, Valheim, R.E.P.O., Risk of Rain 2, Dyson Sphere Program, BONEWORKS, and other Unity co-op games) directly from any MCP-compatible AI client.",
   "license": "MIT",
   "repository": {
@@ -44,8 +44,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
-    "@modwrench/core": "0.2.0",
-    "@modwrench/ui": "0.2.0",
+    "@modwrench/core": "0.2.1",
+    "@modwrench/ui": "0.2.1",
     "zod": "^3.23.8"
   },
   "engines": {
