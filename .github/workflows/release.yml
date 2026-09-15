@@ -137,3 +137,43 @@ jobs:
 
       - name: Publish server metadata
         run: ./mcp-publisher publish server.json
+
+  github-release:
+    needs: npm
+    # Same shape as the registry job: only a real tag release publishes, and
+    # only after npm has succeeded — a Release describing a version that
+    # failed to publish would be a lie with a download button.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # The body is this repo's own CHANGELOG section for the tagged version,
+      # not GitHub's auto-generated commit list — the changelog is maintained
+      # by hand and says what a user needs to know.
+      - name: Extract this version's CHANGELOG section
+        run: |
+          set -e
+          version="${GITHUB_REF_NAME#v}"
+          header="## [$version]"
+          if ! grep -qF "$header" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '$header' section — write one before tagging."
+            exit 1
+          fi
+          awk -v h="$header" \
+            'index($0, h) == 1 {flag = 1; next} flag && /^## \[/ {exit} flag {print}' \
+            CHANGELOG.md > release-body.md
+          if [ ! -s release-body.md ]; then
+            echo "::error::The '$header' section in CHANGELOG.md is empty."
+            exit 1
+          fi
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file release-body.md
