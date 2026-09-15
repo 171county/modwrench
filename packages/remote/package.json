@@ -1,6 +1,6 @@
 {
   "name": "@modwrench/remote",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "ModWrench remote Streamable HTTP MCP server for remote-capable clients.",
   "license": "MIT",
   "repository": {
@@ -44,8 +44,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
-    "@modwrench/core": "0.2.2",
-    "@modwrench/thunderstore": "0.2.2",
+    "@modwrench/core": "0.2.3",
+    "@modwrench/thunderstore": "0.2.3",
     "express": "^5.2.1"
   },
   "devDependencies": {
