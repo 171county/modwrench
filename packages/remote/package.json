@@ -1,7 +1,13 @@
 {
   "name": "@modwrench/remote",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "ModWrench remote Streamable HTTP MCP server for remote-capable clients.",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "streamable-http"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -44,8 +50,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
-    "@modwrench/core": "0.2.3",
-    "@modwrench/thunderstore": "0.2.3",
+    "@modwrench/core": "0.2.4",
+    "@modwrench/thunderstore": "0.2.4",
     "express": "^5.2.1"
   },
   "devDependencies": {

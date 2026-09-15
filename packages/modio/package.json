@@ -1,7 +1,14 @@
 {
   "name": "@modwrench/modio",
-  "version": "0.2.3",
-  "description": "ModWrench â€” mod.io MCP server. Search, browse, and inspect mods on mod.io directly from any MCP-compatible AI client.",
+  "version": "0.2.4",
+  "description": "ModWrench \u2014 mod.io MCP server. Search, browse, and inspect mods on mod.io directly from any MCP-compatible AI client.",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "modio",
+    "modding"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -48,8 +55,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
-    "@modwrench/core": "0.2.3",
-    "@modwrench/ui": "0.2.3",
+    "@modwrench/core": "0.2.4",
+    "@modwrench/ui": "0.2.4",
     "zod": "^3.23.8"
   },
   "engines": {

@@ -129,7 +129,21 @@ for (const [name, { dir, json }] of manifests) {
     }
   }
 
-  // 3. Publishing hygiene.
+  // 3. Double-encoded text in the description. The 0.2.3 release shipped six
+  // package descriptions whose em-dash had been saved as UTF-8, read back as
+  // Windows-1252, and saved as UTF-8 again — so npm rendered mojibake where
+  // each em-dash should be, on every package page. The escape sequence below
+  // is that signature, written as escapes so this source never carries the
+  // defect it rejects. A description is baked into the published tarball and
+  // a published version cannot be overwritten, so this defect class only
+  // ever surfaces after publishing, where nobody can fix it.
+  if (typeof json.description === "string" && json.description.includes("\u00e2\u20ac")) {
+    errors.push(
+      `${name}: description contains "\u00e2\u20ac" — a double-encoded character. Fix the description (use the \\u2014 escape) and republish.`
+    );
+  }
+
+  // 4. Publishing hygiene.
   if (json.private !== true) {
     if (!json.scripts?.prepack && !json.scripts?.prepublishOnly) {
       errors.push(
@@ -145,7 +159,19 @@ for (const [name, { dir, json }] of manifests) {
   }
 }
 
-// 4. Registry existence — opt-in, needs network.
+// server.json is the face of this server on the MCP registry — same rule
+// for its description as for every package's.
+const serverJson = readJson(join(ROOT, "server.json"));
+if (
+  typeof serverJson.description === "string" &&
+  serverJson.description.includes("\u00e2\u20ac")
+) {
+  errors.push(
+    `server.json: description contains "\u00e2\u20ac" — a double-encoded character. Fix the description (use the \\u2014 escape) and republish.`
+  );
+}
+
+// 5. Registry existence — opt-in, needs network.
 if (CHECK_REGISTRY) {
   for (const [name, { json }] of manifests) {
     if (json.private === true) continue;
