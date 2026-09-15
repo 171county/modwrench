@@ -4,6 +4,28 @@ An MCP server that connects your AI assistant to mod platforms and to your own m
 
 It runs on your machine. No account, no service, no server anyone operates.
 
+---
+
+**Paste a crash log. Get the mod that caused it.**
+
+![The crash panel: an access violation parsed into its exception, suspected form IDs, call stack, registers and loaded plugins](docs/media/crash-panel.png)
+
+`SomeArmorMod.esp` is named as a suspect, and `SomeArmorMod.dll` is sitting at frame 2 of
+the call stack. ModWrench parsed the log and laid out what is in it. It did not decide the
+cause — that is the model's job, and the panel says so.
+
+**Search every platform you have connected, with the author on every row.**
+
+![The mods panel: three Skyrim mods, each with author, platform, version, download and endorsement counts, and a link to the mod page](docs/media/mods-panel.png)
+
+These panels are not screenshots of a website. Each one is an interactive
+[MCP-UI](https://mcpui.dev) resource that a tool returns inline with its answer — self-contained
+HTML with no external scripts, no stylesheets, no fetches and no images. Your MCP client
+renders it locally, or shows the text answer if it does not support MCP-UI yet. Nothing about
+it reaches a server.
+
+---
+
 ## What it does
 
 Four attachments. Install one, some, or all — `@modwrench/cli` composes whichever you've configured into a single MCP entry.
