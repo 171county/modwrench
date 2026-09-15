@@ -126,6 +126,22 @@ async function queryModMetadataInner(
     } else {
       try {
         const raw = await queryNexus(client, input.gameId!, input.modId!);
+        // The adult policy replaces a flagged record with a redaction marker
+        // carrying its own explanation. normalizeNexusMod() builds from named
+        // fields only, so passing the marker through it yields found:true with
+        // name/author undefined and a pageUrl ending in "/undefined" — the tool
+        // reports success for a request it actually withheld, and the notice
+        // never reaches the caller. Surface the withholding as what it is.
+        const marker = raw as unknown as { filtered?: boolean; reason?: string };
+        if (marker.filtered === true) {
+          return {
+            found: false,
+            reason:
+              marker.reason ??
+              "This entry is flagged as adult content on Nexus Mods and was withheld by ModWrench.",
+            attemptedPlatforms: attempted,
+          };
+        }
         return {
           found: true,
           mod: normalizeNexusMod(raw, input.gameId!),
