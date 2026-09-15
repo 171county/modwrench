@@ -89,24 +89,36 @@ jobs:
           fi
           identifier=$(node -p "require('./server.json').packages[0].identifier")
 
-          # npm's read replicas lag its write path. On the 0.2.0 release this
-          # step ran 8 seconds after the npm job finished and got a 404 for a
-          # package npm had just accepted -- npm publish had even printed "Your
-          # package is being processed and may take a few minutes to become
-          # available" for this exact package. The guard was right to check and
-          # wrong to check only once, so the release needed a manual re-run.
+          # npm's read replicas lag its write path, and npm itself says so:
+          # every publish prints "Your package is being processed and may take
+          # a few minutes to become available". Three releases have now measured
+          # that lag against this guard.
           #
-          # Retry rather than sleep blindly: succeed the moment it appears.
-          for attempt in $(seq 1 10); do
+          #   0.2.0  one check, 8s after publish        -> failed
+          #   0.2.1  10 attempts / 15s = 150s           -> passed
+          #   0.2.2  10 attempts / 15s = 150s           -> failed
+          #
+          # So 150s sat right on the boundary and the window was the bug, not
+          # the retry. @modwrench/cli is published LAST of the eight, which puts
+          # it at the back of the propagation queue every time -- it is
+          # structurally the slowest package to appear, and it is the one
+          # server.json points at.
+          #
+          # The window is now 10 minutes, matching npm's own "a few minutes"
+          # rather than a guess. This costs nothing when propagation is quick:
+          # the loop exits on the first success, which is the common case.
+          attempts=40
+          interval=15
+          for attempt in $(seq 1 "$attempts"); do
             if npm view "${identifier}@${pkg_version}" version; then
-              echo "Confirmed ${identifier}@${pkg_version} is visible on npm."
+              echo "Confirmed ${identifier}@${pkg_version} is visible on npm after ~$(( (attempt - 1) * interval ))s."
               exit 0
             fi
-            echo "Attempt ${attempt}/10: ${identifier}@${pkg_version} not visible yet; waiting 15s."
-            sleep 15
+            echo "Attempt ${attempt}/${attempts}: ${identifier}@${pkg_version} not visible yet; waiting ${interval}s."
+            sleep "$interval"
           done
 
-          echo "::error::${identifier}@${pkg_version} never became visible on npm after ~150s."
+          echo "::error::${identifier}@${pkg_version} never became visible on npm after ~$(( attempts * interval ))s."
           echo "The npm job reported success, so the publish itself likely worked."
           echo "Check https://www.npmjs.com/package/${identifier} before re-running:"
           echo "  - visible now  -> propagation was just slow, re-run this job"
