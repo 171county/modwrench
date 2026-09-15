@@ -24,6 +24,19 @@ HTML with no external scripts, no stylesheets, no fetches and no images. Your MC
 renders it locally, or shows the text answer if it does not support MCP-UI yet. Nothing about
 it reaches a server.
 
+One caveat worth knowing before you hit it. A client that does not support MCP-UI does not
+quietly ignore the panel — it puts the HTML into the conversation as text, and the model
+reads markup it can do nothing with. One panel is about 28kb, roughly 8,800 tokens, near 7%
+of a 128k context window. If that is happening to you, turn panels off:
+
+```
+MODWRENCH_UI=off
+```
+
+Set it wherever your client puts environment variables. The payload drops from 28kb to about
+130 bytes — a 219x reduction — and every tool keeps working exactly as before. Panels are on
+by default; this is opt-out, not opt-in.
+
 ---
 
 ## What it does
