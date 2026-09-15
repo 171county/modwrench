@@ -16,7 +16,7 @@ Where a claim needed a caveat to stay true, the caveat is here instead of being 
 - **Never send anything to the maintainer.** There is no analytics SDK, no crash reporting, no telemetry, no phone-home. No network destination in this codebase belongs to us.
 - **Never store your data.** Nothing is written to disk. There is no database and no cache of your data — the only thing held in memory is LOOT's public masterlist, and it dies with the process.
 - **Never ask for a password.** ModWrench never sees or handles your platform password.
-- **Filter adult-tagged Nexus content by default**, unless you explicitly enable it yourself. Every Nexus tool asks Nexus for the adult flag and drops what is flagged. If a request cannot get that flag, the tool fails rather than returning results it could not check — see below.
+- **Filter adult-tagged Nexus content by default**, unless you explicitly enable it yourself. Every Nexus response passes through the filter, which drops what the adult flag marks. The filter reads that flag off the record, so where a response carries no flag it cannot judge it — see [the limits of the adult filter](#the-limits-of-the-adult-filter) below, which says exactly which tools fail closed and which do not. This is the one promise on this page with a real edge, and it is spelled out rather than rounded up.
 
 ## There is no ModWrench service
 
@@ -40,10 +40,19 @@ The complete list, from the shipped code:
 | `api.mod.io` | mod.io tools | Mod data |
 | `thunderstore.io` | Thunderstore tools | Mod data |
 | `raw.githubusercontent.com` | Conflict tools | LOOT's public masterlist |
+| a Nexus CDN host | `nexus_file_preview` only | The archive listing for one file |
 
-That last one is worth naming because it is not a mod platform: conflict checking downloads LOOT's community-maintained masterlist from their GitHub repo. It receives your IP address, like any HTTP request, and nothing else — no mod data, no credentials, no file paths.
+Two of those need naming properly rather than being left to the table.
 
-Platform base URLs are environment variables you can override, so you can point ModWrench at a proxy and watch every byte it sends.
+**The CDN host is the only destination here that is not a fixed address.** `nexus_file_preview` reads a file's `content_preview_link` — a URL Nexus supplies at runtime — and follows it. ModWrench does not choose that host and cannot list it in advance, because Nexus decides it per file. The request carries no credential.
+
+**`raw.githubusercontent.com` learns which game you are modding.** The masterlist URL contains the game: `raw.githubusercontent.com/loot/<game>/…/masterlist.yaml`, where `<game>` is `skyrimse`, `fallout4`, `starfield` and so on. So GitHub receives your IP address, that game name, and a User-Agent identifying ModWrench and its version. No mod data, no credentials, no file paths — but the game name is real and this page previously said "nothing else", which was not accurate.
+
+Platform base URLs are environment variables you can override, so you can point most of ModWrench at a proxy and watch what it sends. Three paths do not honour those variables, and the first is the one you would most want to watch:
+
+- **The auth requests carry your credential and cannot be redirected.** `nexus/auth.ts` and `modio/auth.ts` use hardcoded hosts, so the request that validates your freshly-pasted key goes to Nexus or mod.io and nowhere else — but you cannot point it at a proxy to confirm that for yourself. To verify it, read those two files or watch the connection at the network layer.
+- `nexus_search` reads `NEXUS_GRAPHQL_URL`, a separate variable from `NEXUS_BASE_URL`.
+- `nexus_file_preview` follows the CDN URL above, which no variable controls.
 
 ## Your credentials
 
@@ -76,11 +85,28 @@ Two more details, since they are the kind of thing worth knowing:
 
 Nexus tags some mods as adult content. On their own site that content is hidden from signed-out visitors, off by default for signed-in ones, and released only after an age check. Their Terms of Service put the same duty on tools like this one, in a single sentence: *"Third parties who use our APIs are responsible for filtering the content returned."*
 
-**ModWrench filters it out by default.** Adult-tagged entries are dropped from lists and replaced with a short notice when you ask for one directly. The filter lives in `@modwrench/core` and sits in the shared request path of both packages that talk to Nexus — `@modwrench/nexus` and the Workbench's own client — so a tool added to either inherits it.
+**ModWrench filters it out by default.** Adult-tagged entries are dropped from lists, and a direct lookup of one comes back as a short notice saying it was withheld and why. The filter lives in `@modwrench/core` and sits in the shared request path of both packages that talk to Nexus — `@modwrench/nexus` and the Workbench's own client — so a tool that goes through that path inherits it. A tool that makes its own request does not; see the limits below.
 
-**What happens if Nexus changes the schema.** The filter decides by reading a flag off each record, so a tool only gets filtered if its request asks Nexus for that flag. `nexus_search` runs against the v2 GraphQL endpoint and now asks for it explicitly. If Nexus ever renames or removes that field, the query fails validation rather than quietly returning unflagged records — and `nexus_search` then **refuses to return results at all** rather than hand you a list it cannot check. You get an error naming the problem and the one-line fix. Every other Nexus tool uses the v1 REST API, which returns `contains_adult_content` on every mod record.
+### The limits of the adult filter
 
-That is a deliberate choice about which way to fail. Returning unchecked results with a warning attached is still returning them, and the duty Nexus places on third-party tools is to filter, not to caveat.
+The filter decides by reading a flag off each record. That single fact sets the whole boundary, so here is exactly where it holds and where it cannot.
+
+**Where a request can be checked, ModWrench refuses rather than guess.** Two tools are built to fail closed:
+
+- `nexus_search` runs against the v2 GraphQL endpoint and asks for the adult field explicitly. If Nexus renames or removes it, the query fails validation and search **refuses to return results at all** rather than hand you a list it cannot check. You get an error naming the problem and the one-line fix.
+- `nexus_file_preview` follows a CDN URL to get an archive's folder listing. That listing carries no flag of its own — filtering it would be a guaranteed no-op — so the tool checks the *mod* record first and refuses outright if the mod is adult-tagged.
+
+**Where a response carries no flag, the filter cannot judge it, and it passes through.** This is the honest edge, and it is not hypothetical. Some v1 REST endpoints return records that are not mod records and so carry no `contains_adult_content`:
+
+| Tool | Returns | Filtered? |
+|---|---|---|
+| `nexus_mod_changelogs` | a map of version → changelog text | **no** — strings carry no flag |
+| `nexus_updated` | mod IDs and timestamps | **no** — no flag on the record |
+| `nexus_mod_files`, `nexus_get_file` | file records | **no** — the flag is on the mod, not the file |
+
+So for an adult-tagged mod, its author-written changelog text can reach you unfiltered and unlabelled. No images, no description, no listing — but text the author wrote, and it will not be marked. Every tool that returns a mod record *is* filtered, and that is most of them.
+
+That is a deliberate choice about which way to fail where the choice exists. Returning unchecked results with a warning attached is still returning them, and the duty Nexus places on third-party tools is to filter, not to caveat. Where a record carries nothing to check, saying so plainly is better than implying a guarantee that the code cannot keep.
 
 *(An earlier version of this page said the filter "covers every Nexus tool — including any added later." That was false twice over. `nexus_search` never asked for the flag, so the filter was a guaranteed no-op on the only tool with real keyword search. And `mw_query_mod_metadata` in the Workbench package reached Nexus through a second client with no filter on it at all. Both are fixed, and both now have tests — including one that asserts the search request itself still contains the field, because a response-level test would have passed throughout the entire period this was broken.)*
 
@@ -163,7 +189,7 @@ Note the honest limit: **0.0.1 was published manually and has no attestation.** 
 **You can pin.** If you would rather decide when to update, pin the version and nothing changes under you:
 
 ```json
-"args": ["-y", "@modwrench/cli@0.1.0"]
+"args": ["-y", "@modwrench/cli@0.2.1"]
 ```
 
 Pinning is a completely reasonable thing to do with any tool that can read your files, including this one.
@@ -176,8 +202,12 @@ Do not take the above on faith. The whole point of MIT and a public repo is that
 git clone https://github.com/171county/modwrench.git
 cd modwrench
 
-# Every network destination in the shipped code
+# Every hardcoded network destination in the shipped code
 grep -rhoE "https://[a-zA-Z0-9.-]+" packages/*/src --include=*.ts | sort -u
+
+# ...and every call site that makes a request, including ones whose URL is
+# a variable. A literal-matching grep cannot see those.
+grep -rn "await fetch(" packages/*/src --include=*.ts
 
 # Every filesystem write (the local tools should have none)
 grep -rn "writeFile\|appendFile\|createWriteStream\|rmSync\|unlink" packages/workbench/src
@@ -189,8 +219,29 @@ grep -rn "method:" packages/*/src --include=*.ts
 cat packages/core/src/auth.ts
 ```
 
-If any of those turn up something this page does not mention, that is a bug in this page. [Report it](https://github.com/171county/modwrench/issues) and it gets fixed or this page gets corrected.
+**The first grep returns nine hosts, and only five of them are connections.** Rather than let you wonder which, here is the whole output accounted for. The five in the table above, plus four that appear as *text* and are never contacted:
+
+| Host | Why it appears | Contacted? |
+|---|---|---|
+| `github.com` | inside the User-Agent string — `core/src/index.ts:140` | no |
+| `help.nexusmods.com` | a link in an error message pointing at Nexus's API policy | no |
+| `mod.io` | a link telling you where to get your API key | no |
+| `www.nexusmods.com` | a link telling you where to get your API key | no |
+
+A string literal is not a request. The second grep finds the requests themselves — every call site, including ones whose URL is a variable that no literal-matching grep can see. On the current code it returns thirteen, and they account for everything:
+
+| Where | Count | What |
+|---|---|---|
+| `core/src/http.ts` | 1 | the shared client every tool request goes through |
+| `nexus/src/auth.ts` | 4 | key validation, OAuth token exchange, profile checks |
+| `modio/src/auth.ts` | 6 | key validation, the OAuth email exchange, profile checks |
+| `workbench/src/conflicts/loot.ts` | 1 | the LOOT masterlist |
+| `nexus/src/register.ts` | 1 | **the CDN preview** — the one with no base URL behind it |
+
+The auth files hold ten of the thirteen, which is the same point made above from the other direction: the credential-carrying requests are the ones that do not go through the overridable shared client.
+
+If any of these greps turn up something this page does not account for, that is a bug in this page. [Report it](https://github.com/171county/modwrench/issues) and it gets fixed or this page gets corrected.
 
 ---
 
-*Last verified against the code on 2026-09-12. If you find a gap between this document and the source, the source is the truth and this document is wrong.*
+*Last verified against the code on 2026-09-15. If you find a gap between this document and the source, the source is the truth and this document is wrong.*

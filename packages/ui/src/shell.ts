@@ -179,10 +179,15 @@ body{
 .mw-col-wide{margin-top:14px}
 .mw-plugins-wide{max-height:200px;columns:2;column-gap:18px}
 .mw-plugins-wide li{break-inside:avoid}
-.mw-regs{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:4px 12px;max-height:280px;overflow:auto}
-.mw-reg{display:flex;gap:7px;font-family:var(--mono);font-size:11px}
-.mw-reg-k{color:var(--accent);min-width:34px}
-.mw-reg-v{color:var(--ink);opacity:.85}
+/* A 64-bit register value is "0x" + 16 hex digits — 18 mono characters, about
+   119px at 11px — plus a 34px label and the 7px gap. Tracks narrower than that
+   let each cell spill into the next column, so the value of one register ran
+   straight into the name of the next. Size the track to the widest real value
+   rather than to a round number. */
+.mw-regs{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:4px 12px;max-height:280px;overflow:auto}
+.mw-reg{display:flex;gap:7px;font-family:var(--mono);font-size:11px;min-width:0}
+.mw-reg-k{color:var(--accent);min-width:34px;flex:none}
+.mw-reg-v{color:var(--ink);opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mw-raws{margin-top:14px;display:flex;flex-direction:column;gap:8px}
 .mw-raw{border:1px solid var(--border);border-radius:9px;background:var(--panel);overflow:hidden}
 .mw-raw>summary{cursor:pointer;padding:9px 12px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;

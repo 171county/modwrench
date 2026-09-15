@@ -14,11 +14,15 @@ Four attachments. Install one, some, or all — `@modwrench/cli` composes whiche
 
 **Thunderstore** — browse communities, search mods, read full version history, and resolve dependency trees. No credential needed; the read API is public. *(9 tools)*
 
-**Workbench** — local, on your machine. Find your installed games, mod managers and loaders; read your load order out of MO2, r2modman or Vortex; parse a crash log from Crash Logger SSE, Buffout 4, NetScriptFramework or BepInEx; look a mod up across platforms; check known conflicts against LOOT's masterlist. *(6 tools)*
+**Workbench** — local, on your machine. Find your installed games, mod managers and loaders; read your load order out of MO2, r2modman or Vortex; parse a crash log from Crash Logger SSE, Buffout 4, NetScriptFramework or BepInEx; look a mod up across platforms; check known conflicts. *(6 tools)*
+
+The conflict check reads two sources: LOOT's masterlist, fetched live for Bethesda games, and a small conflict list bundled inside the package for games LOOT does not cover. **That bundled list ships empty** — all three files contain `[]` — so today it asserts nothing. It is named here because it is a channel that could carry claims about someone's mod in a future release, and `npx` pulls the latest version automatically unless you pin.
 
 Plus two meta tools for activating a platform mid-session and opening a visual panel.
 
 **49 tools. 48 of them read. One writes** — see [The one thing it writes](#the-one-thing-it-writes).
+
+It also registers **five slash commands** your MCP client will offer you: `/modwrench` opens the panel, `/mw-find` searches every connected platform at once, `/mw-crash` takes a crash log, `/mw-conflicts` checks a game's load order, and `/mw-order` reads your load order. They are shortcuts that call the tools above — they add no capability the tools do not already have.
 
 ## How to use it
 
@@ -100,7 +104,11 @@ Locally, the Workbench tools open files read-only. There is no filesystem write 
 
 ## For mod authors
 
-Every output that mentions a mod carries the author's name, the platform it came from, and a link to the mod page.
+Every output built from a platform's data carries your name, the platform it came from, and a link to your mod page. That covers all the search, browse and lookup tools across Nexus, mod.io and Thunderstore.
+
+There is one place it does not, and it is the place that matters most to you, so it gets said plainly rather than left for you to find. **The crash and conflict tools can name your mod without linking to you.** `mw_diagnose_crash` reads a crash log off the user's own disk and reports the plugin filenames it finds; `mw_check_known_conflicts` reports pairs from LOOT's masterlist. Both work from filenames, not platform records — ModWrench genuinely does not know which platform a given `.esp` came from, and finding out would mean a network lookup for every suspect in a local diagnostic that otherwise touches nothing.
+
+So those two tools are the ones that can make a negative statement about your work — "this mod is the likely cause" — to a user who has no link back to you. Both carry a disclaimer saying the finding is a suspicion from a log, not a verdict. That is not the same as attribution, and until it can be done without turning a local tool into a networked one, this is a gap and it is listed as one.
 
 Where a platform reports an author's permissions, ModWrench passes them through so you see them. It does not enforce them and cannot — this is a metadata bridge, not a gate. What it will not do is help you strip a credit.
 
@@ -108,7 +116,7 @@ The endorse tool exists for the same reason: it's the one way a bridge like this
 
 ## Status
 
-Early — v0.1.1. It will have bugs, and it is not perfect.
+Early — v0.2.1. It will have bugs, and it is not perfect.
 
 The source is open so you can check anything on this page rather than taking it on faith. [TRUST.md](TRUST.md) lists each claim with the command to verify it yourself. If you find one that isn't true, that's a bug — [file it](https://github.com/171county/modwrench/issues).
 

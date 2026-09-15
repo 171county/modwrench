@@ -167,15 +167,50 @@ export async function authLogin(): Promise<void> {
 }
 
 export async function authStatus(): Promise<void> {
-  const stored = getStoredToken(SERVICE);
-  if (!stored) {
-    process.stderr.write("Not signed in. Run: modwrench auth login modio\n");
+  // Read the raw string first. `auth key` writes a bare API key and `auth
+  // login` writes a JSON blob, so a presence check that goes through
+  // getStoredToken() sees only the second kind: JSON.parse throws on a raw
+  // key, core swallows it, and a correctly stored key reports "Not signed in".
+  // That made the one verification step the README offers report a working
+  // setup as broken. Check for the credential, then read its shape.
+  const raw = getRawSecret(SERVICE);
+  if (!raw) {
+    process.stderr.write(
+      "Not signed in to mod.io.\n\n" +
+        "  modwrench auth key modio     API key — self-service, activates the read tools\n" +
+        "  modwrench auth login modio   OAuth — user-scoped, needs the API key first\n"
+    );
     process.exit(1);
+  }
+
+  const stored = getStoredToken(SERVICE);
+  const viaOAuth = Boolean(stored?.access_token);
+
+  // An API key is game-scoped and authenticates via the api_key query
+  // parameter; it cannot identify a user, so /me is OAuth-only. Validate each
+  // credential against an endpoint it can actually reach.
+  if (!viaOAuth) {
+    const apiKey = raw.trim();
+    const res = await fetch(
+      `${MODIO_BASE}/games?api_key=${encodeURIComponent(apiKey)}&_limit=1`,
+      { headers: { Accept: "application/json" } }
+    );
+    if (!res.ok) {
+      process.stderr.write(
+        `Key rejected by mod.io (${res.status}). Run: modwrench auth key modio\n`
+      );
+      process.exit(1);
+    }
+    process.stderr.write(
+      "API key stored and valid. The mod.io read tools are active.\n" +
+        "This key is game-scoped — for user-scoped calls, run: modwrench auth login modio\n"
+    );
+    return;
   }
 
   const res = await fetch(`${MODIO_BASE}/me`, {
     headers: {
-      Authorization: `Bearer ${stored.access_token}`,
+      Authorization: `Bearer ${stored!.access_token}`,
       Accept: "application/json",
     },
   });
@@ -187,14 +222,14 @@ export async function authStatus(): Promise<void> {
   }
   const data = (await res.json()) as { username: string; id: number };
   process.stderr.write(`Signed in as ${data.username} (user_id ${data.id}).\n`);
-  if (stored.expires_at) {
-    const remaining = stored.expires_at - Date.now();
+  if (stored!.expires_at) {
+    const remaining = stored!.expires_at - Date.now();
     if (remaining > 0) {
       const days = Math.floor(remaining / (24 * 60 * 60 * 1000));
       process.stderr.write(`Token expires in ~${days} day(s).\n`);
     } else {
       process.stderr.write(
-        `Token may have expired (saved ${new Date(stored.saved_at).toISOString()}).\n`
+        `Token may have expired (saved ${new Date(stored!.saved_at).toISOString()}).\n`
       );
     }
   }
