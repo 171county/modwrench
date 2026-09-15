@@ -8,6 +8,26 @@ This document is currently maintained by hand. When [release-please](https://git
 
 ---
 
+## [0.2.2] — 2026-09-15
+
+### Fixed
+- **`modwrench --help` silently started the MCP server.** It fell through to
+  the boot path: the server came up on stdio, wrote one JSON log line, and sat
+  waiting for a client that was never going to speak. The most obvious command
+  a new user can type made the tool look broken inside ten seconds, and every
+  other unrecognized argument did the same. `--help`, `-h` and `help` now print
+  usage and exit 0; any other unrecognized argument names itself back and exits
+  1 with the same text. An MCP client launches this with no arguments at all,
+  so anything in `argv[2]` came from a person at a prompt.
+
+  The usage text leads with the fact that ModWrench is a server an AI client
+  starts, not a program you run yourself — without that, someone who has not
+  met MCP runs the bare command, sees nothing happen, and concludes it does not
+  work. Five tests cover it, spawning the real entry point. The load-bearing
+  one asserts that no arguments still boots the server and completes an
+  `initialize` handshake, because the two halves of this fix pull in opposite
+  directions and widening the guard too far would break every client at once.
+
 ## [0.2.1] — 2026-09-15
 
 An audit of the published 0.2.0 tarballs against README.md and TRUST.md found
