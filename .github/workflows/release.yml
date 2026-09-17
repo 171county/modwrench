@@ -170,10 +170,23 @@ jobs:
             exit 1
           fi
 
+      # Same shape as the npm job's publish loop: check first, then create or
+      # update. `gh release create` has no upsert flag and fails outright on an
+      # existing release, which would make a re-run of this workflow — the
+      # recovery the mcp-registry job's own error message tells you to perform —
+      # fail on a step that had already succeeded.
       - name: Create the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            --title "$GITHUB_REF_NAME" \
-            --notes-file release-body.md
+          set -e
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists — updating its notes."
+            gh release edit "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file release-body.md
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file release-body.md
+          fi
