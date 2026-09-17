@@ -26,10 +26,37 @@ stranger sees first, and it was wrong.
   the JSON escape `\u2014`, which no editor codepage can re-encode.
 - **The release gate now catches it before it can happen again.**
   `check-publishable.mjs` already refused phantom dependencies and internal
-  version drift; it now also refuses any package or `server.json` description
-  containing the Windows-1252 signature of a double-encoded character. The
-  check runs on every release before npm publish — the only place this
-  defect class is still fixable.
+  version drift; it now also refuses double-encoded text. The check runs on
+  every release before npm publish — the only place this defect class is still
+  fixable.
+
+  It does not search for a signature. Searching for the `â€` that 0.2.3
+  produced would only ever catch `U+2000`–`U+203F`, because that string is the
+  Windows-1252 rendering of the UTF-8 lead pair those codepoints share — so the
+  em-dash family would be caught while an accented letter, `©`, an arrow, `™`
+  and every emoji went through untouched. Instead the gate *undoes* the
+  transform: it re-encodes the text as Windows-1252 and decodes the result as
+  strict UTF-8. If that succeeds and yields different text, the text is what a
+  mangled round-trip produces, whatever character it started as. A correct
+  em-dash is a single Windows-1252 byte, which is not valid UTF-8 on its own, so
+  the decode fails and the text is left alone.
+
+  The gate now also covers the surfaces that were never checked: every
+  package's `keywords`, `server.json`'s title, and every `README.md` that
+  ships. That last one matters most — npm puts a package's README in the
+  tarball whatever its `files` allowlist says and renders it as the entire body
+  of the package page, so checking only the one-line description guarded the
+  smallest public surface and waved through the largest.
+
+  36 tests cover it, one per double-encoding family in both directions: each
+  must be caught when mangled and left alone when correct.
+
+- **The GitHub release step is re-runnable.** `gh release create` has no upsert
+  flag and fails outright when the release already exists, so re-running the
+  workflow — the recovery the registry job's own error message tells you to
+  perform — would have failed on a step that had already succeeded. It now
+  checks first and edits or creates, the same shape the npm publish loop
+  already used.
 
 ### Added
 - **npm keywords, on all eight packages.** None of them had a `keywords`

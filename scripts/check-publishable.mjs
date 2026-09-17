@@ -1,14 +1,19 @@
 #!/usr/bin/env node
 // Release-readiness gate.
 //
-// Catches the two classes of defect that only appear AFTER publishing, because
-// npm workspaces resolve every internal package through a local symlink and a
-// hoisted node_modules — so both are invisible to a normal build/test run:
+// Catches the classes of defect that only appear AFTER publishing, where they
+// can no longer be fixed — npm workspaces resolve every internal package
+// through a local symlink and a hoisted node_modules, so the first two are
+// invisible to a normal build/test run, and a published version cannot be
+// overwritten, so the third is permanent the moment it ships:
 //
 //   1. Phantom dependencies — a package imports something it never declares,
 //      and gets away with it locally because a sibling hoisted it.
 //   2. Internal version drift — a package pins a @modwrench/* version that
 //      doesn't match the sibling in this repo.
+//   3. Double-encoded text — a description, keyword or README that has been
+//      round-tripped through Windows-1252, which npm renders as mojibake on
+//      the package page. This is what happened to six packages in 0.2.3.
 //
 // Pass --registry to additionally ask npm whether each package already exists
 // at its current version. That call needs network, so it's opt-in and only the
@@ -17,6 +22,8 @@
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
+
+import { describeDoubleEncoding } from "./lib/mojibake.mjs";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const PKG_DIR = join(ROOT, "packages");
@@ -92,6 +99,21 @@ for (const dir of pkgNames) {
 const errors = [];
 const warnings = [];
 
+/**
+ * Reject a published string that has been through a Windows-1252 round-trip.
+ * See scripts/lib/mojibake.mjs for why this undoes the transform rather than
+ * searching for a signature.
+ */
+function checkText(label, text) {
+  const problem = describeDoubleEncoding(text);
+  if (problem) {
+    errors.push(
+      `${label}: double-encoded text — ${problem}. Something saved this through ` +
+        `Windows-1252; write the character as a \\uXXXX escape and republish.`
+    );
+  }
+}
+
 for (const [name, { dir, json }] of manifests) {
   const declared = new Set([
     ...Object.keys(json.dependencies ?? {}),
@@ -129,19 +151,22 @@ for (const [name, { dir, json }] of manifests) {
     }
   }
 
-  // 3. Double-encoded text in the description. The 0.2.3 release shipped six
-  // package descriptions whose em-dash had been saved as UTF-8, read back as
-  // Windows-1252, and saved as UTF-8 again — so npm rendered mojibake where
-  // each em-dash should be, on every package page. The escape sequence below
-  // is that signature, written as escapes so this source never carries the
-  // defect it rejects. A description is baked into the published tarball and
-  // a published version cannot be overwritten, so this defect class only
-  // ever surfaces after publishing, where nobody can fix it.
-  if (typeof json.description === "string" && json.description.includes("\u00e2\u20ac")) {
-    errors.push(
-      `${name}: description contains "\u00e2\u20ac" — a double-encoded character. Fix the description (use the \\u2014 escape) and republish.`
-    );
-  }
+  // 3. Double-encoded text in anything this package publishes.
+  //
+  // 0.2.3 shipped six descriptions whose em-dash had been saved as UTF-8, read
+  // back as Windows-1252, and saved as UTF-8 again, so npm rendered mojibake on
+  // every package page. A published version cannot be overwritten, so this
+  // defect class is only ever fixable here, before the publish.
+  //
+  // The three surfaces below are what a stranger actually reads. README.md is
+  // the largest by far: npm puts a package's README in the tarball whatever its
+  // "files" allowlist says, and renders it as the entire body of the package
+  // page — so checking only the one-line description would guard the smallest
+  // surface and wave through the biggest.
+  checkText(`${name}: description`, json.description);
+  (json.keywords ?? []).forEach((kw, i) => checkText(`${name}: keywords[${i}]`, kw));
+  const readme = join(PKG_DIR, dir, "README.md");
+  if (existsSync(readme)) checkText(`${dir}/README.md`, readFileSync(readme, "utf8"));
 
   // 4. Publishing hygiene.
   if (json.private !== true) {
@@ -159,17 +184,13 @@ for (const [name, { dir, json }] of manifests) {
   }
 }
 
-// server.json is the face of this server on the MCP registry — same rule
-// for its description as for every package's.
+// server.json is the face of this server on the MCP registry, and the repo
+// README is what GitHub and the registry link people to — the same rule
+// applies to their public strings as to every package's.
 const serverJson = readJson(join(ROOT, "server.json"));
-if (
-  typeof serverJson.description === "string" &&
-  serverJson.description.includes("\u00e2\u20ac")
-) {
-  errors.push(
-    `server.json: description contains "\u00e2\u20ac" — a double-encoded character. Fix the description (use the \\u2014 escape) and republish.`
-  );
-}
+checkText("server.json: description", serverJson.description);
+checkText("server.json: title", serverJson.title);
+checkText("README.md", readFileSync(join(ROOT, "README.md"), "utf8"));
 
 // 5. Registry existence — opt-in, needs network.
 if (CHECK_REGISTRY) {
