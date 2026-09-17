@@ -1,6 +1,6 @@
 {
   "name": "modwrench",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": true,
   "description": "ModWrench — an MCP toolkit for modders.",
   "license": "MIT",
@@ -28,7 +28,8 @@
     "dev": "npm run dev --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present && npm run test:scripts",
+    "test:scripts": "cd scripts && node --test",
     "check:publishable": "node scripts/check-publishable.mjs",
     "check:release": "node scripts/check-publishable.mjs --registry"
   },

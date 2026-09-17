@@ -8,6 +8,73 @@ This document is currently maintained by hand. When [release-please](https://git
 
 ---
 
+## [0.2.4] — 2026-09-15
+
+A metadata release: nothing inside the server changed. Everything here is
+about what the packages look like from the outside, because that is what a
+stranger sees first, and it was wrong.
+
+### Fixed
+- **Six published package descriptions showed mojibake on npm.** The em-dash
+  in `@modwrench/cli`, `@modwrench/core`, `@modwrench/nexus`,
+  `@modwrench/modio`, `@modwrench/thunderstore` and `@modwrench/workbench`
+  had been double-encoded — UTF-8 bytes read back as Windows-1252 and saved
+  as UTF-8 again — so npm rendered a three-character mojibake where each
+  em-dash should be, on every package page. A description is baked into the
+  published tarball and a published version cannot be overwritten, so a
+  release was the only way to ship the fix. All six now carry the em-dash as
+  the JSON escape `\u2014`, which no editor codepage can re-encode.
+- **The release gate now catches it before it can happen again.**
+  `check-publishable.mjs` already refused phantom dependencies and internal
+  version drift; it now also refuses double-encoded text. The check runs on
+  every release before npm publish — the only place this defect class is still
+  fixable.
+
+  It does not search for a signature. Searching for the `â€` that 0.2.3
+  produced would only ever catch `U+2000`–`U+203F`, because that string is the
+  Windows-1252 rendering of the UTF-8 lead pair those codepoints share — so the
+  em-dash family would be caught while an accented letter, `©`, an arrow, `™`
+  and every emoji went through untouched. Instead the gate *undoes* the
+  transform: it re-encodes the text as Windows-1252 and decodes the result as
+  strict UTF-8. If that succeeds and yields different text, the text is what a
+  mangled round-trip produces, whatever character it started as. A correct
+  em-dash is a single Windows-1252 byte, which is not valid UTF-8 on its own, so
+  the decode fails and the text is left alone.
+
+  The gate now also covers the surfaces that were never checked: every
+  package's `keywords`, `server.json`'s title, and every `README.md` that
+  ships. That last one matters most — npm puts a package's README in the
+  tarball whatever its `files` allowlist says and renders it as the entire body
+  of the package page, so checking only the one-line description guarded the
+  smallest public surface and waved through the largest.
+
+  36 tests cover it, one per double-encoding family in both directions: each
+  must be caught when mangled and left alone when correct.
+
+- **The GitHub release step is re-runnable.** `gh release create` has no upsert
+  flag and fails outright when the release already exists, so re-running the
+  workflow — the recovery the registry job's own error message tells you to
+  perform — would have failed on a step that had already succeeded. It now
+  checks first and edits or creates, the same shape the npm publish loop
+  already used.
+
+### Added
+- **npm keywords, on all eight packages.** None of them had a `keywords`
+  field, so npm search could not find any of them by the words a modder or
+  an MCP user would actually type.
+- **GitHub Releases.** Tags `v0.1.0` through `v0.2.3` were pushed, but
+  release.yml published only to npm and the MCP registry, so the Releases
+  page stayed empty the whole time. A new job, gated on a tag push and on
+  npm succeeding, extracts this CHANGELOG's section for the tagged version
+  and publishes it as the release body. A tag whose version has no CHANGELOG
+  section fails the release instead of shipping auto-generated notes.
+
+### Changed
+- **The README status line no longer names a version.** It read "Early —
+  v0.2.1" against packages at 0.2.3 — a line that goes stale the moment it
+  is written. It now reads "Early — pre-1.0", which cannot drift. The top of
+  the page now carries CI, npm and license badges as well.
+
 ## [0.2.3] — 2026-09-15
 
 ### Added
