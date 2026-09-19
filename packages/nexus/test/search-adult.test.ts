@@ -21,7 +21,7 @@ type ToolHandler = (args: Record<string, unknown>) => Promise<{
 
 class MockServer {
   tools = new Map<string, ToolHandler>();
-  tool(name: string, _d: string, _s: unknown, handler: ToolHandler): void {
+  registerTool(name: string, _config: unknown, handler: ToolHandler): void {
     this.tools.set(name, handler);
   }
 }

@@ -35,7 +35,7 @@ The complete list, from the shipped code:
 
 | Destination | When | Why |
 |---|---|---|
-| `api.nexusmods.com` | Nexus tools | Mod data |
+| `api.nexusmods.com` | Nexus tools; crash-suspect attribution (opt-in) | Mod data; author links for named suspects |
 | `users.nexusmods.com` | `auth login nexus` only | OAuth |
 | `api.mod.io` | mod.io tools | Mod data |
 | `thunderstore.io` | Thunderstore tools | Mod data |
@@ -142,7 +142,7 @@ If you make mods, ModWrench touches your work. So, plainly:
 
 One thing it does that you should know about, because it is the part you might object to: **`mw_diagnose_crash` can name a specific mod as the likely cause of a crash.** That is an automated tool making a negative statement about your work, to a user, without you in the room.
 
-We think the honest mitigations are: it is a heuristic and says so, it reports what it correlated rather than pronouncing a verdict, and the user is told to verify. If you think that is not enough, [open an issue](https://github.com/171county/modwrench/issues) — that objection is legitimate and we would rather hear it from you than about you.
+We think the honest mitigations are: it is a heuristic and says so, it reports what it correlated rather than pronouncing a verdict, the user is told to verify, and — when the user explicitly opts in — it can link the named mod back to its author's Nexus page so the user can reach them. If you think that is not enough, [open an issue](https://github.com/171county/modwrench/issues) — that objection is legitimate and we would rather hear it from you than about you.
 
 ## What ModWrench is bad at
 
