@@ -30,7 +30,7 @@ const MOD_TOOLS = ["modio_list_mods", "modio_search_mods", "modio_popular"];
 function toolBody(src: string, name: string): string {
   const start = src.indexOf(`"${name}"`);
   assert.ok(start > -1, `${name} not found — this guard would pass vacuously`);
-  const next = src.indexOf("server.tool(", start);
+  const next = src.indexOf("server.registerTool(", start);
   return src.slice(start, next === -1 ? undefined : next);
 }
 

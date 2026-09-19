@@ -220,15 +220,24 @@ await catalog.activateAll();
 // this tool gives the LLM a programmatic way to surface the right "go run
 // modwrench auth login X" hint and retry activation when credentials are
 // added.
-server.tool(
+server.registerTool(
   "mw_activate_platform",
-  "Activate an additional platform's tool set without restarting the meta-server. Use this when the user adds credentials or asks about a platform that wasn't loaded at boot. After activation, the new tools appear in the catalog and become callable. Returns the activation result (success with toolCount + baseUrl, or failure with reason — usually a missing-credential hint pointing at `modwrench auth login <platform>`).",
   {
-    platform_id: z
-      .enum(catalog.knownIds() as [string, ...string[]])
-      .describe(
-        "Platform identifier. Idempotent — activating an already-active platform returns alreadyActive: true with no side effects."
-      ),
+    title: "Connect a platform",
+    description: "Activate an additional platform's tool set without restarting the meta-server. Use this when the user adds credentials or asks about a platform that wasn't loaded at boot. After activation, the new tools appear in the catalog and become callable. Returns the activation result (success with toolCount + baseUrl, or failure with reason — usually a missing-credential hint pointing at `modwrench auth login <platform>`).",
+    inputSchema: {
+      platform_id: z
+        .enum(catalog.knownIds() as [string, ...string[]])
+        .describe(
+          "Platform identifier. Idempotent — activating an already-active platform returns alreadyActive: true with no side effects."
+        ),
+    },
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
   },
   async ({ platform_id }) => {
     const result = await catalog.activate(platform_id);
@@ -260,18 +269,27 @@ const FLAGSHIP_GAMES = [
   { id: "valheim", name: "Valheim", note: "Thunderstore \u00b7 BepInEx" },
 ];
 
-server.tool(
+server.registerTool(
   "mw_deck",
-  "Open the ModWrench deck: a themed, interactive MCP-UI surface (a ui:// resource) showing the active connectors and flagship games in four skins (Skyrim, Fallout Pip-Boy, Lethal Company, Valheim). Stateless \u2014 rendered fresh from the current catalog, holds nothing. Use when the user says \"open the deck\", \"summon/show ModWrench\", or wants a visual dashboard. Optional args set the initial theme and view.",
   {
-    theme: z
-      .enum([...THEME_IDS] as [string, ...string[]])
-      .optional()
-      .describe("Initial theme: skyrim | fallout | lethal | valheim. Default skyrim."),
-    view: z
-      .enum(["deck", "mods", "crash"])
-      .optional()
-      .describe("Initial view. Default 'deck'."),
+    title: "Open the ModWrench deck",
+    description: "Open the ModWrench deck: a themed, interactive MCP-UI surface (a ui:// resource) showing the active connectors and flagship games in four skins (Skyrim, Fallout Pip-Boy, Lethal Company, Valheim). Stateless \u2014 rendered fresh from the current catalog, holds nothing. Use when the user says \"open the deck\", \"summon/show ModWrench\", or wants a visual dashboard. Optional args set the initial theme and view.",
+    inputSchema: {
+      theme: z
+        .enum([...THEME_IDS] as [string, ...string[]])
+        .optional()
+        .describe("Initial theme: skyrim | fallout | lethal | valheim. Default skyrim."),
+      view: z
+        .enum(["deck", "mods", "crash"])
+        .optional()
+        .describe("Initial view. Default 'deck'."),
+    },
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
   },
   async ({ theme, view }) => {
     const active = new Map(

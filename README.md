@@ -139,7 +139,7 @@ Everything ModWrench talks to, and nothing else:
 
 | Host | When |
 |---|---|
-| `api.nexusmods.com` | Nexus mod data — only if you connected Nexus |
+| `api.nexusmods.com` | Nexus mod data, and crash-suspect attribution when you opt in — only if you connected Nexus |
 | `users.nexusmods.com` | only while `auth login nexus` completes an OAuth sign-in |
 | `api.mod.io` | mod.io mod data — only if you connected mod.io |
 | `thunderstore.io` | Thunderstore's public read API |
@@ -165,9 +165,11 @@ Locally, the Workbench tools open files read-only. There is no filesystem write 
 
 Every output built from a platform's data carries your name, the platform it came from, and a link to your mod page. That covers all the search, browse and lookup tools across Nexus, mod.io and Thunderstore.
 
-There is one place it does not, and it is the place that matters most to you, so it gets said plainly rather than left for you to find. **The crash and conflict tools can name your mod without linking to you.** `mw_diagnose_crash` reads a crash log off the user's own disk and reports the plugin filenames it finds; `mw_check_known_conflicts` reports pairs from LOOT's masterlist. Both work from filenames, not platform records — ModWrench genuinely does not know which platform a given `.esp` came from, and finding out would mean a network lookup for every suspect in a local diagnostic that otherwise touches nothing.
+There is one place it does not, and it is the place that matters most to you, so it gets said plainly rather than left for you to find. **The crash and conflict tools work from filenames, not platform records.** `mw_diagnose_crash` reads a crash log off the user's own disk and reports the plugin filenames it finds; `mw_check_known_conflicts` reports pairs from LOOT's masterlist. ModWrench does not inherently know which platform a given `.esp` came from — finding out means network lookups in a diagnostic that otherwise touches nothing.
 
-So those two tools are the ones that can make a negative statement about your work — "this mod is the likely cause" — to a user who has no link back to you. Both carry a disclaimer saying the finding is a suspicion from a log, not a verdict. That is not the same as attribution, and until it can be done without turning a local tool into a networked one, this is a gap and it is listed as one.
+That gap is now half-closed, and only ever on request: `mw_diagnose_crash` takes an opt-in `attributeSuspects` flag (off by default) that resolves up to **five** named suspects to their Nexus mod pages — author, link, and the name the search matched, so a mismatch can be spotted before the link is presented as yours. It is a name search, it can be wrong, and every attribution it returns says so (`matchedBy: "name-search"`). It needs a `gameId` and a stored Nexus credential; without them it says attribution was skipped and moves on. `mw_check_known_conflicts` still does not attribute — LOOT's masterlist carries no author pages.
+
+A crash diagnosis can still make a negative statement about your work — "this mod is the likely cause" — with no link back to you when attribution is off (the default), unavailable, or fails to match. Every finding carries a disclaimer saying it is a suspicion from a log, not a verdict. Attribution narrows the gap; it does not close it — the conflict tool has no author data to draw on at all, and that remains a gap and is listed as one.
 
 Where a platform reports an author's permissions, ModWrench passes them through so you see them. It does not enforce them and cannot — this is a metadata bridge, not a gate. What it will not do is help you strip a credit.
 

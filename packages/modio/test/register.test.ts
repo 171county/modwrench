@@ -12,15 +12,31 @@ type ToolHandler = (args: Record<string, unknown>) => Promise<{
 class MockMcpServer {
   tools = new Map<
     string,
-    { description: string; schema: unknown; handler: ToolHandler }
+    {
+      title?: string;
+      description: string;
+      schema: unknown;
+      annotations: Record<string, unknown>;
+      handler: ToolHandler;
+    }
   >();
-  tool(
+  registerTool(
     name: string,
-    description: string,
-    schema: unknown,
+    config: {
+      title?: string;
+      description: string;
+      inputSchema?: unknown;
+      annotations: Record<string, unknown>;
+    },
     handler: ToolHandler
   ): void {
-    this.tools.set(name, { description, schema, handler });
+    this.tools.set(name, {
+      title: config.title,
+      description: config.description,
+      schema: config.inputSchema,
+      annotations: config.annotations,
+      handler,
+    });
   }
   invoke(name: string, args: Record<string, unknown> = {}) {
     const tool = this.tools.get(name);
@@ -110,6 +126,30 @@ test("registerModioTools: every expected tool is present", () => {
   ];
   for (const name of expected) {
     assert.ok(server.tools.has(name), `missing tool: ${name}`);
+  }
+});
+
+test("every tool declares all four boolean annotation hints", () => {
+  const server = new MockMcpServer();
+  registerModioTools(server as unknown as never, APIKEY_CRED);
+  assert.ok(
+    server.tools.size > 0,
+    "no tools registered — this guard would pass vacuously"
+  );
+  for (const [name, tool] of server.tools) {
+    assert.equal(typeof tool.title, "string", `${name} is missing a title`);
+    for (const hint of [
+      "readOnlyHint",
+      "destructiveHint",
+      "idempotentHint",
+      "openWorldHint",
+    ]) {
+      assert.equal(
+        typeof tool.annotations?.[hint],
+        "boolean",
+        `${name} is missing an explicit boolean ${hint}`
+      );
+    }
   }
 });
 

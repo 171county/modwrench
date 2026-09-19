@@ -106,23 +106,32 @@ export function registerModioTools(
   // ─── Tools ──────────────────────────────────────────────────────────────────
 
   // Tool 1: List games on mod.io
-  server.tool(
+  server.registerTool(
     "modio_list_games",
-    "List games on mod.io. Returns each game's numeric id (used in other tool calls), name, summary, and mod statistics. Paginated.",
     {
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(100)
-        .optional()
-        .describe("Max results per page (1-100). Default 100."),
-      offset: z
-        .number()
-        .int()
-        .min(0)
-        .optional()
-        .describe("Pagination offset. Default 0."),
+      title: "List mod.io games",
+      description: "List games on mod.io. Returns each game's numeric id (used in other tool calls), name, summary, and mod statistics. Paginated.",
+      inputSchema: {
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe("Max results per page (1-100). Default 100."),
+        offset: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe("Pagination offset. Default 0."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ limit, offset }) => {
       const list = await modioRequest<
@@ -160,11 +169,20 @@ export function registerModioTools(
   );
 
   // Tool 2: Get a single game
-  server.tool(
+  server.registerTool(
     "modio_get_game",
-    "Get full details for a single game by its numeric mod.io id. Use modio_list_games to discover ids.",
     {
-      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+      title: "Get mod.io game details",
+      description: "Get full details for a single game by its numeric mod.io id. Use modio_list_games to discover ids.",
+      inputSchema: {
+        game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ game_id }) => {
       const game = await modioRequest<Record<string, unknown>>(`/games/${game_id}`);
@@ -180,30 +198,39 @@ export function registerModioTools(
   );
 
   // Tool 3: List mods for a game
-  server.tool(
+  server.registerTool(
     "modio_list_mods",
-    "List mods for a specific game on mod.io. Supports sorting and pagination. Returns mod id, name, summary, submitter, and stats.",
     {
-      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
-      sort: z
-        .string()
-        .optional()
-        .describe(
-          "Sort field. Prefix with '-' for descending. Examples: '-popular', '-downloads', '-rating', '-date_updated'."
-        ),
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(100)
-        .optional()
-        .describe("Max results per page (1-100). Default 30."),
-      offset: z
-        .number()
-        .int()
-        .min(0)
-        .optional()
-        .describe("Pagination offset. Default 0."),
+      title: "List mods for a game",
+      description: "List mods for a specific game on mod.io. Supports sorting and pagination. Returns mod id, name, summary, submitter, and stats.",
+      inputSchema: {
+        game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+        sort: z
+          .string()
+          .optional()
+          .describe(
+            "Sort field. Prefix with '-' for descending. Examples: '-popular', '-downloads', '-rating', '-date_updated'."
+          ),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe("Max results per page (1-100). Default 30."),
+        offset: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe("Pagination offset. Default 0."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ game_id, sort, limit, offset }) => {
       const list = await modioRequest<
@@ -255,12 +282,21 @@ export function registerModioTools(
   );
 
   // Tool 4: Get a single mod
-  server.tool(
+  server.registerTool(
     "modio_get_mod",
-    "Get full details for a single mod by game id and mod id. Returns name, summary, description, version, submitter, stats, tags, and more.",
     {
-      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
-      mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+      title: "Get mod.io mod details",
+      description: "Get full details for a single mod by game id and mod id. Returns name, summary, description, version, submitter, stats, tags, and more.",
+      inputSchema: {
+        game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+        mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ game_id, mod_id }) => {
       const mod = await modioRequest<Record<string, unknown>>(
@@ -278,32 +314,41 @@ export function registerModioTools(
   );
 
   // Tool 5: Search mods
-  server.tool(
+  server.registerTool(
     "modio_search_mods",
-    "Full-text search mods for a game. Combines mod.io's '_q' query with optional name/tags filters and sorting.",
     {
-      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
-      query: z
-        .string()
-        .optional()
-        .describe("Full-text search across name, summary, and description (mod.io '_q' parameter)."),
-      name_contains: z
-        .string()
-        .optional()
-        .describe("Filter mods whose name contains this substring (uses mod.io 'name-lk' filter)."),
-      sort: z
-        .string()
-        .optional()
-        .describe(
-          "Sort field. Prefix with '-' for descending. Examples: '-popular', '-downloads', '-rating'."
-        ),
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(100)
-        .optional()
-        .describe("Max results per page (1-100). Default 30."),
+      title: "Search mod.io mods",
+      description: "Full-text search mods for a game. Combines mod.io's '_q' query with optional name/tags filters and sorting.",
+      inputSchema: {
+        game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+        query: z
+          .string()
+          .optional()
+          .describe("Full-text search across name, summary, and description (mod.io '_q' parameter)."),
+        name_contains: z
+          .string()
+          .optional()
+          .describe("Filter mods whose name contains this substring (uses mod.io 'name-lk' filter)."),
+        sort: z
+          .string()
+          .optional()
+          .describe(
+            "Sort field. Prefix with '-' for descending. Examples: '-popular', '-downloads', '-rating'."
+          ),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe("Max results per page (1-100). Default 30."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ game_id, query, name_contains, sort, limit }) => {
       const list = await modioRequest<
@@ -351,19 +396,28 @@ export function registerModioTools(
   );
 
   // Tool 6: List files for a mod
-  server.tool(
+  server.registerTool(
     "modio_mod_files",
-    "List the downloadable modfiles (versions) for a specific mod. Useful for inspecting version history, file sizes, and platform support.",
     {
-      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
-      mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(100)
-        .optional()
-        .describe("Max results per page (1-100). Default 30."),
+      title: "List a mod's files",
+      description: "List the downloadable modfiles (versions) for a specific mod. Useful for inspecting version history, file sizes, and platform support.",
+      inputSchema: {
+        game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+        mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe("Max results per page (1-100). Default 30."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ game_id, mod_id, limit }) => {
       const list = await modioRequest<
@@ -397,18 +451,27 @@ export function registerModioTools(
   );
 
   // Tool 7: Popular mods for a game
-  server.tool(
+  server.registerTool(
     "modio_popular",
-    "Get the most popular mods for a specific game right now (mod.io's 'popular' sort — their internal popularity score). The mod.io equivalent of nexus_trending.",
     {
-      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(100)
-        .optional()
-        .describe("Max results (1-100). Default 20."),
+      title: "Popular mods right now",
+      description: "Get the most popular mods for a specific game right now (mod.io's 'popular' sort — their internal popularity score). The mod.io equivalent of nexus_trending.",
+      inputSchema: {
+        game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe("Max results (1-100). Default 20."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ game_id, limit }) => {
       const list = await modioRequest<
@@ -454,13 +517,22 @@ export function registerModioTools(
   );
 
   // Tool 8: Get a single modfile's details
-  server.tool(
+  server.registerTool(
     "modio_get_file",
-    "Get details for a single modfile (version) by id. Returns version, filesize, hashes, download URL, platforms, and changelog.",
     {
-      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
-      mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
-      file_id: z.number().int().positive().describe("The numeric modfile id."),
+      title: "Get modfile details",
+      description: "Get details for a single modfile (version) by id. Returns version, filesize, hashes, download URL, platforms, and changelog.",
+      inputSchema: {
+        game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+        mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+        file_id: z.number().int().positive().describe("The numeric modfile id."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ game_id, mod_id, file_id }) => {
       const file = await modioRequest<Record<string, unknown>>(
@@ -473,11 +545,20 @@ export function registerModioTools(
   );
 
   // Tool 9: Get a game's tag taxonomy
-  server.tool(
+  server.registerTool(
     "modio_game_tags",
-    "Get the tag taxonomy for a game — the tag categories and the available options in each. Use these tag names with modio_search_mods (via mod.io's 'tags' filter) to narrow results.",
     {
-      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+      title: "Get a game's tag taxonomy",
+      description: "Get the tag taxonomy for a game — the tag categories and the available options in each. Use these tag names with modio_search_mods (via mod.io's 'tags' filter) to narrow results.",
+      inputSchema: {
+        game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ game_id }) => {
       const list = await modioRequest<
@@ -496,16 +577,25 @@ export function registerModioTools(
   );
 
   // Tool 10: List a mod's dependencies
-  server.tool(
+  server.registerTool(
     "modio_mod_dependencies",
-    "List the dependencies a mod declares — other mods that must also be installed for this one to work. Essential for resolving install order.",
     {
-      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
-      mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
-      recursive: z
-        .boolean()
-        .optional()
-        .describe("If true, includes transitive dependencies (deps of deps). Default false."),
+      title: "List a mod's dependencies",
+      description: "List the dependencies a mod declares — other mods that must also be installed for this one to work. Essential for resolving install order.",
+      inputSchema: {
+        game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+        mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+        recursive: z
+          .boolean()
+          .optional()
+          .describe("If true, includes transitive dependencies (deps of deps). Default false."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ game_id, mod_id, recursive }) => {
       const list = await modioRequest<
@@ -531,21 +621,30 @@ export function registerModioTools(
   );
 
   // Tool 11: Top N games ranked server-side (paginates + ranks for you)
-  server.tool(
+  server.registerTool(
     "modio_top_games",
-    "Get the top N games on mod.io ranked by a stat (default: mod count). Server-side paginates the full catalog and ranks, so the answer comes back in a single tool call. Use this instead of modio_list_games when you want a ranked answer like 'top games by mods'.",
     {
-      metric: z
-        .enum(["mods", "subscribers", "downloads"])
-        .optional()
-        .describe("Stat to rank by. Default 'mods' (mods_count_total)."),
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(50)
-        .optional()
-        .describe("Number of games to return (1-50). Default 10."),
+      title: "Top games on mod.io",
+      description: "Get the top N games on mod.io ranked by a stat (default: mod count). Server-side paginates the full catalog and ranks, so the answer comes back in a single tool call. Use this instead of modio_list_games when you want a ranked answer like 'top games by mods'.",
+      inputSchema: {
+        metric: z
+          .enum(["mods", "subscribers", "downloads"])
+          .optional()
+          .describe("Stat to rank by. Default 'mods' (mods_count_total)."),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .optional()
+          .describe("Number of games to return (1-50). Default 10."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ metric, limit }) => {
       const rankBy = metric ?? "mods";
@@ -604,25 +703,34 @@ export function registerModioTools(
   );
 
   // Tool 12: A mod's comments
-  server.tool(
+  server.registerTool(
     "modio_mod_comments",
-    "List the comments posted on a specific mod. Returns each comment's id, author, date, reply threading, karma, and content. Paginated.",
     {
-      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
-      mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(100)
-        .optional()
-        .describe("Max results per page (1-100). Default 30."),
-      offset: z
-        .number()
-        .int()
-        .min(0)
-        .optional()
-        .describe("Pagination offset. Default 0."),
+      title: "Read a mod's comments",
+      description: "List the comments posted on a specific mod. Returns each comment's id, author, date, reply threading, karma, and content. Paginated.",
+      inputSchema: {
+        game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+        mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe("Max results per page (1-100). Default 30."),
+        offset: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe("Pagination offset. Default 0."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ game_id, mod_id, limit, offset }) => {
       const list = await modioRequest<
@@ -667,13 +775,22 @@ export function registerModioTools(
   );
 
   // Tool 13: A single modfile's detail
-  server.tool(
+  server.registerTool(
     "modio_modfile_detail",
-    "Get the detail record for a single modfile (release) of a mod by game id, mod id, and file id. Returns version, filename, filesize, hashes, virus scan status, platforms, download URL, and changelog. Complements modio_mod_files (which lists them).",
     {
-      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
-      mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
-      file_id: z.number().int().positive().describe("The numeric modfile id."),
+      title: "Get modfile detail record",
+      description: "Get the detail record for a single modfile (release) of a mod by game id, mod id, and file id. Returns version, filename, filesize, hashes, virus scan status, platforms, download URL, and changelog. Complements modio_mod_files (which lists them).",
+      inputSchema: {
+        game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+        mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+        file_id: z.number().int().positive().describe("The numeric modfile id."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ game_id, mod_id, file_id }) => {
       const file = await modioRequest<Record<string, unknown>>(
@@ -686,12 +803,21 @@ export function registerModioTools(
   );
 
   // Tool 14: A mod's stats
-  server.tool(
+  server.registerTool(
     "modio_mod_stats",
-    "Get the live statistics object for a single mod: popularity rank, download and subscriber totals, and the full ratings breakdown (positive/negative counts, percentage, and weighted aggregate).",
     {
-      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
-      mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+      title: "Get a mod's live stats",
+      description: "Get the live statistics object for a single mod: popularity rank, download and subscriber totals, and the full ratings breakdown (positive/negative counts, percentage, and weighted aggregate).",
+      inputSchema: {
+        game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+        mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ game_id, mod_id }) => {
       const stats = await modioRequest<Record<string, unknown>>(
@@ -704,12 +830,21 @@ export function registerModioTools(
   );
 
   // Tool 15: A mod's metadata key-value pairs
-  server.tool(
+  server.registerTool(
     "modio_mod_metadata_kvp",
-    "Get the metadata key-value pairs (KVP) attached to a mod. Authors use these for arbitrary structured data (load order, compatibility flags, custom fields). Returns each metakey and metavalue.",
     {
-      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
-      mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+      title: "Get a mod's metadata pairs",
+      description: "Get the metadata key-value pairs (KVP) attached to a mod. Authors use these for arbitrary structured data (load order, compatibility flags, custom fields). Returns each metakey and metavalue.",
+      inputSchema: {
+        game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+        mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ game_id, mod_id }) => {
       const list = await modioRequest<
@@ -727,12 +862,21 @@ export function registerModioTools(
   );
 
   // Tool 16: A mod's tags
-  server.tool(
+  server.registerTool(
     "modio_mod_tags",
-    "List the tags applied to a specific mod (the subset of the game's tag taxonomy the author selected). Returns each tag name and the date it was added.",
     {
-      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
-      mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+      title: "List a mod's tags",
+      description: "List the tags applied to a specific mod (the subset of the game's tag taxonomy the author selected). Returns each tag name and the date it was added.",
+      inputSchema: {
+        game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+        mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ game_id, mod_id }) => {
       const list = await modioRequest<
@@ -750,25 +894,34 @@ export function registerModioTools(
   );
 
   // Tool 17: A mod's event log
-  server.tool(
+  server.registerTool(
     "modio_mod_events",
-    "List the activity events for a mod — the audit log of changes such as file additions, edits, availability changes, and team updates. Returns each event's id, type, actor, and timestamp. Paginated. (modio_mod_dependencies already covers dependency resolution.)",
     {
-      game_id: z.number().int().positive().describe("The numeric mod.io game id."),
-      mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(100)
-        .optional()
-        .describe("Max results per page (1-100). Default 30."),
-      offset: z
-        .number()
-        .int()
-        .min(0)
-        .optional()
-        .describe("Pagination offset. Default 0."),
+      title: "Read a mod's event log",
+      description: "List the activity events for a mod — the audit log of changes such as file additions, edits, availability changes, and team updates. Returns each event's id, type, actor, and timestamp. Paginated. (modio_mod_dependencies already covers dependency resolution.)",
+      inputSchema: {
+        game_id: z.number().int().positive().describe("The numeric mod.io game id."),
+        mod_id: z.number().int().positive().describe("The numeric mod.io mod id."),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe("Max results per page (1-100). Default 30."),
+        offset: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe("Pagination offset. Default 0."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ game_id, mod_id, limit, offset }) => {
       const list = await modioRequest<
