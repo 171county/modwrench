@@ -49,7 +49,7 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@modelcontextprotocol/sdk": "^1.24.0",
     "@modwrench/core": "0.2.4",
     "@modwrench/thunderstore": "0.2.4",
     "express": "^5.2.1"
