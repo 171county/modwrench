@@ -6,6 +6,11 @@ import { readLoadOrder } from "./loadorder/index.js";
 import { parseCrashlog } from "./crashlog/index.js";
 import { queryModMetadata } from "./metadata/index.js";
 import {
+  attributeSuspects as runAttribution,
+  createNexusNameSearch,
+  type SuspectAttribution,
+} from "./metadata/attribute.js";
+import {
   renderShell,
   createUIResource,
   themeForCrashType,
@@ -24,7 +29,7 @@ function themeForGameId(gameId: string): string {
   return "lethal";
 }
 import { checkKnownConflicts } from "./conflicts/index.js";
-import { correlateCrash } from "./crashlog/diagnose.js";
+import { correlateCrash, type CrashSuspect } from "./crashlog/diagnose.js";
 
 /**
  * Register all Workbench tools on the given MCP server. Workbench tools are
@@ -43,10 +48,18 @@ export function registerWorkbenchTools(server: McpServer): {
   // foundation tool — every other workbench tool that needs to reason about
   // the user's setup starts by calling this.
 
-  server.tool(
+  server.registerTool(
     "mw_detect_environment",
-    "See what you're working with. Auto-detects OS, Steam Deck, installed mod-friendly games (Bethesda / Unity co-op), per-game loaders (SKSE / F4SE / BepInEx), mod managers (MO2 / Vortex / r2modman), and Proton versions on Linux. Read-only — reads known config/save locations and touches nothing else. Use when the user asks \"what've I got installed\", \"find my games\", or before any tool that needs to know their setup.",
-    {},
+    {
+      title: "Detect my modding setup",
+      description: "See what you're working with. Auto-detects OS, Steam Deck, installed mod-friendly games (Bethesda / Unity co-op), per-game loaders (SKSE / F4SE / BepInEx), mod managers (MO2 / Vortex / r2modman), and Proton versions on Linux. Read-only — reads known config/save locations and touches nothing else. Use when the user asks \"what've I got installed\", \"find my games\", or before any tool that needs to know their setup.",
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
     async () => {
       const result = detectEnvironment();
 
@@ -74,33 +87,42 @@ export function registerWorkbenchTools(server: McpServer): {
   // Vortex returns mod folders only (no enable state) until LevelDB support
   // lands.
 
-  server.tool(
+  server.registerTool(
     "mw_read_load_order",
-    "Post your load order — but here, not in a Discord. Reads it for a specific game from whichever manager the user runs (MO2, r2modman, or best-effort Vortex). Normalized output: each entry has name, enabled state, load-order index, and attribution when available. Read-only. Use when the user says \"show/post my load order\", \"what mods do I have enabled\", or \"what order are my mods in\".",
     {
-      gameId: z
-        .string()
-        .describe(
-          "Canonical game ID (e.g. 'skyrimspecialedition', 'lethalcompany'). Use mw_detect_environment to discover the games on this machine."
-        ),
-      modManager: z
-        .enum(["vortex", "mo2", "r2modman", "auto"])
-        .optional()
-        .describe(
-          "Which mod manager to read from. Default 'auto' — picks the most likely manager for this game's family."
-        ),
-      profileName: z
-        .string()
-        .optional()
-        .describe(
-          "Profile name. MO2 reads the active profile from ModOrganizer.ini if omitted; r2modman defaults to the first profile alphabetically (typically 'Default')."
-        ),
-      instancePath: z
-        .string()
-        .optional()
-        .describe(
-          "Optional override for MO2's instance path — useful for portable MO2 installs that don't live under %LOCALAPPDATA%/ModOrganizer."
-        ),
+      title: "Read my load order",
+      description: "Post your load order — but here, not in a Discord. Reads it for a specific game from whichever manager the user runs (MO2, r2modman, or best-effort Vortex). Normalized output: each entry has name, enabled state, load-order index, and attribution when available. Read-only. Use when the user says \"show/post my load order\", \"what mods do I have enabled\", or \"what order are my mods in\".",
+      inputSchema: {
+        gameId: z
+          .string()
+          .describe(
+            "Canonical game ID (e.g. 'skyrimspecialedition', 'lethalcompany'). Use mw_detect_environment to discover the games on this machine."
+          ),
+        modManager: z
+          .enum(["vortex", "mo2", "r2modman", "auto"])
+          .optional()
+          .describe(
+            "Which mod manager to read from. Default 'auto' — picks the most likely manager for this game's family."
+          ),
+        profileName: z
+          .string()
+          .optional()
+          .describe(
+            "Profile name. MO2 reads the active profile from ModOrganizer.ini if omitted; r2modman defaults to the first profile alphabetically (typically 'Default')."
+          ),
+        instancePath: z
+          .string()
+          .optional()
+          .describe(
+            "Optional override for MO2's instance path — useful for portable MO2 installs that don't live under %LOCALAPPDATA%/ModOrganizer."
+          ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     async ({ gameId, modManager, profileName, instancePath }) => {
       const result = readLoadOrder({
@@ -163,34 +185,43 @@ export function registerWorkbenchTools(server: McpServer): {
   // crashes; here we hand the LLM clean structured data so it can reason
   // across the user's specific load order.
 
-  server.tool(
+  server.registerTool(
     "mw_parse_crashlog",
-    "Crash log in, structure out. Parses a crashlog (file path or pasted content) into fields: exception type, call stack, loaded plugins, registers, suspected FormID refs. Handles Crash Logger SSE (Skyrim), Buffout 4 (Fallout 4), NetScriptFramework (older Skyrim), and BepInEx (Unity). Returns parsed structure only — naming the culprit is the model's job, reasoned over the actual load order, not pattern-matched from a list. Use when the user says \"my game crashed\", \"CTD\", \"here's my crash log\", or \"why did it crash\".",
     {
-      logContent: z
-        .string()
-        .optional()
-        .describe(
-          "Crashlog file content as a string. Provide this OR logPath."
-        ),
-      logPath: z
-        .string()
-        .optional()
-        .describe(
-          "Absolute path to a crashlog file on disk. Common locations: ~/Documents/My Games/Skyrim Special Edition/SKSE/crash-*.log for Crash Logger SSE, ~/Documents/My Games/Fallout4/F4SE/crash-*.log for Buffout 4, or the game's BepInEx/LogOutput.log for Unity."
-        ),
-      logType: z
-        .enum([
-          "auto",
-          "crashlogger-sse",
-          "buffout4",
-          "netscriptframework",
-          "bepinex",
-        ])
-        .optional()
-        .describe(
-          "Format hint. Default 'auto' — detect from content. Pass an explicit type when the auto-detect heuristic fails on a truncated log."
-        ),
+      title: "Parse a crash log",
+      description: "Crash log in, structure out. Parses a crashlog (file path or pasted content) into fields: exception type, call stack, loaded plugins, registers, suspected FormID refs. Handles Crash Logger SSE (Skyrim), Buffout 4 (Fallout 4), NetScriptFramework (older Skyrim), and BepInEx (Unity). Returns parsed structure only — naming the culprit is the model's job, reasoned over the actual load order, not pattern-matched from a list. Use when the user says \"my game crashed\", \"CTD\", \"here's my crash log\", or \"why did it crash\".",
+      inputSchema: {
+        logContent: z
+          .string()
+          .optional()
+          .describe(
+            "Crashlog file content as a string. Provide this OR logPath."
+          ),
+        logPath: z
+          .string()
+          .optional()
+          .describe(
+            "Absolute path to a crashlog file on disk. Common locations: ~/Documents/My Games/Skyrim Special Edition/SKSE/crash-*.log for Crash Logger SSE, ~/Documents/My Games/Fallout4/F4SE/crash-*.log for Buffout 4, or the game's BepInEx/LogOutput.log for Unity."
+          ),
+        logType: z
+          .enum([
+            "auto",
+            "crashlogger-sse",
+            "buffout4",
+            "netscriptframework",
+            "bepinex",
+          ])
+          .optional()
+          .describe(
+            "Format hint. Default 'auto' — detect from content. Pass an explicit type when the auto-detect heuristic fails on a truncated log."
+          ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     async ({ logContent, logPath, logType }) => {
       const result = parseCrashlog({
@@ -232,34 +263,43 @@ export function registerWorkbenchTools(server: McpServer): {
   // the LLM is structurally prevented from stripping credit, per the trust
   // architecture in the wiring prompt.
 
-  server.tool(
+  server.registerTool(
     "mw_query_mod_metadata",
-    "Put a name and a source on a mod. Looks up metadata across platforms (Nexus, mod.io) in one normalized shape: id, name, author, version, downloads, endorsements, pageUrl, and a permissions block that always carries attribution. Use it to enrich a crashlog suspect or a load-order entry — \"who made this\", \"look up this mod\", \"what version is X\". Thunderstore support is planned.",
     {
-      modId: z
-        .string()
-        .optional()
-        .describe(
-          "Platform-specific mod ID. Nexus IDs are numeric (from the URL); mod.io IDs are numeric too. Required for direct lookup."
-        ),
-      modName: z
-        .string()
-        .optional()
-        .describe(
-          "Mod name for fuzzy lookup (mod.io only — Nexus has no public search endpoint). Pass with gameId."
-        ),
-      platform: z
-        .enum(["nexus", "modio", "thunderstore", "any"])
-        .optional()
-        .describe(
-          "Which platform to query. Default 'any' — tries Nexus first when a numeric modId + gameId are given, then mod.io. Use explicit platform to skip the cascade."
-        ),
-      gameId: z
-        .string()
-        .optional()
-        .describe(
-          "Platform-specific game identifier. For Nexus: the domain name (e.g. 'skyrimspecialedition'). For mod.io: the numeric game id as a string. Use modio_list_games / nexus_list_games to discover these."
-        ),
+      title: "Look up a mod across platforms",
+      description: "Put a name and a source on a mod. Looks up metadata across platforms (Nexus, mod.io) in one normalized shape: id, name, author, version, downloads, endorsements, pageUrl, and a permissions block that always carries attribution. Use it to enrich a crashlog suspect or a load-order entry — \"who made this\", \"look up this mod\", \"what version is X\". Thunderstore support is planned.",
+      inputSchema: {
+        modId: z
+          .string()
+          .optional()
+          .describe(
+            "Platform-specific mod ID. Nexus IDs are numeric (from the URL); mod.io IDs are numeric too. Required for direct lookup."
+          ),
+        modName: z
+          .string()
+          .optional()
+          .describe(
+            "Mod name for fuzzy lookup (mod.io only — Nexus has no public search endpoint). Pass with gameId."
+          ),
+        platform: z
+          .enum(["nexus", "modio", "thunderstore", "any"])
+          .optional()
+          .describe(
+            "Which platform to query. Default 'any' — tries Nexus first when a numeric modId + gameId are given, then mod.io. Use explicit platform to skip the cascade."
+          ),
+        gameId: z
+          .string()
+          .optional()
+          .describe(
+            "Platform-specific game identifier. For Nexus: the domain name (e.g. 'skyrimspecialedition'). For mod.io: the numeric game id as a string. Use modio_list_games / nexus_list_games to discover these."
+          ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ modId, modName, platform, gameId }) => {
       const result = await queryModMetadata({
@@ -316,21 +356,30 @@ export function registerWorkbenchTools(server: McpServer): {
   // thunderstore:X). Plugin matches drive the LOOT pass; both kinds drive the
   // community pass.
 
-  server.tool(
+  server.registerTool(
     "mw_check_known_conflicts",
-    "Check a list of mods/plugins for known pairwise incompatibilities. Two sources: LOOT's masterlist (live, Bethesda games) and ModWrench's bundled community conflict database (any game). Returns conflicts with severity, description, source attribution, and an optional patch suggestion. It flags what's on the list — it won't promise the game runs clean. Input ids can be plugin filenames (\"Skyrim.esp\") or platform-prefixed mod ids (\"nexus:12345\"). Use when the user asks \"what's conflicting\", \"will these mods fight\", or \"known issues between X and Y\".",
     {
-      gameId: z
-        .string()
-        .describe(
-          "Canonical game ID (e.g. 'skyrimspecialedition', 'lethalcompany'). LOOT support is Bethesda-only; non-Bethesda games rely on the community database only."
-        ),
-      modIds: z
-        .array(z.string())
-        .min(2)
-        .describe(
-          "List of mods/plugins to check pairwise. Entries can be plugin filenames ('Skyrim.esp') or platform-prefixed mod IDs ('nexus:12345', 'modio:67890', 'thunderstore:Author-ModName'). At least 2 required for a conflict to be possible."
-        ),
+      title: "Check for known conflicts",
+      description: "Check a list of mods/plugins for known pairwise incompatibilities. Two sources: LOOT's masterlist (live, Bethesda games) and ModWrench's bundled community conflict database (any game). Returns conflicts with severity, description, source attribution, and an optional patch suggestion. It flags what's on the list — it won't promise the game runs clean. Input ids can be plugin filenames (\"Skyrim.esp\") or platform-prefixed mod ids (\"nexus:12345\"). Use when the user asks \"what's conflicting\", \"will these mods fight\", or \"known issues between X and Y\".",
+      inputSchema: {
+        gameId: z
+          .string()
+          .describe(
+            "Canonical game ID (e.g. 'skyrimspecialedition', 'lethalcompany'). LOOT support is Bethesda-only; non-Bethesda games rely on the community database only."
+          ),
+        modIds: z
+          .array(z.string())
+          .min(2)
+          .describe(
+            "List of mods/plugins to check pairwise. Entries can be plugin filenames ('Skyrim.esp') or platform-prefixed mod IDs ('nexus:12345', 'modio:67890', 'thunderstore:Author-ModName'). At least 2 required for a conflict to be possible."
+          ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ gameId, modIds }) => {
       const result = await checkKnownConflicts({ gameId, modIds });
@@ -374,32 +423,47 @@ export function registerWorkbenchTools(server: McpServer): {
   // Parse a crashlog, THEN correlate its suspects with the loaded plugins and
   // known conflicts — a bundle of facts for the model to reason over. Still
   // parse-not-guess: ModWrench lines up the evidence, it never names the cause.
-  server.tool(
+  server.registerTool(
     "mw_diagnose_crash",
-    "Crash log in, culprit shortlist out. Parses the log, then correlates its suspects with the loaded plugins and (with a gameId) the known-conflict database into one bundle: which suspected mods are actually in the load order, at what index, and which loaded plugins have known conflicts. It lines up the evidence; it does NOT name the cause — that's the model's call, reasoned over the data. Use when the user says \"what's causing my crash\", \"which mod is it\", or pastes a crash log and wants the answer.",
     {
-      logContent: z
-        .string()
-        .optional()
-        .describe("Crashlog content as a string. Provide this OR logPath."),
-      logPath: z
-        .string()
-        .optional()
-        .describe(
-          "Absolute path to a crashlog on disk (the SKSE/F4SE crash folder, or the game's BepInEx/LogOutput.log)."
-        ),
-      logType: z
-        .enum(["auto", "crashlogger-sse", "buffout4", "netscriptframework", "bepinex"])
-        .optional()
-        .describe("Format hint. Default 'auto' — detect from content."),
-      gameId: z
-        .string()
-        .optional()
-        .describe(
-          "Canonical game id (e.g. 'skyrimspecialedition', 'fallout4') to include the known-conflict cross-check. Omit to skip it."
-        ),
+      title: "Diagnose a crash",
+      description: "Crash log in, culprit shortlist out. Parses the log, then correlates its suspects with the loaded plugins and (with a gameId) the known-conflict database into one bundle: which suspected mods are actually in the load order, at what index, and which loaded plugins have known conflicts. It lines up the evidence; it does NOT name the cause — that's the model's call, reasoned over the data. Use when the user says \"what's causing my crash\", \"which mod is it\", or pastes a crash log and wants the answer. Opt-in attribution (attributeSuspects=true) links up to 5 suspects to their Nexus mod pages — author, link, and the name it matched, since a name search can mismatch; off by default so the diagnosis stays fully local.",
+      inputSchema: {
+        logContent: z
+          .string()
+          .optional()
+          .describe("Crashlog content as a string. Provide this OR logPath."),
+        logPath: z
+          .string()
+          .optional()
+          .describe(
+            "Absolute path to a crashlog on disk (the SKSE/F4SE crash folder, or the game's BepInEx/LogOutput.log)."
+          ),
+        logType: z
+          .enum(["auto", "crashlogger-sse", "buffout4", "netscriptframework", "bepinex"])
+          .optional()
+          .describe("Format hint. Default 'auto' — detect from content."),
+        gameId: z
+          .string()
+          .optional()
+          .describe(
+            "Canonical game id (e.g. 'skyrimspecialedition', 'fallout4') to include the known-conflict cross-check, and to scope attribution if requested. Omit to skip both."
+          ),
+        attributeSuspects: z
+          .boolean()
+          .optional()
+          .describe(
+            "Opt-in, off by default: resolve up to 5 named suspects to their Nexus mod pages (author + link) so the user can reach the author. Requires gameId and a stored Nexus credential; makes bounded network calls to api.nexusmods.com only when true. Default: the diagnosis touches nothing but the log."
+          ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
-    async ({ logContent, logPath, logType, gameId }) => {
+    async ({ logContent, logPath, logType, gameId, attributeSuspects }) => {
       const parsed = parseCrashlog({
         ...(logContent !== undefined ? { logContent } : {}),
         ...(logPath !== undefined ? { logPath } : {}),
@@ -435,6 +499,36 @@ export function registerWorkbenchTools(server: McpServer): {
         },
       });
 
+      // Opt-in attribution: attach author + page links to named suspects. The
+      // default path skips this entirely — the diagnosis touches nothing but
+      // the log. See metadata/attribute.ts for the bounds and the honesty
+      // rules (name-search, capped, fail-closed on adult content).
+      let suspects: Array<CrashSuspect & { attribution?: SuspectAttribution }> =
+        diagnosis.suspects;
+      let notes = diagnosis.notes;
+      if (attributeSuspects === true) {
+        const search = createNexusNameSearch();
+        if (!search) {
+          notes = [
+            ...notes,
+            "Attribution skipped: no Nexus credential stored. Run " +
+              "`modwrench auth login nexus` (or store an API key), then re-run " +
+              "with attributeSuspects to get author links.",
+          ];
+        } else {
+          const r = await runAttribution({
+            suspectNames: diagnosis.suspects.map((s) => s.name),
+            ...(gameId !== undefined ? { gameDomain: gameId } : {}),
+            search,
+          });
+          notes = [...notes, ...r.notes];
+          suspects = diagnosis.suspects.map((s) => {
+            const a = r.attributed.get(s.name);
+            return a === undefined ? s : { ...s, attribution: a };
+          });
+        }
+      }
+
       log("debug", "workbench.diagnose_crash", {
         type: diagnosis.detectedType,
         suspects: diagnosis.suspects.length,
@@ -446,7 +540,11 @@ export function registerWorkbenchTools(server: McpServer): {
         content: [
           {
             type: "text",
-            text: JSON.stringify({ diagnosis, crash: parsed }, null, 2),
+            text: JSON.stringify(
+              { diagnosis: { ...diagnosis, suspects, notes }, crash: parsed },
+              null,
+              2
+            ),
           },
           createUIResource({
             uri: "ui://modwrench/crash",

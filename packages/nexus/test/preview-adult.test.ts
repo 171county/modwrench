@@ -29,7 +29,7 @@ const REGISTER = new URL("../src/register.ts", import.meta.url).pathname.replace
 function filePreviewHandler(src: string): string {
   const start = src.indexOf('"nexus_file_preview"');
   assert.ok(start > -1, "nexus_file_preview not found — this guard would pass vacuously");
-  const next = src.indexOf("server.tool(", start);
+  const next = src.indexOf("server.registerTool(", start);
   return src.slice(start, next === -1 ? undefined : next);
 }
 

@@ -11,10 +11,9 @@ class MockMcpServer {
   registered: string[] = [];
   notificationsSent = 0;
 
-  tool(
+  registerTool(
     name: string,
-    _description: string,
-    _schema: unknown,
+    _config: unknown,
     _handler: unknown
   ): void {
     this.registered.push(name);
