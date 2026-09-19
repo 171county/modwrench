@@ -72,10 +72,18 @@ export function registerThunderstoreTools(server: McpServer): {
   // ─── Tools ──────────────────────────────────────────────────────────────────
 
   // Tool 1: list all communities (the Thunderstore name for "game")
-  server.tool(
+  server.registerTool(
     "thunderstore_list_communities",
-    "List all communities (games) supported on Thunderstore — Lethal Company, Valheim, R.E.P.O., Risk of Rain 2, Dyson Sphere Program, BONEWORKS, and many more. Returns each community's identifier (slug used in other tool calls) and display name.",
-    {},
+    {
+      title: "List Thunderstore communities",
+      description: "List all communities (games) supported on Thunderstore — Lethal Company, Valheim, R.E.P.O., Risk of Rain 2, Dyson Sphere Program, BONEWORKS, and many more. Returns each community's identifier (slug used in other tool calls) and display name.",
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
     async () => {
       interface Community {
         identifier: string;
@@ -127,15 +135,24 @@ export function registerThunderstoreTools(server: McpServer): {
   );
 
   // Tool 2: get details for one community
-  server.tool(
+  server.registerTool(
     "thunderstore_get_community",
-    "Get details for a single Thunderstore community (game) by its identifier. Returns name, links (Discord, wiki), and metadata flags. Thunderstore has no single-community detail endpoint — this walks the paginated list and early-exits on match, so cost grows with how late in the list the target is.",
     {
-      identifier: z
-        .string()
-        .describe(
-          "Community identifier (slug) — e.g. 'lethal-company', 'valheim', 'risk-of-rain-2'. Use thunderstore_list_communities to discover these."
-        ),
+      title: "Get community details",
+      description: "Get details for a single Thunderstore community (game) by its identifier. Returns name, links (Discord, wiki), and metadata flags. Thunderstore has no single-community detail endpoint — this walks the paginated list and early-exits on match, so cost grows with how late in the list the target is.",
+      inputSchema: {
+        identifier: z
+          .string()
+          .describe(
+            "Community identifier (slug) — e.g. 'lethal-company', 'valheim', 'risk-of-rain-2'. Use thunderstore_list_communities to discover these."
+          ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ identifier }) => {
       interface Community {
@@ -181,20 +198,29 @@ export function registerThunderstoreTools(server: McpServer): {
   );
 
   // Tool 3: list mods in a community (paginated, summary view)
-  server.tool(
+  server.registerTool(
     "thunderstore_list_mods",
-    "List mods in a specific Thunderstore community. Returns a summary view per mod (name, author, rating, downloads, latest version). Paginated server-side; default page size is whatever the community returns.",
     {
-      community: z
-        .string()
-        .describe("Community identifier (e.g. 'lethal-company')."),
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(100)
-        .optional()
-        .describe("Max results to return (1-100). Default 30."),
+      title: "List mods in a community",
+      description: "List mods in a specific Thunderstore community. Returns a summary view per mod (name, author, rating, downloads, latest version). Paginated server-side; default page size is whatever the community returns.",
+      inputSchema: {
+        community: z
+          .string()
+          .describe("Community identifier (e.g. 'lethal-company')."),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe("Max results to return (1-100). Default 30."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ community, limit }) => {
       type ModVersion = {
@@ -251,18 +277,27 @@ export function registerThunderstoreTools(server: McpServer): {
   );
 
   // Tool 4: get full details for one mod
-  server.tool(
+  server.registerTool(
     "thunderstore_get_mod",
-    "Get full details for a single mod by namespace (author) + name. Returns the latest version, total downloads, rating, community_listings (which games the mod is published in), and metadata. Thunderstore mods are identified globally by namespace+name — no community arg is needed at this endpoint.",
     {
-      namespace: z
-        .string()
-        .describe(
-          "Mod author/namespace — the part before the dash in a Thunderstore mod's full_name (e.g. 'BepInEx' for 'BepInEx-BepInExPack')."
-        ),
-      name: z
-        .string()
-        .describe("Mod name — the part after the dash in full_name."),
+      title: "Get mod details",
+      description: "Get full details for a single mod by namespace (author) + name. Returns the latest version, total downloads, rating, community_listings (which games the mod is published in), and metadata. Thunderstore mods are identified globally by namespace+name — no community arg is needed at this endpoint.",
+      inputSchema: {
+        namespace: z
+          .string()
+          .describe(
+            "Mod author/namespace — the part before the dash in a Thunderstore mod's full_name (e.g. 'BepInEx' for 'BepInEx-BepInExPack')."
+          ),
+        name: z
+          .string()
+          .describe("Mod name — the part after the dash in full_name."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ namespace, name }) => {
       const mod = await thunderstoreRequest<Record<string, unknown>>(
@@ -280,22 +315,31 @@ export function registerThunderstoreTools(server: McpServer): {
   );
 
   // Tool 5: search mods by name within a community
-  server.tool(
+  server.registerTool(
     "thunderstore_search_mods",
-    "Search mods in a Thunderstore community by name substring. Case-insensitive. Returns a summary view per match.",
     {
-      community: z.string().describe("Community identifier."),
-      query: z
-        .string()
-        .min(1)
-        .describe("Substring to match against mod name (case-insensitive)."),
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(50)
-        .optional()
-        .describe("Max results (1-50). Default 20."),
+      title: "Search mods by name",
+      description: "Search mods in a Thunderstore community by name substring. Case-insensitive. Returns a summary view per match.",
+      inputSchema: {
+        community: z.string().describe("Community identifier."),
+        query: z
+          .string()
+          .min(1)
+          .describe("Substring to match against mod name (case-insensitive)."),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .optional()
+          .describe("Max results (1-50). Default 20."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ community, query, limit }) => {
       type Mod = {
@@ -333,17 +377,26 @@ export function registerThunderstoreTools(server: McpServer): {
   );
 
   // Tool 6: list a mod's version history
-  server.tool(
+  server.registerTool(
     "thunderstore_mod_versions",
-    "List the full version history of a specific mod. Each entry includes version number, download count, file size, dependencies, and release date. Newest first. Version history is only available via the community listing endpoint, so a community must be specified — pick any community the mod is published in (use thunderstore_get_mod's community_listings field to discover).",
     {
-      community: z
-        .string()
-        .describe(
-          "Community identifier (e.g. 'lethal-company'). Any community where the mod is listed; the version history is identical across communities."
-        ),
-      namespace: z.string().describe("Mod author/namespace."),
-      name: z.string().describe("Mod name."),
+      title: "Full version history",
+      description: "List the full version history of a specific mod. Each entry includes version number, download count, file size, dependencies, and release date. Newest first. Version history is only available via the community listing endpoint, so a community must be specified — pick any community the mod is published in (use thunderstore_get_mod's community_listings field to discover).",
+      inputSchema: {
+        community: z
+          .string()
+          .describe(
+            "Community identifier (e.g. 'lethal-company'). Any community where the mod is listed; the version history is identical across communities."
+          ),
+        namespace: z.string().describe("Mod author/namespace."),
+        name: z.string().describe("Mod name."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ community, namespace, name }) => {
       type Version = {
@@ -387,18 +440,27 @@ export function registerThunderstoreTools(server: McpServer): {
   );
 
   // Tool 7: top mods (by rating) in a community
-  server.tool(
+  server.registerTool(
     "thunderstore_top_mods",
-    "Get the highest-rated mods in a Thunderstore community. Sorted by rating_score descending. Use this for 'what's popular' style queries.",
     {
-      community: z.string().describe("Community identifier."),
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(50)
-        .optional()
-        .describe("Number of top mods to return (1-50). Default 10."),
+      title: "Top-rated mods",
+      description: "Get the highest-rated mods in a Thunderstore community. Sorted by rating_score descending. Use this for 'what's popular' style queries.",
+      inputSchema: {
+        community: z.string().describe("Community identifier."),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .optional()
+          .describe("Number of top mods to return (1-50). Default 10."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ community, limit }) => {
       type Mod = {
@@ -437,14 +499,23 @@ export function registerThunderstoreTools(server: McpServer): {
     }
   );
 
-  server.tool(
+  server.registerTool(
     "thunderstore_mod_dependencies",
-    "List the dependencies of a Thunderstore mod's latest version — the other packages (e.g. BepInEx) it needs to run. The backbone of a correct r2modman profile. Returns each dependency's full_name.",
     {
-      namespace: z
-        .string()
-        .describe("Mod author/namespace — the part before the dash in full_name."),
-      name: z.string().describe("Mod name — the part after the dash in full_name."),
+      title: "List direct dependencies",
+      description: "List the dependencies of a Thunderstore mod's latest version — the other packages (e.g. BepInEx) it needs to run. The backbone of a correct r2modman profile. Returns each dependency's full_name.",
+      inputSchema: {
+        namespace: z
+          .string()
+          .describe("Mod author/namespace — the part before the dash in full_name."),
+        name: z.string().describe("Mod name — the part after the dash in full_name."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ namespace, name }) => {
       const pkg = await thunderstoreRequest<{
@@ -476,23 +547,32 @@ export function registerThunderstoreTools(server: McpServer): {
   );
 
   // Tool 9: resolve the FULL dependency tree — recursive, de-duped, install-first
-  server.tool(
+  server.registerTool(
     "thunderstore_resolve_dependencies",
-    "Resolve a Thunderstore mod's ENTIRE dependency tree — not just its direct deps, but its deps' deps, all the way down. De-duped and cycle-safe; returns an install-first order (dependencies before the things that need them), the full tree, and any refs it couldn't resolve. The 'find every mod this needs before I download it' answer in one shot. Read-only.",
     {
-      namespace: z
-        .string()
-        .describe("Mod author/namespace — the part before the dash in full_name."),
-      name: z.string().describe("Mod name — the part after the dash in full_name."),
-      maxDepth: z
-        .number()
-        .int()
-        .min(1)
-        .max(10)
-        .optional()
-        .describe(
-          "How deep to walk the tree. Default 6 — deep enough for real BepInEx stacks, capped so a pathological graph can't run away."
-        ),
+      title: "Resolve the full dependency tree",
+      description: "Resolve a Thunderstore mod's ENTIRE dependency tree — not just its direct deps, but its deps' deps, all the way down. De-duped and cycle-safe; returns an install-first order (dependencies before the things that need them), the full tree, and any refs it couldn't resolve. The 'find every mod this needs before I download it' answer in one shot. Read-only.",
+      inputSchema: {
+        namespace: z
+          .string()
+          .describe("Mod author/namespace — the part before the dash in full_name."),
+        name: z.string().describe("Mod name — the part after the dash in full_name."),
+        maxDepth: z
+          .number()
+          .int()
+          .min(1)
+          .max(10)
+          .optional()
+          .describe(
+            "How deep to walk the tree. Default 6 — deep enough for real BepInEx stacks, capped so a pathological graph can't run away."
+          ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async ({ namespace, name, maxDepth }) => {
       const fetchDeps = async (ns: string, nm: string) => {

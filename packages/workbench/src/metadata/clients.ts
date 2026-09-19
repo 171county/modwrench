@@ -8,6 +8,7 @@ import {
   getEnv,
   log,
   loadCredential,
+  ModWrenchError,
   type Credential,
   type HttpClient,
 } from "@modwrench/core";
@@ -35,6 +36,11 @@ const APP = appIdentity(import.meta.url);
 export type NexusClient = {
   baseUrl: string;
   request<T>(path: string): Promise<T>;
+  /**
+   * POST a GraphQL query to Nexus v2. Same rule as request(): the adult
+   * policy is applied here, in the client, so no caller can forget it.
+   */
+  graphql<T>(query: string, variables: Record<string, unknown>): Promise<T>;
 };
 
 export function tryCreateNexusClient(): NexusClient | null {
@@ -48,6 +54,10 @@ export function tryCreateNexusClient(): NexusClient | null {
     return null;
   }
   const baseUrl = getEnv("NEXUS_BASE_URL", "https://api.nexusmods.com/v1");
+  const graphqlUrl = getEnv(
+    "NEXUS_GRAPHQL_URL",
+    "https://api.nexusmods.com/v2/graphql"
+  );
   const http: HttpClient = createHttpClient({
     baseUrl,
     userAgent: APP.userAgent,
@@ -69,6 +79,35 @@ export function tryCreateNexusClient(): NexusClient | null {
       // previously had no filter on it at all — so mw_query_mod_metadata
       // returned by id what the Nexus package's own tools would have withheld.
       return applyAdultPolicy(await http.request<T>(path), path);
+    },
+    async graphql<T>(
+      query: string,
+      variables: Record<string, unknown>
+    ): Promise<T> {
+      log("debug", "workbench.nexus.graphql", {});
+      const res = await http.request<{
+        data?: T;
+        errors?: Array<{ message: string }>;
+      }>(graphqlUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, variables }),
+      });
+      if (res.errors && res.errors.length > 0) {
+        throw new ModWrenchError(
+          "nexus_graphql_error",
+          `Nexus GraphQL error: ${res.errors.map((e) => e.message).join("; ")}`
+        );
+      }
+      if (!res.data) {
+        throw new ModWrenchError(
+          "nexus_graphql_empty",
+          "Nexus GraphQL returned no data."
+        );
+      }
+      // Same rule as request() above: every path to Nexus through this client
+      // carries the adult filter, so no caller can forget it.
+      return applyAdultPolicy(res.data, "workbench.graphql");
     },
   };
 }
