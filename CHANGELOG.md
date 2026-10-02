@@ -124,6 +124,66 @@ This document is currently maintained by hand. When [release-please](https://git
   layouts follow the crash loggers' published source and format samples; where
   NetScriptFramework and Buffout 4 write their logs is checked only in part.
 
+- **The Doctors: `mw_doctor` and the `/mw-doctor` slash command — "is my setup
+  ready?"** A read-only health check for the boring causes behind many "my mods
+  keep breaking" threads, which very often aren't the mods. The **Setup Doctor**
+  looks at whether the game and Mod Organizer 2 sit in a folder Windows protects
+  or syncs (Program Files, OneDrive, Desktop, Documents, Downloads) or on a drive
+  short of space, and, for Skyrim Special Edition and Anniversary Edition, at the
+  plugin list: plugins whose masters are missing, switched off or loaded after
+  them (read from each plugin's header), the limit of 254 full and 4,096 light
+  plugins, entries for plugin files that are gone, Mod Organizer 2's list and the
+  game's own `plugins.txt` disagreeing, files piling up in MO2's Overwrite folder
+  that beat every mod, and crash loggers (none, two that fight, or .NET Script
+  Framework on a game version it can't log). The **Deck Doctor**, on Linux and the
+  Steam Deck, looks at which Steam holds the game (regular or Flatpak), whether
+  Proton has made the game's prefix, whether Proton is told to load BepInEx's
+  `winhttp` (in the launch options or the prefix's `user.reg`), which app opens
+  `nxm://` links, whether a Steam library sits on an NTFS or exFAT drive, and
+  folder names that differ only by capital letters.
+
+  Every finding says what it rests on, the same way Patch Day and Crash Whisperer
+  do: `install` (your files), `rule` (another tool's own documentation, with the
+  page named) or `guess` (ModWrench's rule of thumb, such as "under 5 GB free is
+  tight"). The verdict is clear, attention or problems, and it is never "safe": a
+  clear report means the checks that can run from files passed. A run that stopped
+  short (a folder it couldn't read, the time allowance, a check that hit an error)
+  reads attention, never clear, and lists what is missing. The report also says
+  what it can't see from files: antivirus and Smart App Control, the pagefile,
+  MO2's live virtual file system, settings a mod manager applies only when it
+  launches the game.
+
+  It keeps the workbench's promises. No network, no program started, nothing
+  written or kept, and no folder path in the answer (a test fails if one appears;
+  names are flattened to one line and cut short). The one file it reads that holds
+  other personal settings, Steam's `localconfig.vdf`, is read for a single value
+  and only a yes or no comes out: the launch options' text is never returned.
+  [TRUST.md](TRUST.md#the-doctors-what-they-open) lists exactly what it opens,
+  file by file, and where it is unsure.
+
+  **The answer is plain text first,** as with Patch Day and Crash Whisperer: a short
+  answer any client can show (what needs fixing worst first, each line with what it
+  rests on, what is fine, what it can't see, what to do next), the full report as
+  structured content for clients that say they can draw pages, and a page for those
+  that support MCP Apps: the verdict, the findings, Re-check, Copy summary, Ask about
+  this and, on Linux, a choice of which checks to run. The page makes no network
+  requests and keeps nothing; names from your machine go onto it as text, never as
+  markup. `MODWRENCH_UI=off` and `MODWRENCH_STRUCTURED` apply to it as to the others.
+
+  **It has not been run against a real install.** The rules come from the pages each
+  finding names and were read and summarised by AI models, so a rule can be stated
+  more strongly or more weakly than its page does, and a few facts are inferences
+  that TRUST.md lists: the file names Crash Logger SSE and Trainwreck install under,
+  whether an exFAT drive can hold a Proton prefix, and whether a file the game loads
+  without listing it could be read as a switched-off master. Where its sources
+  disagree (when a missing master crashes the game, on launch or during play) it says
+  "likely" and not when. Tested on constructed installs, including a stand-in Steam,
+  Mod Organizer 2 and Proton prefix, with 240 tests in six files and the Doctors'
+  rules broken on purpose, 43 ways, to confirm a test fails each time. The page was
+  exercised in a real browser against a stand-in for an MCP Apps host, including
+  hostile plugin and mod names. None of it has been run inside a real MCP client, on
+  Windows or macOS, or against a real game folder.
+
 ### Changed
 - **`mw_patch_day` and `mw_crash_whisperer` send the structured report only to
   clients that say they can draw pages.** Some clients hand the model the
@@ -144,9 +204,14 @@ This document is currently maintained by hand. When [release-please](https://git
   types and `(wrapper …)` prefixes on patched methods, and which mod a frame
   belongs to by its namespace. NetScriptFramework: a module and its offset
   written as one token.
-- The Workbench now has 8 tools (51 in total), and there are 6 slash commands.
-  `/modwrench` mentions the update check, and `/mw-crash` now asks for Crash
-  Whisperer.
+- The Workbench now has 9 tools (52 in total), and there are 7 slash commands.
+  `/modwrench` mentions the update check, `/mw-crash` now asks for Crash
+  Whisperer, and `/mw-doctor` asks for the Doctors.
+- Steam detection on Linux also looks in the Flatpak build's current folder,
+  `~/.var/app/com.valvesoftware.Steam/.local/share/Steam`. It looked only in the
+  older `data/Steam` folder there, which not every Flatpak install has, so a
+  Flatpak Steam without it could be missed by `mw_detect_environment` and the
+  tools built on it.
 
 ## [0.2.4] — 2026-09-15
 
@@ -163,7 +228,7 @@ stranger sees first, and it was wrong.
   em-dash should be, on every package page. A description is baked into the
   published tarball and a published version cannot be overwritten, so a
   release was the only way to ship the fix. All six now carry the em-dash as
-  the JSON escape `\u2014`, which no editor codepage can re-encode.
+  the JSON escape `\\u2014`, which no editor codepage can re-encode.
 - **The release gate now catches it before it can happen again.**
   `check-publishable.mjs` already refused phantom dependencies and internal
   version drift; it now also refuses double-encoded text. The check runs on
