@@ -404,7 +404,7 @@ immediately. If you installed `@modwrench/*@0.1.0`, upgrade to 0.1.1.
 ### Changed
 
 - **Public docs narrowed to ModWrench scope** so README and ROADMAP focus on the current product, shipped packages, and planned ModWrench toolchains.
-- **Workspace order** in root `package.json` made explicit (not glob-based) so each workspace's dependents build before their dependents.
+- **Workspace order** in root `package.json` made explicit (not glob-based) so each workspace's dependencies build before their dependents.
 - **README** repositioned to surface workbench diagnostics alongside platform tools; v2 marked shipped; stdio npm install documented for local clients; ChatGPT support clarified as the remote public-tool MVP.
 - **CONTRIBUTING.md** false claim about `core` having rate-limit-aware helpers corrected; `CONTRIBUTORS.md` auto-generation softened to "git shortlog as source of truth for now."
 - **Auth hint messages** unified to the meta-CLI form (`modwrench auth login <platform>`) across every user-facing string.
