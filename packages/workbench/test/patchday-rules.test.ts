@@ -4,9 +4,11 @@ import {
   assessPlugin,
   bindingOf,
   decide,
+  describeConfidence,
   V1_6_629,
   V1_7_0,
   V1_7_99,
+  type ConfidenceInput,
   type DecisionInput,
   type PluginBinding,
   type PluginStatus,
@@ -760,4 +762,73 @@ test("decide: no headline calls anything safe", () => {
   for (const i of inputs) {
     assert.doesNotMatch(decide(i).headline, /\bsafe\b/i, decide(i).headline);
   }
+});
+
+// ─── How sure the answer is ──────────────────────────────────────────────────
+// Three kinds of evidence, in plain words: SKSE's own log from a launch (a fact),
+// the files read through SKSE's published rules (a strong prediction), and a
+// what-if or a game version SKSE's rules aren't public for (a guess built on the
+// nearest thing known). Each has to be named as what it is.
+
+const sure = (o: Partial<ConfidenceInput> = {}) =>
+  describeConfidence({ whatIf: false, version: "1.6.1170.0", beyondSource: false, log: null, flagged: [], ...o });
+
+test("confidence: SKSE's own log from after the last patch is the strongest evidence, and its counts are quoted", () => {
+  const c = sure({ log: { fresh: true, loaded: 12, refusals: 0, disagreements: 0 } });
+  assert.equal(c.evidence, "log");
+  assert.equal(
+    c.summary,
+    "Backed by SKSE's own log from a launch after the last patch: 12 plugins loaded, 0 refused. That is the strongest evidence there is."
+  );
+  assert.equal(
+    sure({ log: { fresh: true, loaded: 1, refusals: 2, disagreements: 1 } }).summary,
+    "Backed by SKSE's own log from a launch after the last patch: 1 plugin loaded, 2 refused, including 1 the file check had passed. That is the strongest evidence there is."
+  );
+});
+
+test("confidence: a log from before the last patch describes a different game and isn't evidence", () => {
+  const c = sure({ log: { fresh: false, loaded: 5, refusals: 0, disagreements: 0 } });
+  assert.equal(c.evidence, "files");
+  assert.doesNotMatch(c.summary, /Backed by/);
+});
+
+test("confidence: files read through SKSE's published rules say that is all they are", () => {
+  const c = sure();
+  assert.equal(c.evidence, "files");
+  assert.match(c.summary, /^From the files only, using SKSE 2\.2\.6's own rules/);
+  assert.match(c.summary, /log from a launch would confirm it/);
+});
+
+test("confidence: on a game version SKSE has no public source for it is a prediction, and says whose rules it borrowed", () => {
+  const c = sure({ beyondSource: true, version: "1.7.104.0" });
+  assert.equal(c.evidence, "prediction");
+  assert.match(c.summary, /^A prediction: SKSE's rules for this game version aren't public/);
+  assert.match(c.summary, /2\.2\.6 rules plus what bug reports show/);
+  // A clean, fresh log is the thing that turns that prediction into evidence.
+  assert.equal(sure({ beyondSource: true, log: { fresh: true, loaded: 3, refusals: 0, disagreements: 0 } }).evidence, "log");
+});
+
+test("confidence: a what-if is a prediction even when a log was read, and names the version it is about", () => {
+  const c = sure({ whatIf: true, version: "1.7.104.0", beyondSource: true, log: { fresh: true, loaded: 9, refusals: 0, disagreements: 0 } });
+  assert.equal(c.evidence, "prediction");
+  assert.match(c.summary, /^A what-if, not a fact: .* against 1\.7\.104\.0, and nothing changes until you update\./);
+  assert.match(c.summary, /SKSE's rules for that version aren't public/);
+  const older = sure({ whatIf: true, version: "1.6.1179.0" });
+  assert.match(older.summary, /It uses SKSE 2\.2\.6's own rules\./);
+});
+
+test("confidence: the basis counts say what the flagged plugins' reasons rest on", () => {
+  const bases: RuleBasis[] = ["skse-source", "inferred", "skse-source", "field-reports", "inferred", "inferred"];
+  assert.deepEqual(sure({ flagged: bases }).basis, { "skse-source": 2, "field-reports": 1, inferred: 3 });
+  assert.deepEqual(sure().basis, { "skse-source": 0, "field-reports": 0, inferred: 0 });
+});
+
+test("confidence: no sentence calls anything safe", () => {
+  const inputs: ConfidenceInput[] = [
+    { whatIf: false, version: "1.6.1170.0", beyondSource: false, log: null, flagged: [] },
+    { whatIf: false, version: "1.7.104.0", beyondSource: true, log: null, flagged: [] },
+    { whatIf: true, version: "1.7.104.0", beyondSource: true, log: null, flagged: [] },
+    { whatIf: false, version: "1.6.1170.0", beyondSource: false, log: { fresh: true, loaded: 2, refusals: 0, disagreements: 0 }, flagged: [] },
+  ];
+  for (const i of inputs) assert.doesNotMatch(describeConfidence(i).summary, /\bsafe\b/i);
 });
