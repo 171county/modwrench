@@ -8,6 +8,46 @@ This document is currently maintained by hand. When [release-please](https://git
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Patch Day: `mw_patch_day` and the `/mw-patch` slash command — "is it safe to
+  update?"** Before or right after a Skyrim Special Edition / Anniversary Edition
+  patch, it reads the game's version, the SKSE build and its DLL, the Address
+  Library file, and every SKSE plugin DLL — the game's `Data/SKSE/Plugins`, plus
+  each enabled Mod Organizer 2 mod and the overwrite folder, with MO2's priority
+  rules — applies SKSE's own published compatibility rules, and answers
+  **go / check / wait** with a reason per plugin. `targetVersion` asks the same
+  question about a patch that isn't installed yet. Steam's appmanifest (is an
+  update waiting?) and SKSE's own `skse64.log` (written since the last patch?
+  did SKSE refuse anything the file check passed?) are read when present and
+  cross-checked against the prediction.
+
+  Every result says how sure it is. `basis` is `skse-source` where the rule comes
+  from SKSE's published source (the 2.2.6 build, for Skyrim 1.6.1170) and the
+  refusal carries SKSE's own log text; `field-reports` for the Address Library
+  format-5 behaviour, which a public bug report shows on Skyrim 1.7.104 and no
+  source documents; and `inferred` for everything else, which on 1.7.x is nearly
+  every result, because SKSE 2.3.x is not open source. It never says "safe": a
+  go means the checks that can run from files passed, and it can't prove the
+  game runs.
+
+  It keeps the workbench's promises. DLLs are read as bytes by a small built-in
+  PE reader — never loaded or executed, and with nothing Windows-specific, so it
+  behaves the same on Linux and the Steam Deck. No network, nothing written or
+  kept, and no folder path appears in the result (file names and mod folder
+  names do). [TRUST.md](TRUST.md#patch-day-what-it-opens) lists exactly what it
+  opens.
+
+  Tested against real folders on disk and, for the binary reader, against files
+  a real toolchain built; the repo's read-only scan still passes. Not tested
+  against a real SKSE install or a real game executable — see the limits in
+  TRUST.md.
+
+### Changed
+- The Workbench now has 7 tools (50 in total), and there are 6 slash commands.
+  `/modwrench` mentions the update check.
+
 ## [0.2.4] — 2026-09-15
 
 A metadata release: nothing inside the server changed. Everything here is
@@ -340,7 +380,7 @@ immediately. If you installed `@modwrench/*@0.1.0`, upgrade to 0.1.1.
 ### Changed
 
 - **Public docs narrowed to ModWrench scope** so README and ROADMAP focus on the current product, shipped packages, and planned ModWrench toolchains.
-- **Workspace order** in root `package.json` made explicit (not glob-based) so each workspace's dependencies build before their dependents.
+- **Workspace order** in root `package.json` made explicit (not glob-based) so each workspace's dependents build before their dependents.
 - **README** repositioned to surface workbench diagnostics alongside platform tools; v2 marked shipped; stdio npm install documented for local clients; ChatGPT support clarified as the remote public-tool MVP.
 - **CONTRIBUTING.md** false claim about `core` having rate-limit-aware helpers corrected; `CONTRIBUTORS.md` auto-generation softened to "git shortlog as source of truth for now."
 - **Auth hint messages** unified to the meta-CLI form (`modwrench auth login <platform>`) across every user-facing string.
