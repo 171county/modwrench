@@ -31,7 +31,8 @@ function themeForGameId(gameId: string): string {
 import { checkKnownConflicts } from "./conflicts/index.js";
 import { checkPatchDay } from "./patchday/index.js";
 import { summarizePatchDay } from "./patchday/summary.js";
-import { registerPatchDayApp } from "./apps.js";
+import { pageAnswer, registerCrashWhispererApp, registerPatchDayApp } from "./apps.js";
+import { summarizeCrashWhisper, whisper } from "./crashwhisper/index.js";
 import { correlateCrash, type CrashSuspect } from "./crashlog/diagnose.js";
 
 /**
@@ -639,15 +640,143 @@ export function registerWorkbenchTools(server: McpServer): {
         plugins: result.ok ? result.plugins.total : 0,
       });
 
-      return {
-        content: [{ type: "text", text: summarizePatchDay(result) }],
-        structuredContent: result as unknown as Record<string, unknown>,
-        // Couldn't run (unsupported game, game not found, a version that isn't one):
-        // flagged so a client can show it as a failed call rather than an answer.
-        ...(result.ok ? {} : { isError: true }),
-      };
+      // Plain text for everyone; the full report only for clients that draw pages (or when
+      // MODWRENCH_STRUCTURED says so). Couldn't run (unsupported game, game not found, a
+      // version that isn't one): flagged so a client can show it as a failed call.
+      return pageAnswer(server, summarizePatchDay(result), result);
     }
   );
 
-  return { toolCount: 7 };
+  // ─── Tool 8: mw_crash_whisperer ────────────────────────────────────────────
+  // "Why did my game crash?" Reads the newest crash log (or one that's pasted or
+  // pointed at), says in plain words what happened, ranks the names the log points
+  // at with the reason for each and what each rests on, checks the install for the
+  // usual causes, and writes the posts to ask for help with, minus the player's name
+  // and folders. Local and read-only. See crashwhisper/ and TRUST.md.
+  //
+  // Same shape as mw_patch_day: plain text first, structured report only for
+  // clients that draw pages, a page for the ones that do.
+  const crashWhispererPage = registerCrashWhispererApp(server);
+  server.registerTool(
+    "mw_crash_whisperer",
+    {
+      title: "Why did my game crash?",
+      description: "Why did my game crash? Reads the newest crash log (or one you paste or point at), says in plain words what happened, and lists the names the log points at, ranked, each with its reason and a label for what it rests on: the log itself, your install, a published rule, or ModWrench's own guess. A ranking is a lead, never a verdict. Also checks the setup for the usual causes (for Skyrim Special Edition: game version, SKSE build, Address Library and plugin DLLs), compares your other recent crashes to see whether it keeps happening, and writes posts to ask for help with (forum, GitHub, Discord, or the mod's author) with the personal details it recognises (your name, computer name, folders, addresses, keys) taken out; it can miss things, so read a post before you send it. Handles Crash Logger SSE, Buffout 4, NetScriptFramework and BepInEx logs. Local and read-only — nothing is written or kept, and ModWrench sends nothing anywhere; the answer goes to the AI you're talking to. Call it with no arguments to read the newest crash log. Use when the user says \"my game crashed\", \"CTD\", \"why did it crash\", \"which mod is it\", or \"help me post about this crash\".",
+      inputSchema: {
+        logContent: z
+          .string()
+          .optional()
+          .describe(
+            "The crash log's text, if the user pasted it. Leave it out to read the newest crash log from disk. Up to about 4 MB."
+          ),
+        logPath: z
+          .string()
+          .optional()
+          .describe(
+            "A crash log file, if it isn't where the crash logger normally writes it. Leave it out and ModWrench looks for the newest one."
+          ),
+        gameId: z
+          .string()
+          .optional()
+          .describe(
+            "Which game to look for a log of: skyrimspecialedition, fallout4, lethalcompany and the other games ModWrench knows. Default: whichever game's log is newest."
+          ),
+        logType: z
+          .enum(["auto", "crashlogger-sse", "buffout4", "netscriptframework", "bepinex"])
+          .optional()
+          .describe(
+            "Format hint. Default 'auto' — detect from the content. Pass one when a truncated log can't be told apart."
+          ),
+        gamePath: z
+          .string()
+          .optional()
+          .describe(
+            "The install folder, when ModWrench can't find the game on its own — a GOG copy, or a Steam library in an unusual place. Used with gameId."
+          ),
+        mo2InstancePath: z
+          .string()
+          .optional()
+          .describe(
+            "Mod Organizer 2 instance folder, for a portable instance that doesn't live where MO2 normally keeps them."
+          ),
+        profileName: z
+          .string()
+          .optional()
+          .describe("MO2 profile name. Default: the instance's active profile."),
+        checkInstall: z
+          .boolean()
+          .optional()
+          .describe(
+            "Check the log against the player's install (Skyrim Special Edition so far). Default true. False reads the log alone."
+          ),
+        compareRecent: z
+          .number()
+          .int()
+          .min(0)
+          .max(10)
+          .optional()
+          .describe(
+            "How many of the player's other recent crash logs to compare, to see whether the same name keeps coming up. Default 5; 0 skips it."
+          ),
+        hideNames: z
+          .boolean()
+          .optional()
+          .describe(
+            "Leave the plugin lists out of the help posts, for someone who'd rather not share what they run."
+          ),
+        packet: z
+          .enum(["forum", "github", "discord", "author"])
+          .optional()
+          .describe(
+            "Put the ready-to-post help text for this place into the answer. Without it the answer says the posts are ready and the page offers them."
+          ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      ...(crashWhispererPage ? { _meta: crashWhispererPage } : {}),
+    },
+    async ({
+      logContent,
+      logPath,
+      gameId,
+      logType,
+      gamePath,
+      mo2InstancePath,
+      profileName,
+      checkInstall,
+      compareRecent,
+      hideNames,
+      packet,
+    }) => {
+      const result = whisper({
+        ...(logContent !== undefined ? { logContent } : {}),
+        ...(logPath !== undefined ? { logPath } : {}),
+        ...(gameId !== undefined ? { gameId } : {}),
+        ...(logType !== undefined ? { logType } : {}),
+        ...(gamePath !== undefined ? { gamePath } : {}),
+        ...(mo2InstancePath !== undefined ? { mo2InstancePath } : {}),
+        ...(profileName !== undefined ? { profileName } : {}),
+        ...(checkInstall !== undefined ? { checkInstall } : {}),
+        ...(compareRecent !== undefined ? { compareRecent } : {}),
+        ...(hideNames !== undefined ? { hideNames } : {}),
+      });
+
+      // Counts and a format name only: nothing from the log or the player's files.
+      log("debug", "workbench.crash_whisperer", {
+        ok: result.ok,
+        format: result.ok ? result.crash.format : null,
+        source: result.ok ? result.crash.source : null,
+        leads: result.ok ? result.leads.length : 0,
+        checks: result.ok ? result.checks.length : 0,
+      });
+
+      return pageAnswer(server, summarizeCrashWhisper(result, packet ? { packet } : {}), result);
+    }
+  );
+
+  return { toolCount: 8 };
 }
