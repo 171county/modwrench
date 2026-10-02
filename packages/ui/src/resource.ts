@@ -1,4 +1,4 @@
-// ─── MCP-UI resource block ──────────────────────────────────────────────────────
+// ─── MCP-UI resource block ────────────────────────────────────────────────────
 // Follows the MCP-UI spec (mcpui.dev): a tool returns a content item of type
 // "resource" whose `resource.uri` starts with `ui://` and whose `text` is inline
 // HTML the host renders in a sandboxed iframe. The iframe posts intents back to
@@ -45,7 +45,7 @@ const SUPPRESSED_HTML =
   "<p>Panel suppressed by MODWRENCH_UI=off. Unset it to restore the UI.";
 
 /**
- * Build an MCP-UI resource content block from an inline HTML string.
+ * Build an MCP-UI resource block from an inline HTML string.
  *
  * Honours `MODWRENCH_UI=off`: the block keeps its shape, so every caller and
  * any client expecting a resource still works, but the payload shrinks to a
