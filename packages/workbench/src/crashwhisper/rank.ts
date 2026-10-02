@@ -15,20 +15,25 @@ import type { Evidence, Frame, Lead, ModuleKind, Strength } from "./types.js";
 //
 //   a mod's code is the place the game stopped                      +80
 //   the C++ exception was thrown from its code                      +60
-//   the first mod code on the call stack, near the top              +40   (+25 if further down)
-//   other mod code on the stack, near the top                       +15   (+5 if further down)
+//   the first mod code on the call stack, in the top five           +40   (+25 if further down)
+//   other mod code on the stack, in the top ten                     +15   (+5 if further down)
 //   each further frame of the same mod                              +5    (up to +15)
 //   only seen in the frames found by scanning stack memory          +8
 //   the crash logger lists a plugin's object as involved            +35   (+5 per extra, up to +15)
 //   a plugin and a DLL share a name (probably one mod)              +20
-//   BepInEx logged the error under that mod's name                  +30
+//   BepInEx logged the error under that name                        +35
 //   named in other errors BepInEx logged                            +10   (up to +25, as the count grows)
 //   the same name was a lead in another recent crash                +10   (up to +30)
-//   the player's own files flag it for this game version            +15
+//   the player's own files flag it for this game version            +15   (+8 when the flag is only "unclear")
 //
-// 75 or more is a strong lead, 35 or more a possible one, the rest faint. Names that
-// belong to the game, Windows, a driver, an overlay or the runtime never become leads,
-// and neither do the plugins that ship with the game.
+// 75 or more is a strong lead, 35 or more a possible one, the rest faint. A name the
+// module classifier knows as the game, Windows, a driver, an overlay or the runtime
+// never becomes a lead from the call stack, from the module an exception was thrown
+// from or from the other errors BepInEx logged, and the plugins that ship with the game
+// never become leads from the crash logger's list of objects. The one source with only a
+// short filter is the name BepInEx gave the log source of the last error (GENERIC_SOURCE
+// below): a source that is none of those generic names becomes a lead even if it is not
+// one of the plugins BepInEx loaded, and its evidence line then says it may not be a mod.
 
 export const STRONG_AT = 75;
 export const POSSIBLE_AT = 35;
@@ -63,6 +68,8 @@ type Candidate = {
   formIds: string[];
   objects: number;
   loggedBy: boolean;
+  /** The source BepInEx logged the error under is not one of the plugins it loaded, so it may not be a mod at all. */
+  loggedByUnloaded: boolean;
   thrown: boolean;
   errorsNamed: number;
 };
@@ -161,6 +168,7 @@ export function rankWithKeys(parsed: CrashlogParseResult, options: RankOptions =
         formIds: [],
         objects: 0,
         loggedBy: false,
+        loggedByUnloaded: false,
         thrown: false,
         errorsNamed: 0,
       };
@@ -203,6 +211,7 @@ export function rankWithKeys(parsed: CrashlogParseResult, options: RankOptions =
     const c = candidate(leadKey(owner?.name ?? logged), owner?.name ?? logged);
     push(c.plugins, owner?.name ?? logged);
     c.loggedBy = true;
+    c.loggedByUnloaded = owner === undefined;
   }
   if (isBepInEx && options.events) {
     for (const event of options.events) {
@@ -313,7 +322,9 @@ export function rankWithKeys(parsed: CrashlogParseResult, options: RankOptions =
     if (c.loggedBy) {
       score += 35;
       evidence.push({
-        text: `BepInEx recorded the error under the name "${c.plugins[0] ?? named}", so the mod itself reported it.`,
+        text: c.loggedByUnloaded
+          ? `BepInEx recorded the error under the name "${c.plugins[0] ?? named}". That isn't one of the plugins it loaded, so it may be the game's own logger or a library and not a mod.`
+          : `BepInEx recorded the error under the name "${c.plugins[0] ?? named}", so the mod itself reported it.`,
         basis: "log",
       });
     }
