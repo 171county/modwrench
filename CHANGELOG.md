@@ -47,7 +47,8 @@ This document is currently maintained by hand. When [release-please](https://git
   **The answer is plain text first.** A few lines any client can show and a
   model can read: the verdict, how sure it is, which plugins need attention
   (worst first, each with what its reason rests on) and what to do next. The
-  full report rides along as structured content, including a `confidence` field
+  full report rides along as structured content for clients that can draw the
+  page (see Changed below), including a `confidence` field
   that says whether the verdict rests on SKSE's own log from a launch, on the
   files read against SKSE's rules, or on a prediction (a what-if, or a game
   version past what SKSE's source covers). When SKSE's own log refused a plugin
@@ -68,9 +69,84 @@ This document is currently maintained by hand. When [release-please](https://git
   It was exercised in a real browser against a stand-in for an MCP Apps host and
   has not yet been run inside a real client.
 
+- **Crash Whisperer: `mw_crash_whisperer`, and `/mw-crash` rebuilt around it —
+  "why did my game crash?"** Call it with nothing and it reads the newest crash
+  log the loggers wrote (or the one you paste or point at), says in plain words
+  what happened, and ranks the names the log points at, each with its reasons and
+  a label for what each reason rests on: `log` (the log says so), `install` (your
+  files say so), `rule` (a published rule, such as SKSE's own check) or `guess`
+  (ModWrench's own inference). A ranking is a **lead**, scored strong, possible or
+  faint, never a verdict; the answer never calls anything safe, guilty or
+  certain, and counts how many of its statements rest on each basis. It reads
+  Crash Logger SSE, Buffout 4, NetScriptFramework and BepInEx logs, checks the
+  setup for the usual causes (for Skyrim Special Edition it reuses Patch Day's
+  reading of the install, so it can say that a plugin the log names is gone, where
+  it came from, or that SKSE's own rule refuses it on your game version; for
+  BepInEx it reads the load problems the log itself records), and compares up to
+  ten of your other recent crashes to see whether the same name keeps coming up.
+
+  It writes the post you'd put on a forum, a GitHub issue or Discord, or send to
+  the mod's author, each sized for its place. **The account name, computer name,
+  folders, network addresses, email addresses, keys and account IDs it recognises
+  are taken out of the log first**, before anything else reads it, and each post
+  is checked again at the end; the answer says how many of each were removed,
+  never what they were. It recognises by shape, so it is not a guarantee, and
+  [TRUST.md](TRUST.md#crash-whisperer-what-it-opens) lists plainly what it does
+  not catch (a mod named after you, relative paths, a first name on its own, an
+  address written as one number, a password with spaces and no quotes, the
+  unlabelled key of a shape it doesn't know), with a test behind each item. It
+  also lists the flows it can't help with: a log you paste into the chat, or a
+  path you type, has already reached your AI as you typed it, and the log file on
+  your disk is never cleaned, so share a help post and not the file. Reading the
+  file from disk, which is what it does by default, is the private way to use it.
+  `/mw-crash` says so when you paste. A log over 12 MB is read at both ends in
+  the same text encoding, each cut at a whole line, and the answer says how much
+  it read; cleaning that runs past 20 seconds drops the lines it hasn't reached
+  rather than passing them along.
+
+  It follows Patch Day's shape: a short plain-text answer for every client, the
+  full report as structured content and a page for clients that support MCP Apps
+  (the leads and what each rests on, the checks, the call stack, the four posts
+  with Copy buttons, a box to paste a log into). The page makes no network
+  requests and keeps nothing; names from your machine go onto it as text, never
+  as markup. Local and read-only: nothing written or kept, no network.
+
+  Tested end to end on constructed logs in all four formats, with a made-up
+  person's name, computer, folders, addresses and keys planted in each and 23
+  routes through the answer checked for them; several hundred further spellings
+  of keys, labels, paths, addresses and names run through the cleaning rules, a
+  speed-up that skips rules proved to change no answer; and the cleaning, the
+  large-file reading and the help posts broken on purpose, rule by rule, to
+  confirm a test fails each time. The page was exercised
+  in a real browser against a stand-in for an MCP Apps host, including hostile
+  mod names and a log full of personal details; it has not been run inside a real
+  client. **It has not been run against a real crash log or install.** The log
+  layouts follow the crash loggers' published source and format samples; where
+  NetScriptFramework and Buffout 4 write their logs is checked only in part.
+
 ### Changed
-- The Workbench now has 7 tools (50 in total), and there are 6 slash commands.
-  `/modwrench` mentions the update check.
+- **`mw_patch_day` and `mw_crash_whisperer` send the structured report only to
+  clients that say they can draw pages.** Some clients hand the model the
+  structured result *instead of* the text (Codex's source, read on 2026-10-02,
+  passes a result's structured content to the model and ignores the text), so
+  sending the report to every client turned a ten-line answer into a long one. A client that declares MCP Apps support when it connects gets the
+  report, as before. Every other client gets the plain text. Set
+  `MODWRENCH_STRUCTURED=always` to send it to every client (for a script or an
+  agent that reads the report) or `never` to send it to none. A run that can't
+  happen is still flagged as an error for every client.
+- The three crash-log readers now read the layouts the loggers really write, which
+  also improves `mw_parse_crashlog` and `mw_diagnose_crash`. Crash Logger SSE:
+  call-stack rows with padded frame numbers (`[ 0]`) and the `[P]`/`[S]` source
+  tag, the newer `CALL STACK ([P]robable / [S]tack scan):` heading, the crash
+  time, the address an access violation touched, and symbols after the
+  disassembly; a frame found by scanning stack memory is marked as the weaker
+  signal it is. BepInEx: the stack traces Unity prints without an "at", return
+  types and `(wrapper …)` prefixes on patched methods, and which mod a frame
+  belongs to by its namespace. NetScriptFramework: a module and its offset
+  written as one token.
+- The Workbench now has 8 tools (51 in total), and there are 6 slash commands.
+  `/modwrench` mentions the update check, and `/mw-crash` now asks for Crash
+  Whisperer.
 
 ## [0.2.4] — 2026-09-15
 
