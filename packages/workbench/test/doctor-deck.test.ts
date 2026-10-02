@@ -274,14 +274,14 @@ test("launch options set for a different game, or the wrong order of native and 
   assert.equal(must(run(lethalOptions(w)), "deck.bepinex-override").status, "problem");
 });
 
-test("the rest of the launch options line is never in the report", () => {
+test("the rest of the launch options line, and the Steam account number it sits under, are never in the report", () => {
   const w = lethal();
   writeFileSync(join(w.game, "winhttp.dll"), "x");
-  putLaunchOptions(w.steam, "1001", { [LETHAL.appId]: 'PRIVATE_TOKEN=abc123-secret-value WINEDLLOVERRIDES="winhttp=n,b" gamemoderun %command%' });
+  putLaunchOptions(w.steam, "48151623", { [LETHAL.appId]: 'PRIVATE_TOKEN=abc123-secret-value WINEDLLOVERRIDES="winhttp=n,b" gamemoderun %command%' });
   const r = run(lethalOptions(w));
   assert.equal(must(r, "deck.bepinex-override").status, "ok");
   const everything = JSON.stringify(r);
-  for (const leak of ["abc123", "PRIVATE_TOKEN", "gamemoderun", "WINEDLLOVERRIDES=\"winhttp=n,b\" gamemoderun"]) {
+  for (const leak of ["abc123", "PRIVATE_TOKEN", "gamemoderun", "WINEDLLOVERRIDES=\"winhttp=n,b\" gamemoderun", "48151623"]) {
     assert.ok(!everything.includes(leak), `the report contains ${leak}`);
   }
 });
