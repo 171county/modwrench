@@ -434,3 +434,4 @@ test("the Steam Deck label is for a real Deck only: a run that names its platfor
   sandbox.makeWorld();
   assert.equal(run().steamDeck, false);
 });
+
