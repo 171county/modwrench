@@ -29,6 +29,7 @@ function themeForGameId(gameId: string): string {
   return "lethal";
 }
 import { checkKnownConflicts } from "./conflicts/index.js";
+import { checkPatchDay } from "./patchday/index.js";
 import { correlateCrash, type CrashSuspect } from "./crashlog/diagnose.js";
 
 /**
@@ -560,5 +561,85 @@ export function registerWorkbenchTools(server: McpServer): {
     }
   );
 
-  return { toolCount: 6 };
+  // ─── Tool 7: mw_patch_day ──────────────────────────────────────────────────
+  // "Is it safe to update?" Reads the game's version, the script extender build,
+  // its Address Library file and every plugin DLL, then applies SKSE's own
+  // published compatibility rules. Local and read-only: no network, nothing
+  // written. See patchday/ and TRUST.md.
+  server.registerTool(
+    "mw_patch_day",
+    {
+      title: "Is it safe to update?",
+      description: "Is it safe to update? Right before or after a game patch, reads the game's version, the SKSE build, its Address Library file and every SKSE plugin DLL (game folder and Mod Organizer 2), applies SKSE's own published compatibility rules, and says which plugins would be refused. Verdict is go / check / wait, with a reason per plugin and a note on whether each rule is SKSE's own or inferred. Local and read-only — no network, nothing written or kept. Pass targetVersion (e.g. 1.7.104) to check a patch that isn't installed yet. Skyrim Special Edition / Anniversary Edition only for now. A GO means every check that can be run from files passed; it can't promise the game runs. Use when the user asks \"is it safe to update\", \"Steam updated Skyrim and now it won't start\", \"did SKSE break\", or \"which plugins will break after the patch\".",
+      inputSchema: {
+        gameId: z
+          .string()
+          .optional()
+          .describe(
+            "Canonical game ID. Default 'skyrimspecialedition', the only one supported so far."
+          ),
+        gamePath: z
+          .string()
+          .optional()
+          .describe(
+            "The install folder (the one holding SkyrimSE.exe), when ModWrench can't find the game on its own — a GOG copy, or a Steam library in an unusual place."
+          ),
+        targetVersion: z
+          .string()
+          .optional()
+          .describe(
+            "A game version to check instead of the installed one, like '1.7.104'. Use it before updating; the number is in the Steam patch notes or on the SKSE site."
+          ),
+        mo2InstancePath: z
+          .string()
+          .optional()
+          .describe(
+            "Mod Organizer 2 instance folder, for a portable instance that doesn't live where MO2 normally keeps them. Without it, MO2 is read only when it looks like the active manager."
+          ),
+        profileName: z
+          .string()
+          .optional()
+          .describe("MO2 profile name. Default: the instance's active profile."),
+        logPath: z
+          .string()
+          .optional()
+          .describe(
+            "Path to skse64.log if it isn't in the usual Documents/My Games folder. SKSE's own log from the last launch is cross-checked against the predictions."
+          ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ gameId, gamePath, targetVersion, mo2InstancePath, profileName, logPath }) => {
+      const result = checkPatchDay({
+        ...(gameId !== undefined ? { gameId } : {}),
+        ...(gamePath !== undefined ? { gamePath } : {}),
+        ...(targetVersion !== undefined ? { targetVersion } : {}),
+        ...(mo2InstancePath !== undefined ? { mo2InstancePath } : {}),
+        ...(profileName !== undefined ? { profileName } : {}),
+        ...(logPath !== undefined ? { logPath } : {}),
+      });
+
+      log("debug", "workbench.patch_day", {
+        ok: result.ok,
+        verdict: result.ok ? result.verdict : null,
+        plugins: result.ok ? result.plugins.total : 0,
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  return { toolCount: 7 };
 }

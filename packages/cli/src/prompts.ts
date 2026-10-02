@@ -32,8 +32,9 @@ export function buildModwrenchPrompt(): PromptResult {
   return user(
     "Open ModWrench. Call `mw_deck` to show the active connectors and the " +
       "flagship-game shortcuts, then tell me in a line or two what I can do from " +
-      "here — search for mods, diagnose a crash log, check for known conflicts, or " +
-      "read my load order. Keep it tight; I'll pick from there."
+      "here — search for mods, diagnose a crash log, check for known conflicts, " +
+      "read my load order, or check whether a game update is safe. Keep it tight; " +
+      "I'll pick from there."
   );
 }
 
@@ -73,11 +74,11 @@ export function buildConflictsPrompt(game?: string): PromptResult {
   const g = game?.trim();
   const forGame = g ? ` for ${g}` : "";
   const detect = g
-    ? `run \`mw_read_load_order\` for ${g} (and \`mw_detect_environment\` first if you need the manager)`
+    ? `run \\`mw_read_load_order\\` for ${g} (and \\`mw_detect_environment\\` first if you need the manager)`
     : "run `mw_detect_environment` to find the game and manager, then `mw_read_load_order`";
   return user(
     `Check my mods for known conflicts${forGame}. If you don't have my plugin/mod ` +
-      `list yet, ${detect}, then pass that list into \`mw_check_known_conflicts\` and ` +
+      `list yet, ${detect}, then pass that list into \\`mw_check_known_conflicts\\` and ` +
       "show the conflicts view. Flag what's on the list — don't imply the game will " +
       "or won't run. It's Bethesda; nothing's a promise."
   );
@@ -92,6 +93,22 @@ export function buildOrderPrompt(): PromptResult {
   );
 }
 
+/** `/mw-patch [version]` — is it safe to update? */
+export function buildPatchPrompt(version?: string): PromptResult {
+  const v = version?.trim();
+  const target = v
+    ? ` Check against game version ${v}: pass targetVersion ${JSON.stringify(v)} so it judges that version, not the installed one.`
+    : "";
+  return user(
+    "Is it safe to update my game? Run `mw_patch_day` and lead with the verdict " +
+      "(go / check / wait) in one line. Then list only what's broken or unclear — " +
+      "the plugin, why, and whether the reason is SKSE's own rule or inferred — and " +
+      "what I'd have to do about each. Don't call it safe: a go only means the " +
+      "file checks passed." +
+      target
+  );
+}
+
 // ─── Prompt catalog + registration ───────────────────────────────────────────
 
 /** Canonical prompt names, in menu order. Kept in sync with registerPrompts. */
@@ -101,6 +118,7 @@ export const PROMPT_NAMES = [
   "mw-crash",
   "mw-conflicts",
   "mw-order",
+  "mw-patch",
 ] as const;
 
 export const PROMPT_COUNT = PROMPT_NAMES.length;
@@ -163,6 +181,20 @@ export function registerPrompts(server: McpServer): { promptCount: number } {
     "mw-order",
     "Post your load order — to Claude, not a Discord. Reads your MO2 / r2modman / Vortex order and lays it out.",
     () => buildOrderPrompt()
+  );
+
+  server.prompt(
+    "mw-patch",
+    "Is it safe to update? Reads your game version, SKSE and every plugin, and says which ones SKSE would refuse after the patch — before it lands or after. Local and read-only.",
+    {
+      version: z
+        .string()
+        .optional()
+        .describe(
+          "A game version to check before you update, like 1.7.104. Leave it empty to check what's installed now."
+        ),
+    },
+    ({ version }) => buildPatchPrompt(version)
   );
 
   return { promptCount: PROMPT_COUNT };
