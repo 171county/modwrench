@@ -273,7 +273,7 @@ export function assessPlugin(info: SkseDllInfo, ctx: RuntimeContext): PluginAsse
   );
 }
 
-// ─── The headline ──────────────────────────────────────────────────────────────
+// ─── The headline ────────────────────────────────────────────────────────────
 
 export type Verdict = "go" | "check" | "wait";
 
