@@ -1,0 +1,71 @@
+CRASH TIME: 2026-10-01 21:14:03
+Skyrim SSE v1.6.1170
+CrashLoggerSSE v1.20.0 Feb 10 2026 04:25:35
+Unhandled exception "EXCEPTION_ACCESS_VIOLATION" at 0x7FF6D0B6E1C0 SkyrimSE.exe+10EE1C0	mov rax, qword ptr [rcx+0x8]
+Exception Flags: 0x00000000 (Continuable)
+Number of Parameters: 2
+Exception Thread ID: 18244
+Access Violation: Tried to read memory at 0x000000000008
+
+POSSIBLE RELEVANT OBJECTS:
+	RBX: TESForm: "Iron Sword" [0x00012EB7] (Skyrim.esm)
+	RDX: TESForm: "Cloak Hook Marker" [0x00BD3F21] (Cloak and Dagger.esp)
+	RSP+1A8: TESForm: "Cloak Hook Marker" [0x00BD3F22] (Cloak and Dagger.esp)
+	RSP+2B0: NativeFunctionBase: Actor.StartCombat()
+	RSP+3C0: CodeTasklet: Stack: [(00012345)].CloakScript.OnUpdate() - "CloakScript.psc" Line 42
+	RSP+3D0: TESForm: "Hearthfire Chest" [0x0A00281B] (HearthFires.esm)
+
+PROCESS INFO:
+	Process ID: 6120
+	Thread ID: 18244
+THREAD CONTEXT (HEURISTIC):
+	Thread Priority: 0
+	Likely Role: Unknown (main or worker thread)
+
+SYSTEM SPECS:
+	OS: Windows 11 Pro v10.0.22631
+	CPU: AuthenticAMD AMD Ryzen 7 5800X 8-Core Processor
+	CPU Cores: 16 logical, 8 physical, 1 packages
+	GPU #1: Nvidia NVIDIA GeForce RTX 3070
+	PHYSICAL MEMORY: 14.20 GB/31.92 GB
+	VIRTUAL MEMORY: 22.10 GB/53.92 GB
+	PROCESS MEMORY: Working Set: 5100.00 MB, Private: 6200.00 MB, Peak: 5300.00 MB
+	PAGE FAULTS: 3504311 (Peak: 5559681024)
+	GPU MEMORY: 6.20/7.40 GB
+
+CALL STACK ([P]robable / [S]tack scan):
+	[ 0][P] 0x7FF6D0B6E1C0            SkyrimSE.exe+10EE1C0	mov rax, qword ptr [rcx+0x8]
+	[ 1][P] 0x7FF6D0B2A92B            SkyrimSE.exe+00AA92B	call rax
+	[ 2][P] 0x7FF6D0B30120            SkyrimSE.exe+0AB0120	mov rcx, rbx
+	[ 3][P] 0x7FFAF1BF3A41   CloakAndDaggerFix.dll+0003A41	call rax | CloakAndDaggerFix::Hooks::OnEquip
+	[ 4][P] 0x7FF6D0B21F70            SkyrimSE.exe+00A1F70	mov rdx, r8
+	[ 5][P] 0x7FF6D0B1C410            SkyrimSE.exe+00FC410	call rax
+	[ 6][P] 0x7FFB5E22A7B0            KERNEL32.DLL+00BE8D
+	[ 7][P] 0x7FFB5F8E3FA0               ntdll.dll+004FAD0
+	[ 8][S] 0x7FFAF22B1111 SomeUnrelatedPlugin.dll+0001111	mov eax, eax
+	[ 9][S] 0x7FFB5E22A7C2            KERNEL32.DLL+00BE8D
+	[10][S] 0x7FF6D0000000                        
+	[11][S] 0x7FFB5F8E3FB2               ntdll.dll+004FAD0
+
+REGISTERS:
+	RAX 0x0000000000000000 (size_t)
+	RCX 0x0000000000000000 (size_t)
+
+MODULES:
+	SkyrimSE.exe          0x00007FF6CF800000
+	CloakAndDaggerFix.dll 0x00007FFAF1BF0000
+
+SKSE PLUGINS:
+	CloakAndDaggerFix.dll v1.4.2
+	SomeUnrelatedPlugin.dll v2.0.1
+
+PLUGINS:
+	Light: 2	Regular: 6	Total: 8
+	[00]     Skyrim.esm
+	[01]     Update.esm
+	[02]     Dawnguard.esm
+	[03]     HearthFires.esm
+	[04]     Dragonborn.esm
+	[05]     Cloak and Dagger.esp
+	[FE:000] Tiny Tweak.esl
+	[FE:001] ccBGSSSE001-Fish.esl
