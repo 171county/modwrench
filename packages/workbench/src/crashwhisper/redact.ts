@@ -93,7 +93,7 @@ const CUT_BACKOFF = 300;
 const DEFAULT_BUDGET_MS = 20_000;
 /** How often (in lines) the clock is looked at. */
 const CLOCK_EVERY = 64;
-const BT = "\u005Cu0060";
+const BT = "\u0060";
 
 // Names that identify nobody, because every machine of that kind has them. Replacing
 // them everywhere would only damage the log ("Steam Deck" would read "Steam REDACTED-USER").
@@ -234,7 +234,7 @@ function emptyValue(value: string, family: "secret" | "password" | "query"): boo
   if (v === "") return true;
   if (EXACT_PLACEHOLDER.test(v)) return true;
   if (/^(?:null|none|nil|undefined|empty|true|false|unset|n\/a|na|redacted|hidden|masked|\(null\)|\(none\)|<null>|<none>|<empty>|\[hidden\]|\[redacted\])$/i.test(v)) return true;
-  if (/^[*\u005Cu2022#._-]{3,}$/.test(v)) return true;
+  if (/^[*\u2022#._-]{3,}$/.test(v)) return true;
   if (family !== "password") {
     // A .NET metadata token (0x06000123) or a small number: an id, not a credential.
     if (/^0x[0-9A-Fa-f]{1,16}$/.test(v)) return true;
@@ -442,12 +442,12 @@ const DEFAULT_MACHINE_HINT = /(?:DESKTOP|LAPTOP|WIN)-/;
 // ─── Reading the text in ─────────────────────────────────────────────────────
 
 /** Control characters, format characters (zero-width, direction marks, tag characters, soft hyphens) and fillers: nothing a log needs, and each can hide a name or a message. */
-const INVISIBLE = /(?![\n\t])[\p{Cc}\p{Cf}\u005Cu034F\u005Cu115F\u005Cu1160\u005Cu3164\u005CuFFA0\u005CuFE00-\u005CuFE0F\u{E0100}-\u{E01EF}]/gu;
+const INVISIBLE = /(?![\n\t])[\p{Cc}\p{Cf}\u034F\u115F\u1160\u3164\uFFA0\uFE00-\uFE0F\u{E0100}-\u{E01EF}]/gu;
 
 /** One kind of line ending, one spelling of each character, nothing invisible. */
 function prepare(input: string): string {
   return input
-    .replace(/\r\n?|[\u005Cu2028\u005Cu2029\u0085]/g, "\n")
+    .replace(/\r\n?|[\u2028\u2029\u0085]/g, "\n")
     .normalize("NFC")
     .replace(INVISIBLE, "");
 }
@@ -462,7 +462,7 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-const CJK_ONLY = /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Thai}\u005Cu30FC\u005Cu00B7\u005Cu30FB\s]+$/u;
+const CJK_ONLY = /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Thai}\u30FC\u00B7\u30FB\s]+$/u;
 
 /** The names this machine goes by: the account, the profile folder, the computer and the domain it is joined to. */
 function ownNames(): { users: string[]; machines: string[] } {
@@ -527,7 +527,7 @@ function worthReplacing(names: string[]): string[] {
  * (jdoe), and as the short 8.3 name Windows makes for it (JANEDO~1).
  */
 function nameRegex(name: string): RegExp {
-  const esc = (s: string): string => escapeRegex(s).replace(/['\u005Cu2019\u005Cu2018\u005Cu02bc]/g, "['\u005Cu2019\u005Cu2018\u005Cu02bc]");
+  const esc = (s: string): string => escapeRegex(s).replace(/['\u2019\u2018\u02bc]/g, "['\u2019\u2018\u02bc]");
   const sep = String.raw`(?:[\s._-]|%20|\+)*`;
   const forms = new Set<string>([esc(name)]);
   try {
