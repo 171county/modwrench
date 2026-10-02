@@ -12,7 +12,7 @@ import type { LoadOrderResult, LoadOrderMod } from "./types.js";
 // well-formed Qt-style INI; we only need a few keys, so a tiny parser keeps us
 // dep-free.
 
-function parseIni(text: string): Record<string, Record<string, string>> {
+export function parseIni(text: string): Record<string, Record<string, string>> {
   const out: Record<string, Record<string, string>> = {};
   let section = "_default";
   out[section] = {};
