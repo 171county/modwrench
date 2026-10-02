@@ -41,17 +41,38 @@ Set it wherever your client puts environment variables. The payload drops from 2
 130 bytes — a 219x reduction — and every tool keeps working exactly as before. Panels are on
 by default; this is opt-out, not opt-in.
 
-**Patch Day is built the other way round.** `mw_patch_day` answers in a few lines of plain
-text that every client can show and a model can read, with the full report alongside as
-structured data. In a client that supports
-[MCP Apps](https://apps.extensions.modelcontextprotocol.io/api/documents/overview.html) it
-also points at a page — the verdict, how sure it is, which plugins need attention, a
-Re-check button and a "what if I update to…" box — which the client fetches only if it can
-draw it. A client that can't never fetches the page, so nothing extra lands in the
-conversation and there is nothing to turn off (`MODWRENCH_UI=off` switches this page off
-too). The page makes no network requests and keeps nothing; [TRUST.md](TRUST.md#the-patch-day-page)
-says what it can and can't do. It is the first panel made this way; the others work as
-described above.
+**Patch Day and Crash Whisperer are built the other way round.** `mw_patch_day` and
+`mw_crash_whisperer` answer in a few lines of plain text that every client can show and a
+model can read, and that is the whole answer for any client that can't do more. In a client
+that supports
+[MCP Apps](https://apps.extensions.modelcontextprotocol.io/api/documents/overview.html) each
+also points at a page, which the client fetches only if it can draw it, and the full report
+goes to it as structured data. A client that can't draw pages never fetches the page and is
+never sent the structured data, because some clients hand the model the structured data
+*instead of* the text, which would turn a ten-line answer into a long one. If you want it
+anyway, for a script or an agent that reads the report, set `MODWRENCH_STRUCTURED=always`;
+`MODWRENCH_STRUCTURED=never` sends it to nobody. `MODWRENCH_UI=off` switches the pages off.
+The pages make no network requests and keep nothing;
+[TRUST.md](TRUST.md#the-patch-day-page) says what they can and can't do. They are the first
+panels made this way; the others work as described above.
+
+**Crash Whisperer** (`mw_crash_whisperer`, or `/mw-crash`) answers "why did my game
+crash?". Ask with nothing else and it reads the newest crash log your logger wrote (or the
+one you point at or paste), says in plain words what happened, and ranks the names the log
+points at, each with its reasons and a label for what the reason rests on: the log, your
+files, a published rule, or ModWrench's own guess. It checks your setup for the usual causes,
+compares your other recent crashes to see whether the same name keeps coming up, and writes
+the post you'd put on a forum, GitHub or Discord, or send to the mod's author, with the
+personal details it recognises (your name, computer name, folders, addresses, keys) taken
+out. That is pattern matching, so it can miss something: read a post before you send it. A
+ranking is a lead, never a verdict, and it never calls anything safe. It reads Crash Logger
+SSE, Buffout 4, NetScriptFramework and BepInEx logs; the setup check covers Skyrim Special
+Edition for now. Reading the log from your disk is the private way to use it: what it
+recognises comes out before anything reaches your AI. A log you paste into the chat, or a
+path you type, has already reached it as you typed it, and the log file itself is never
+cleaned, so share a help post and not the file.
+[TRUST.md](TRUST.md#crash-whisperer-what-it-opens) has the rest, including a plain list of what
+it does not catch.
 
 ---
 
@@ -65,15 +86,15 @@ Four attachments. Install one, some, or all — `@modwrench/cli` composes whiche
 
 **Thunderstore** — browse communities, search mods, read full version history, and resolve dependency trees. No credential needed; the read API is public. *(9 tools)*
 
-**Workbench** — local, on your machine. Find your installed games, mod managers and loaders; read your load order out of MO2, r2modman or Vortex; parse a crash log from Crash Logger SSE, Buffout 4, NetScriptFramework or BepInEx; look a mod up across platforms; check known conflicts; and, before or after a game patch, check whether your SKSE plugins will survive it (Skyrim Special Edition and Anniversary Edition for now). *(7 tools)*
+**Workbench** — local, on your machine. Find your installed games, mod managers and loaders; read your load order out of MO2, r2modman or Vortex; parse a crash log from Crash Logger SSE, Buffout 4, NetScriptFramework or BepInEx, or have it explained: what happened, which names the log points at and how sure that is, and a help post ready to copy; look a mod up across platforms; check known conflicts; and, before or after a game patch, check whether your SKSE plugins will survive it (Skyrim Special Edition and Anniversary Edition for now). *(8 tools)*
 
 The conflict check reads two sources: LOOT's masterlist, fetched live for Bethesda games, and a small conflict list bundled inside the package for games LOOT does not cover. **That bundled list ships empty** — all three files contain `[]` — so today it asserts nothing. It is named here because it is a channel that could carry claims about someone's mod in a future release, and `npx` pulls the latest version automatically unless you pin.
 
 Plus two meta tools for activating a platform mid-session and opening a visual panel.
 
-**50 tools. 49 of them read. One writes** — see [The one thing it writes](#the-one-thing-it-writes).
+**51 tools. 50 of them read. One writes** — see [The one thing it writes](#the-one-thing-it-writes).
 
-It also registers **six slash commands** your MCP client will offer you: `/modwrench` opens the panel, `/mw-find` searches every connected platform at once, `/mw-crash` takes a crash log, `/mw-conflicts` checks a game's load order, `/mw-order` reads your load order, and `/mw-patch` asks whether a game update is safe. They are shortcuts that call the tools above — they add no capability the tools do not already have.
+It also registers **six slash commands** your MCP client will offer you: `/modwrench` opens the panel, `/mw-find` searches every connected platform at once, `/mw-crash` asks why your game crashed (it reads your newest crash log itself), `/mw-conflicts` checks a game's load order, `/mw-order` reads your load order, and `/mw-patch` asks whether a game update is safe. They are shortcuts that call the tools above — they add no capability the tools do not already have.
 
 ## How to use it
 
