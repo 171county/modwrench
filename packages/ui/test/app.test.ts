@@ -2,11 +2,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Script, runInNewContext } from "node:vm";
 import {
+  CRASH_WHISPERER_APP_URI,
   MCP_APP_MIME,
+  MCP_APPS_EXTENSION_ID,
   PATCH_DAY_APP_URI,
   appResourceMeta,
   appToolMeta,
   renderApp,
+  renderCrashWhispererApp,
   renderPatchDayApp,
 } from "../src/index.js";
 
@@ -46,9 +49,17 @@ function scriptOf(html: string): string {
 
 // ─── What the server attaches ────────────────────────────────────────────────
 
-test("a page is identified by the MCP Apps MIME type and a ui:// URI", () => {
+test("a page is identified by the MCP Apps MIME type and a ui:// URI, and no two pages share one", () => {
   assert.equal(MCP_APP_MIME, "text/html;profile=mcp-app");
   assert.match(PATCH_DAY_APP_URI, /^ui:\/\/modwrench\//);
+  assert.match(CRASH_WHISPERER_APP_URI, /^ui:\/\/modwrench\//);
+  assert.notEqual(PATCH_DAY_APP_URI, CRASH_WHISPERER_APP_URI);
+});
+
+test("the extension a client names to say it can draw pages is the one the MCP Apps spec defines", () => {
+  // The server reads the client's capabilities under this key and the page type above. If either drifted,
+  // no client would ever be recognised as one that draws pages, and the full report would never be sent.
+  assert.equal(MCP_APPS_EXTENSION_ID, "io.modelcontextprotocol/ui");
 });
 
 test("the tool metadata points at the page under both spellings and lets the page call the tool", () => {
@@ -84,85 +95,100 @@ test("renderApp wraps a page in a complete document with its own policy", () => 
   assert.match(html, /<div id="mw-root"><\/div>/);
 });
 
-test("the page's own Content-Security-Policy allows no network, no frames and no outside loads", () => {
-  const html = renderPatchDayApp();
-  const csp = /http-equiv="Content-Security-Policy" content="([^"]*)"/.exec(html);
-  assert.ok(csp, "no policy meta tag");
-  const policy = csp[1]!.replace(/&#39;/g, "'");
-  for (const directive of ["default-src 'none'", "connect-src 'none'", "frame-src 'none'", "base-uri 'none'", "form-action 'none'"]) {
-    assert.ok(policy.includes(directive), `policy lacks ${directive}: ${policy}`);
-  }
-  assert.doesNotMatch(policy, /https?:|\*/, "the policy names a host or a wildcard");
-});
+// Every page is held to the same promises, so each test below runs for each of them.
+const PAGES: Array<[string, () => string]> = [
+  ["Patch Day", renderPatchDayApp],
+  ["Crash Whisperer", renderCrashWhispererApp],
+];
 
-test("the Patch Day page contains no URL, so it can load nothing and contact no one", () => {
-  const html = renderPatchDayApp();
-  assert.doesNotMatch(html, /https?:\/\//i);
-  assert.doesNotMatch(html, /\/\/[a-z0-9.-]+\.[a-z]{2,}/i, "a protocol-relative URL");
-  assert.doesNotMatch(html, /url\s*\(/i, "CSS that loads");
-  assert.doesNotMatch(html, /@import/i);
-  // Attributes are checked on the markup alone: `data = ...` is ordinary JavaScript in the script.
-  const markup = html.replace(/<script>[\s\S]*?<\/script>/g, "").replace(/<style>[\s\S]*?<\/style>/g, "");
-  assert.ok(markup.includes('id="mw-root"'), "the markup scan lost the page body, so it would pass vacuously");
-  assert.doesNotMatch(markup, /\s(?:src|href|srcset|action|formaction|poster|data|ping|background)\s*=/i, "an attribute that loads or navigates");
-});
+for (const [name, render] of PAGES) {
+  test(`the ${name} page's own Content-Security-Policy allows no network, no frames and no outside loads`, () => {
+    const html = render();
+    const csp = /http-equiv="Content-Security-Policy" content="([^"]*)"/.exec(html);
+    assert.ok(csp, "no policy meta tag");
+    const policy = csp[1]!.replace(/&#39;/g, "'");
+    for (const directive of ["default-src 'none'", "connect-src 'none'", "frame-src 'none'", "base-uri 'none'", "form-action 'none'"]) {
+      assert.ok(policy.includes(directive), `policy lacks ${directive}: ${policy}`);
+    }
+    assert.doesNotMatch(policy, /https?:|\*/, "the policy names a host or a wildcard");
+  });
 
-test("the Patch Day page has no way to reach the network, keep state or run strings as code", () => {
-  const html = renderPatchDayApp();
-  const banned: Array<[RegExp, string]> = [
-    [/\bfetch\s*\(/, "fetch"],
-    [/\bXMLHttpRequest\b/, "XMLHttpRequest"],
-    [/\bWebSocket\b/, "WebSocket"],
-    [/\bEventSource\b/, "EventSource"],
-    [/\bsendBeacon\b/, "sendBeacon"],
-    [/\bnew\s+Image\b/, "new Image"],
-    [/\bimportScripts\b/, "importScripts"],
-    [/\bimport\s*\(/, "dynamic import"],
-    [/\bServiceWorker\b|\bserviceWorker\b/, "service workers"],
-    [/\blocalStorage\b|\bsessionStorage\b|\bindexedDB\b|\bdocument\.cookie\b/, "browser storage"],
-    [/\beval\s*\(/, "eval"],
-    [/\bnew\s+Function\b|\bFunction\s*\(/, "Function constructor"],
-    [/setTimeout\s*\(\s*['"]/, "setTimeout with a string"],
-    [/setInterval\s*\(\s*['"]/, "setInterval with a string"],
-    [/\.innerHTML\b|\.outerHTML\b|\binsertAdjacentHTML\b|\bdocument\.write\b|\bsrcdoc\b|\bDOMParser\b|\bcreateContextualFragment\b/, "a way to turn text into markup"],
-    [/\bwindow\.open\b|\blocation\s*[.=]|\bwindow\.top\b|\btop\.location\b/, "navigation"],
-    [/<(?:iframe|object|embed|link|base|form|frame|meta\s+http-equiv="refresh")\b/i, "an element that loads or navigates"],
-  ];
-  // The only place the policy meta tag may appear is the head, and it is checked on its own.
-  const withoutPolicy = html.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, "");
-  for (const [pattern, what] of banned) {
-    assert.doesNotMatch(withoutPolicy, pattern, `the page uses ${what}`);
-  }
-});
+  test(`the ${name} page contains no URL, so it can load nothing and contact no one`, () => {
+    const html = render();
+    assert.doesNotMatch(html, /https?:\/\//i);
+    assert.doesNotMatch(html, /\/\/[a-z0-9.-]+\.[a-z]{2,}/i, "a protocol-relative URL");
+    assert.doesNotMatch(html, /url\s*\(/i, "CSS that loads");
+    assert.doesNotMatch(html, /@import/i);
+    // Attributes are checked on the markup alone: `data = ...` is ordinary JavaScript in the script.
+    const markup = html.replace(/<script>[\s\S]*?<\/script>/g, "").replace(/<style>[\s\S]*?<\/style>/g, "");
+    assert.ok(markup.includes('id="mw-root"'), "the markup scan lost the page body, so it would pass vacuously");
+    assert.doesNotMatch(markup, /\s(?:src|href|srcset|action|formaction|poster|data|ping|background)\s*=/i, "an attribute that loads or navigates");
+  });
 
-test("the Patch Day page has no inline event handlers; every action is wired in script", () => {
-  const html = renderPatchDayApp();
-  assert.doesNotMatch(html, /\son[a-z]+\s*=/i, "an inline handler attribute");
-  assert.doesNotMatch(html, /javascript:/i);
-});
+  test(`the ${name} page has no way to reach the network, keep state or run strings as code`, () => {
+    const html = render();
+    const banned: Array<[RegExp, string]> = [
+      [/\bfetch\s*\(/, "fetch"],
+      [/\bXMLHttpRequest\b/, "XMLHttpRequest"],
+      [/\bWebSocket\b/, "WebSocket"],
+      [/\bEventSource\b/, "EventSource"],
+      [/\bsendBeacon\b/, "sendBeacon"],
+      [/\bnew\s+Image\b/, "new Image"],
+      [/\bimportScripts\b/, "importScripts"],
+      [/\bimport\s*\(/, "dynamic import"],
+      [/\bServiceWorker\b|\bserviceWorker\b/, "service workers"],
+      [/\blocalStorage\b|\bsessionStorage\b|\bindexedDB\b|\bdocument\.cookie\b/, "browser storage"],
+      [/\beval\s*\(/, "eval"],
+      [/\bnew\s+Function\b|\bFunction\s*\(/, "Function constructor"],
+      [/setTimeout\s*\(\s*['"]/, "setTimeout with a string"],
+      [/setInterval\s*\(\s*['"]/, "setInterval with a string"],
+      [/\.innerHTML\b|\.outerHTML\b|\binsertAdjacentHTML\b|\bdocument\.write\b|\bsrcdoc\b|\bDOMParser\b|\bcreateContextualFragment\b/, "a way to turn text into markup"],
+      [/\bwindow\.open\b|\blocation\s*[.=]|\bwindow\.top\b|\btop\.location\b/, "navigation"],
+      [/<(?:iframe|object|embed|link|base|form|frame|meta\s+http-equiv="refresh")\b/i, "an element that loads or navigates"],
+    ];
+    // The only place the policy meta tag may appear is the head, and it is checked on its own.
+    const withoutPolicy = html.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, "");
+    for (const [pattern, what] of banned) {
+      assert.doesNotMatch(withoutPolicy, pattern, `the page uses ${what}`);
+    }
+  });
 
-test("the Patch Day page script is valid JavaScript and holds no module syntax", () => {
+  test(`the ${name} page has no inline event handlers; every action is wired in script`, () => {
+    const html = render();
+    assert.doesNotMatch(html, /\son[a-z]+\s*=/i, "an inline handler attribute");
+    assert.doesNotMatch(html, /javascript:/i);
+  });
+
+  test(`the ${name} page script is valid JavaScript and holds no module syntax`, () => {
+    const script = scriptOf(render());
+    assert.doesNotThrow(() => new Script(script), "the page script does not parse");
+    assert.doesNotMatch(script, /^\s*(?:import|export)\s/m, "module syntax in an inline script");
+    assert.doesNotMatch(script, /\brequire\s*\(/);
+  });
+
+  test(`every piece of text from the person's machine goes in as text on the ${name} page, never as markup`, () => {
+    const script = scriptOf(render());
+    // The page builds elements and sets text through one helper, with one escape
+    // hatch for attributes. Both are checked: text goes through textContent and
+    // text nodes, and no attribute name comes from data.
+    assert.match(script, /node\.textContent\s*=/);
+    assert.match(script, /document\.createTextNode\(/);
+    // Attribute names handed to the element helper are string literals in this file, not data.
+    const attrKeys = [...script.matchAll(/\bh\(\s*'[a-z0-9]+'\s*,\s*\{([^}]*)\}/g)].flatMap((m) =>
+      [...m[1]!.matchAll(/(?:^|,)\s*(?:'([^']+)'|([A-Za-z_]+))\s*:/g)].map((k) => k[1] ?? k[2]!)
+    );
+    const allowed = new Set([
+      "class", "text", "role", "type", "title", "id", "readonly", "spellcheck", "tabindex",
+      "data-tone", "data-status", "data-basis", "data-severity", "data-strength", "data-kind", "data-scan",
+      "aria-label", "aria-hidden", "aria-selected", "aria-controls", "aria-live",
+    ]);
+    for (const key of attrKeys) assert.ok(allowed.has(key), `unexpected attribute name from the page's element helper: ${key}`);
+    assert.ok(attrKeys.length > 10, "the attribute scan found almost nothing, so it proves nothing");
+  });
+}
+
+test("the Patch Day page looks up every value that becomes a class name or a data attribute in a fixed table first", () => {
   const script = scriptOf(renderPatchDayApp());
-  assert.doesNotThrow(() => new Script(script), "the page script does not parse");
-  assert.doesNotMatch(script, /^\s*(?:import|export)\s/m, "module syntax in an inline script");
-  assert.doesNotMatch(script, /\brequire\s*\(/);
-});
-
-test("every piece of text from the person's machine goes in as text, never as markup", () => {
-  const script = scriptOf(renderPatchDayApp());
-  // The page builds elements and sets text through one helper, with one escape
-  // hatch for attributes. Both are checked: text goes through textContent and
-  // text nodes, and no attribute name comes from data.
-  assert.match(script, /node\.textContent\s*=/);
-  assert.match(script, /document\.createTextNode\(/);
-  // Attribute names handed to the element helper are string literals in this file, not data.
-  const attrKeys = [...script.matchAll(/\bh\(\s*'[a-z0-9]+'\s*,\s*\{([^}]*)\}/g)].flatMap((m) =>
-    [...m[1]!.matchAll(/(?:^|,)\s*(?:'([^']+)'|([A-Za-z_]+))\s*:/g)].map((k) => k[1] ?? k[2]!)
-  );
-  const allowed = new Set(["class", "text", "role", "type", "title", "data-tone", "data-status", "data-basis", "aria-label", "aria-hidden"]);
-  for (const key of attrKeys) assert.ok(allowed.has(key), `unexpected attribute name from the page's element helper: ${key}`);
-  assert.ok(attrKeys.length > 10, "the attribute scan found almost nothing, so it proves nothing");
-  // Values that become class names or data attributes are looked up in fixed tables first.
   assert.match(script, /var VERDICTS = \{/);
   assert.match(script, /var STATUS = \{/);
   assert.match(script, /var BASIS = \{/);
@@ -171,21 +197,56 @@ test("every piece of text from the person's machine goes in as text, never as ma
   assert.match(script, /BASIS\[q\.basis\] \? q\.basis : 'inferred'/);
 });
 
-test("the page keeps the host's colors when it sends them, and has its own for light and dark when it doesn't", () => {
-  const html = renderPatchDayApp();
-  assert.match(html, /--bg:var\(--color-background-primary,var\(--fb-bg\)\)/);
-  assert.match(html, /@media \(prefers-color-scheme:dark\)/);
-  assert.match(html, /:root\[data-theme="light"\]/);
-  assert.match(html, /:root\[data-theme="dark"\]/);
-  assert.match(html, /prefers-reduced-motion:reduce/);
-  assert.match(html, /:focus-visible/);
+test("the Crash Whisperer page looks up every value that becomes a class name or a data attribute in a fixed table first", () => {
+  const script = scriptOf(renderCrashWhispererApp());
+  for (const table of ["STRENGTH", "SEVERITY", "BASIS", "KIND", "EVIDENCE", "FORMAT"]) {
+    assert.match(script, new RegExp(`var ${table} = \\{`), `${table} is not a fixed table`);
+  }
+  assert.match(script, /STRENGTH\[lead\.strength\] \? lead\.strength : 'faint'/);
+  assert.match(script, /SEVERITY\[c\.severity\] \? c\.severity : 'info'/);
+  assert.match(script, /BASIS\[basis\] \? basis : 'guess'/);
+  assert.match(script, /KIND\[f\.kind\] \? f\.kind : 'unknown'/);
+  assert.match(script, /EVIDENCE\[conf\.evidence\] \|\| EVIDENCE\.log/);
+  // The only class name built from data is the mix bar's, from the four fixed basis names.
+  assert.match(script, /'m-' \+ k/);
+  assert.match(script, /var BASIS_ORDER = \['log', 'install', 'rule', 'guess'\]/);
 });
 
-test("the page stays small and never takes the whole panel budget of the old panels", () => {
-  const bytes = Buffer.byteLength(renderPatchDayApp(), "utf8");
-  assert.ok(bytes < 60_000, `the page is ${bytes} bytes`);
-  assert.ok(bytes > 10_000, `the page is ${bytes} bytes: suspiciously small`);
+test("the Crash Whisperer page puts a post into its box by value, so no text in it is ever parsed", () => {
+  const script = scriptOf(renderCrashWhispererApp());
+  assert.match(script, /el\('postbox'\)\.value = String\(p\.text \|\| ''\)/);
+  assert.match(script, /readonly: true/);
 });
+
+test("the Crash Whisperer page asks for the tool it belongs to, and only by that name", () => {
+  const script = scriptOf(renderCrashWhispererApp());
+  assert.match(script, /var TOOL = 'mw_crash_whisperer'/);
+  assert.equal((script.match(/callTool\(/g) ?? []).length, 1, "one place calls a tool");
+  assert.doesNotMatch(script, /callTool\(\s*['"]/, "a tool named inline");
+});
+
+test("the Crash Whisperer page offers the four places a post can go", () => {
+  const script = scriptOf(renderCrashWhispererApp());
+  assert.match(script, /\['forum', 'Forum'\], \['github', 'GitHub'\], \['discord', 'Discord'\], \['author', 'Mod author'\]/);
+});
+
+for (const [name, render] of PAGES) {
+  test(`the ${name} page keeps the host's colors when it sends them, and has its own for light and dark when it doesn't`, () => {
+    const html = render();
+    assert.match(html, /--bg:var\(--color-background-primary,var\(--fb-bg\)\)/);
+    assert.match(html, /@media \(prefers-color-scheme:dark\)/);
+    assert.match(html, /:root\[data-theme="light"\]/);
+    assert.match(html, /:root\[data-theme="dark"\]/);
+    assert.match(html, /prefers-reduced-motion:reduce/);
+    assert.match(html, /:focus-visible/);
+  });
+
+  test(`the ${name} page stays small and never takes the whole panel budget of the old panels`, () => {
+    const bytes = Buffer.byteLength(render(), "utf8");
+    assert.ok(bytes < 70_000, `the page is ${bytes} bytes`);
+    assert.ok(bytes > 10_000, `the page is ${bytes} bytes: suspiciously small`);
+  });
+}
 
 // ─── The protocol runtime, in a bare VM ──────────────────────────────────────
 
