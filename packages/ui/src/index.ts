@@ -15,6 +15,7 @@ export {
   MCP_APPS_EXTENSION_ID,
   PATCH_DAY_APP_URI,
   CRASH_WHISPERER_APP_URI,
+  DOCTOR_APP_URI,
   appToolMeta,
   appResourceMeta,
   renderApp,
@@ -22,6 +23,7 @@ export {
 export type { AppPage } from "./app.js";
 export { renderPatchDayApp } from "./patchday-app.js";
 export { renderCrashWhispererApp } from "./crashwhisperer-app.js";
+export { renderDoctorApp } from "./doctor-app.js";
 
 export {
   THEMES,
