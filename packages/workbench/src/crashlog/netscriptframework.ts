@@ -58,9 +58,14 @@ export function parseNetScriptFramework(text: string): CrashlogParseResult {
         /^(?:\(\d+\)\s+)?(0x[0-9A-Fa-f]+)\s+\(?([^)\s]+)\)?(?:\s*([+:]\s*\S+))?(?:\s+(.+))?$/
       );
       if (match) {
+        // "(SkyrimSE.exe+1AA3A3F0)": the module and its offset come as one token.
+        const joined = /^(.+?)\+([0-9A-Fa-f]+)$/.exec(match[2] ?? "");
         const frame: CallStackFrame = {
-          module: match[2] ?? "(unknown)",
+          module: joined?.[1] ?? match[2] ?? "(unknown)",
         };
+        const index = /^\((\d+)\)/.exec(stripped)?.[1];
+        if (index !== undefined) frame.index = Number.parseInt(index, 10);
+        if (joined?.[2]) frame.offset = joined[2];
         if (match[3]) frame.offset = match[3].replace(/[+:\s]/g, "");
         if (match[4]) frame.function = match[4].trim();
         callStack.push(frame);
