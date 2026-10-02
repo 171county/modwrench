@@ -41,6 +41,18 @@ Set it wherever your client puts environment variables. The payload drops from 2
 130 bytes — a 219x reduction — and every tool keeps working exactly as before. Panels are on
 by default; this is opt-out, not opt-in.
 
+**Patch Day is built the other way round.** `mw_patch_day` answers in a few lines of plain
+text that every client can show and a model can read, with the full report alongside as
+structured data. In a client that supports
+[MCP Apps](https://apps.extensions.modelcontextprotocol.io/api/documents/overview.html) it
+also points at a page — the verdict, how sure it is, which plugins need attention, a
+Re-check button and a "what if I update to…" box — which the client fetches only if it can
+draw it. A client that can't never fetches the page, so nothing extra lands in the
+conversation and there is nothing to turn off (`MODWRENCH_UI=off` switches this page off
+too). The page makes no network requests and keeps nothing; [TRUST.md](TRUST.md#the-patch-day-page)
+says what it can and can't do. It is the first panel made this way; the others work as
+described above.
+
 ---
 
 ## What it does
