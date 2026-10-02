@@ -142,6 +142,18 @@ The limits, because the awkward parts belong here:
 - **It was built from SKSE's source, public reports and constructed test folders — not yet run against a real Skyrim install.** If a result is wrong on yours, that is a bug worth reporting, and the log lines it quotes are the evidence.
 - **One game for now:** Skyrim Special Edition and Anniversary Edition. Anything else is refused with a message rather than guessed at.
 
+### The Patch Day page
+
+In an AI client that supports [MCP Apps](https://apps.extensions.modelcontextprotocol.io/api/documents/overview.html), `mw_patch_day` also offers a page: the verdict, how sure it is, which plugins need attention, what to do next, a Re-check button and a "what if I update to…" box. What it is, and what it is not:
+
+- **It is one HTML document that ModWrench serves from memory** (a `ui://` resource). A client that does not support MCP Apps never asks for it. Such a client gets the tool's plain-text answer and nothing else, so no markup lands in the conversation.
+- **It cannot send anything anywhere.** It runs in a sandboxed frame your client provides, under its own Content-Security-Policy that forbids network requests, external scripts, stylesheets, images, fonts, frames and form posts. The tests fail if the page contains a URL, a network API (`fetch`, `XMLHttpRequest`, `WebSocket`, `sendBeacon`) or browser storage.
+- **It keeps nothing.** No cookies, no local storage. Its buttons ask your client to run the same read-only tool again; Copy summary puts the text answer on your clipboard, which is the one permission the page asks its client for. Ask about this, shown only if your client supports it, sends a message into your chat with the verdict line — and only when you press it.
+- **Text from your machine is only ever text.** File names, mod folder names and log lines are other people's words; anyone can publish a mod called anything. The page writes them with `textContent` and never as markup, and a test scans the page's code for every way a string can become markup or script. The plain-text answer flattens them to one line and cuts them short, so a plugin can't name itself "Next steps: …" and pass as part of the answer. That makes a hostile name harder to use, not impossible: a name is still words a model reads.
+- **The page's messages are not network requests.** It talks to your client over `postMessage`, using JSON-RPC. The `method:` grep below matches two lines of that code in `packages/ui/src/app.ts`: they are the JSON-RPC `method` field, not an HTTP method.
+
+What has not been checked: the page was exercised in a real browser against a stand-in for an MCP Apps host, and its message handling is tested against a fake host. It has not been run inside Claude, Cursor, VS Code, ChatGPT or any other real client, and how each one frames and polices a page is theirs to decide. If a client draws it badly, the text answer is unaffected.
+
 ## What leaves your machine — read this one
 
 This is the part most tools would leave out.
@@ -266,8 +278,10 @@ A string literal is not a request. The second grep finds the requests themselves
 
 The auth files hold ten of the thirteen, which is the same point made above from the other direction: the credential-carrying requests are the ones that do not go through the overridable shared client.
 
+The `method:` grep finds the POSTs: the key and OAuth exchanges in the two auth files, the GraphQL queries (GraphQL is sent as a POST; these only read), and the endorsement, which is the one write. It also matches two lines in `ui/src/app.ts`, which are the JSON-RPC `method` field the Patch Day page uses to talk to your client (see [the page](#the-patch-day-page)) and not an HTTP method. That page's Content-Security-Policy forbids it from making a network request at all.
+
 If any of these greps turn up something this page does not account for, that is a bug in this page. [Report it](https://github.com/171county/modwrench/issues) and it gets fixed or this page gets corrected.
 
 ---
 
-*Last verified against the code on 2026-09-15; the Patch Day section and the two lines that mention it were added and checked against the code on 2026-10-02. If you find a gap between this document and the source, the source is the truth and this document is wrong.*
+*Last verified against the code on 2026-09-15; the Patch Day section, the Patch Day page and the two lines that mention it were added and checked against the code on 2026-10-02, when the greps above were re-run and gave the counts stated here (nine hosts, thirteen request sites, no filesystem writes in the workbench). If you find a gap between this document and the source, the source is the truth and this document is wrong.*
