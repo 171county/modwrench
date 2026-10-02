@@ -135,6 +135,20 @@ export function buildPatchPrompt(version?: string): PromptResult {
   );
 }
 
+/** `/mw-doctor [game]` — is my setup ready? */
+export function buildDoctorPrompt(game?: string): PromptResult {
+  const g = game?.trim();
+  const forGame = g ? ` Pass gameId ${JSON.stringify(g)}.` : "";
+  return user(
+    "Is my setup ready? Run `mw_doctor` and lead with what needs fixing, worst first: " +
+      "what's wrong, what each finding rests on (my files, a documented rule, or ModWrench's " +
+      "own guess), and the one thing I'd do about it. Then say in a line what it can't see " +
+      "from here. Don't tell me the setup is fine: a clear report only means the checks that " +
+      "can run from files passed, not that the game starts." +
+      forGame
+  );
+}
+
 // ─── Prompt catalog + registration ───────────────────────────────────────────
 
 /** Canonical prompt names, in menu order. Kept in sync with registerPrompts. */
@@ -145,6 +159,7 @@ export const PROMPT_NAMES = [
   "mw-conflicts",
   "mw-order",
   "mw-patch",
+  "mw-doctor",
 ] as const;
 
 export const PROMPT_COUNT = PROMPT_NAMES.length;
@@ -221,6 +236,20 @@ export function registerPrompts(server: McpServer): { promptCount: number } {
         ),
     },
     ({ version }) => buildPatchPrompt(version)
+  );
+
+  server.prompt(
+    "mw-doctor",
+    "Is my setup ready? The Doctors check the boring causes behind \"my mods keep breaking\": plugin masters and limits, MO2's Overwrite folder, where things live and how much room is left, and on Linux and Steam Deck the Steam, Proton and nxm:// side. Says what each finding rests on and what it can't see. Local and read-only.",
+    {
+      game: z
+        .string()
+        .optional()
+        .describe(
+          "Canonical game id (e.g. skyrimspecialedition, lethalcompany). Leave it empty to check Skyrim Special Edition, which has the most checks."
+        ),
+    },
+    ({ game }) => buildDoctorPrompt(game)
   );
 
   return { promptCount: PROMPT_COUNT };
