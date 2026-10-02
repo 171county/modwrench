@@ -182,6 +182,9 @@ const FLATPAK = (home: string): string => join(home, ".var", "app", "com.valveso
 /** The folders the tests plant that must never come back out, whatever they are named. */
 const SECRET_FOLDERS = ["SecretFolder", "PrivateFolder", "LibraryNine", "BackupDrive"];
 
+/** A Steam account number, as the name of the folder under userdata that holds the launch options. It must never come back out. */
+const STEAM_ACCOUNT = "48151623";
+
 /** Many different installs, each run: the same checks are made of every one. */
 function scenarios(): Array<[string, DoctorReport]> {
   const out: Array<[string, DoctorReport]> = [];
@@ -260,7 +263,7 @@ function scenarios(): Array<[string, DoctorReport]> {
     const w = sandbox.makeWorld();
     const { gameDir } = makeSteam(w.steam, { game: LETHAL });
     writeFileSync(join(gameDir!, "winhttp.dll"), "x");
-    putLaunchOptions(w.steam, "1001", { [LETHAL.appId]: 'PRIVATE_TOKEN=abc123 WINEDLLOVERRIDES="winhttp=n,b" %command%' });
+    putLaunchOptions(w.steam, STEAM_ACCOUNT, { [LETHAL.appId]: 'PRIVATE_TOKEN=abc123 WINEDLLOVERRIDES="winhttp=n,b" %command%' });
     out.push(["lethal company on linux", go({ platform: "linux", gameId: "lethalcompany", area: "deck" })]);
   }
 
@@ -351,11 +354,16 @@ test("every report from every kind of install holds to the same rules", () => {
 
 // ─── What is never in a report ───────────────────────────────────────────────
 
-test("no folder of the player's, no account name and no part of a Steam launch-options line is in any report or answer", () => {
+test("no folder of the player's, no account name, no Steam account number and no part of a Steam launch-options line is in any report or answer", () => {
   const here = [sandbox.root, realpathSync(sandbox.root), tmpdir(), "mw-doctor-report-"];
-  const forbidden = [...here, ...SECRET_FOLDERS, PERSON.account, PERSON.name, PERSON.machine, "abc123", "PRIVATE_TOKEN"];
+  const forbidden = [...here, ...SECRET_FOLDERS, PERSON.account, PERSON.name, PERSON.machine, "abc123", "PRIVATE_TOKEN", STEAM_ACCOUNT];
   const asSlashes = (s: string): string => s.replace(/\//g, "\\");
   for (const [name, r] of scenarios()) {
+    // The scenario that holds the Steam account's launch options really did read them (the override was found), so the
+    // account number being absent below means something and isn't just a file nobody opened.
+    if (name === "lethal company on linux") {
+      assert.equal(r.findings.find((f) => f.id === "deck.bepinex-override")?.status, "ok", "the launch options in the Steam account's folder were read");
+    }
     const everything = `${JSON.stringify(r)}\n${summarizeDoctor(r)}`;
     for (const needle of forbidden) {
       assert.ok(!everything.includes(needle), `[${name}] contains ${needle}`);
