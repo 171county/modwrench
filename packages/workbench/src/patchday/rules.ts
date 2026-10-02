@@ -374,3 +374,79 @@ export function decide(input: DecisionInput): Decision {
     reasons,
   };
 }
+
+// ─── How sure the answer is ──────────────────────────────────────────────────
+// A verdict is only as good as what it rests on, and the three things it can
+// rest on are very different in weight. SKSE's own log from a launch is a fact.
+// The files read through SKSE's published rules are a strong prediction. A
+// what-if, or a game version SKSE's rules aren't public for, is a guess built on
+// the nearest thing known. The answer says which one it is, in a sentence, so
+// nobody has to infer it from the field names.
+
+export type Evidence = "log" | "files" | "prediction";
+
+export type Confidence = {
+  /** "log": SKSE's own log from a launch after the last patch. "files": read from disk, judged by SKSE's published rules. "prediction": a what-if, or rules that aren't public. */
+  evidence: Evidence;
+  /** One plain sentence about what the verdict rests on. */
+  summary: string;
+  /** What the reasons for the flagged (broken or unclear) plugins rest on. */
+  basis: Record<RuleBasis, number>;
+};
+
+export type ConfidenceInput = {
+  whatIf: boolean;
+  /** The game version being judged, e.g. "1.7.104.0". */
+  version: string;
+  /** True when the game version is one SKSE has no published source for. */
+  beyondSource: boolean;
+  /** A skse64.log written after the game last changed, when one was read. */
+  log: { fresh: boolean; loaded: number; refusals: number; disagreements: number } | null;
+  /** The basis of each flagged plugin. */
+  flagged: RuleBasis[];
+};
+
+const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+
+export function describeConfidence(input: ConfidenceInput): Confidence {
+  const basis: Record<RuleBasis, number> = { "skse-source": 0, "field-reports": 0, inferred: 0 };
+  for (const b of input.flagged) basis[b]++;
+
+  if (input.whatIf) {
+    return {
+      evidence: "prediction",
+      summary:
+        `A what-if, not a fact: this judges the plugins you have now against ${input.version}, and nothing changes until you update. ` +
+        (input.beyondSource
+          ? "SKSE's rules for that version aren't public, so it applies the 2.2.6 rules plus what bug reports show."
+          : "It uses SKSE 2.2.6's own rules."),
+      basis,
+    };
+  }
+  if (input.log && input.log.fresh) {
+    const { loaded, refusals, disagreements } = input.log;
+    return {
+      evidence: "log",
+      summary:
+        `Backed by SKSE's own log from a launch after the last patch: ${plural(loaded, "plugin", "plugins")} loaded, ${refusals} refused` +
+        (disagreements > 0 ? `, including ${disagreements} the file check had passed` : "") +
+        ". That is the strongest evidence there is.",
+      basis,
+    };
+  }
+  if (input.beyondSource) {
+    return {
+      evidence: "prediction",
+      summary:
+        "A prediction: SKSE's rules for this game version aren't public, so this applies the 2.2.6 rules plus what bug reports show. " +
+        "SKSE's own log from a launch is the real answer.",
+      basis,
+    };
+  }
+  return {
+    evidence: "files",
+    summary:
+      "From the files only, using SKSE 2.2.6's own rules, the checks SKSE makes at launch. SKSE's log from a launch would confirm it.",
+    basis,
+  };
+}
