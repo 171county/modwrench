@@ -27,6 +27,7 @@ import {
   VI_SIGNATURES as SIG,
   VI_STRUCTS_POST_629 as S629,
 } from "../src/patchday/skse.js";
+import { summarizePatchDay } from "../src/patchday/summary.js";
 import { registerWorkbenchTools } from "../src/register.js";
 import { buildPe, skseVersionData } from "./helpers/pe-builder.js";
 
@@ -926,6 +927,72 @@ test("an executable whose version can't be read is refused rather than guessed a
   }
 });
 
+// ─── How sure it says it is ──────────────────────────────────────────────────
+// The verdict is only as good as what it rests on, so every report says which of
+// three things that is: SKSE's own log from a launch, the files read against SKSE's
+// rules, or a prediction. The wording itself is tested in patchday-rules.test.ts;
+// these check that real runs pick the right one.
+
+test("a healthy install with no log says it is working from the files, and what would settle it", () => {
+  const r = ok(checkPatchDay({ gamePath: healthy().gameDir }));
+  assert.equal(r.confidence.evidence, "files");
+  assert.match(r.confidence.summary, /^From the files only, using SKSE 2\.2\.6's own rules/);
+  assert.match(r.confidence.summary, /SKSE's log from a launch would confirm it/);
+  assert.deepEqual(r.confidence.basis, { "skse-source": 0, "field-reports": 0, inferred: 0 });
+});
+
+test("a log written after the last patch becomes the evidence, and says how many plugins it saw load", () => {
+  const w = healthy();
+  const r = ok(checkPatchDay({ gamePath: w.gameDir, logPath: logFor(w, LOADED, "fresh") }));
+  assert.equal(r.confidence.evidence, "log");
+  assert.match(r.confidence.summary, /2 plugins loaded/);
+  assert.match(r.confidence.summary, /strongest evidence/);
+});
+
+test("a log from before the last patch describes a different game and is not counted as evidence", () => {
+  const w = healthy();
+  const r = ok(checkPatchDay({ gamePath: w.gameDir, logPath: logFor(w, LOADED, "stale") }));
+  assert.equal(r.confidence.evidence, "files");
+  assert.doesNotMatch(r.confidence.summary, /strongest evidence/);
+});
+
+test("past the game version SKSE's source covers, the answer calls itself a prediction until a log says otherwise", () => {
+  const w = patched();
+  const guess = ok(checkPatchDay({ gamePath: w.gameDir }));
+  assert.equal(guess.confidence.evidence, "prediction");
+  assert.match(guess.confidence.summary, /aren't public/);
+
+  const loaded = [
+    "plugin Data\\SKSE\\Plugins\\v5.dll (00000001 V5 00000001) loaded correctly (handle 1)",
+    "plugin Data\\SKSE\\Plugins\\sig.dll (00000001 Sig 00000001) loaded correctly (handle 2)",
+  ];
+  const confirmed = ok(checkPatchDay({ gamePath: w.gameDir, logPath: logFor(w, loaded, "fresh") }));
+  assert.equal(confirmed.confidence.evidence, "log");
+  assert.match(confirmed.confidence.summary, /2 plugins loaded/);
+});
+
+test("a what-if is called a what-if, even when there is a fresh log for the installed version", () => {
+  const w = healthy();
+  const logPath = logFor(w, LOADED, "fresh");
+  const r = ok(checkPatchDay({ gamePath: w.gameDir, logPath, targetVersion: "1.6.1179" }));
+  assert.equal(r.confidence.evidence, "prediction");
+  assert.match(r.confidence.summary, /^A what-if, not a fact/);
+  assert.match(r.confidence.summary, /1\.6\.1179\.0/);
+  assert.doesNotMatch(r.confidence.summary, /strongest evidence/);
+});
+
+test("the tally of what the flagged plugins rest on matches the plugin lines", () => {
+  const w = healthy();
+  put(w.plugins, "le.dll", lePlugin());
+  put(w.plugins, "old.dll", pinnedTo(R5));
+  put(w.plugins, "legacy.dll", legacyPlugin());
+  const r = ok(checkPatchDay({ gamePath: w.gameDir }));
+  assert.ok(r.plugins.problems.length >= 3, "the world should have flagged these");
+  const tally = { "skse-source": 0, "field-reports": 0, inferred: 0 };
+  for (const line of r.plugins.problems) tally[line.basis]++;
+  assert.deepEqual(r.confidence.basis, tally);
+});
+
 // ─── The promises ────────────────────────────────────────────────────────────
 
 function snapshot(dir: string, base = dir, acc: Record<string, string> = {}): Record<string, string> {
@@ -962,42 +1029,112 @@ test("it changes nothing on disk and its answer contains no folder paths", () =>
   assert.deepEqual(snapshot(ROOT), before, "no file was created, removed, resized or touched");
 
   for (const report of [first, second]) {
-    const json = JSON.stringify(report);
-    assert.ok(!json.includes(ROOT), "no temp-folder path in the answer");
-    assert.ok(!json.includes(tmpdir()), "no temp-folder path in the answer");
-    assert.doesNotMatch(json, /[A-Za-z]:\\\\/, "no drive-letter path");
-    assert.doesNotMatch(json, /\/(?:home|Users|tmp|var|root|mnt)\//, "no absolute POSIX path");
-    assert.doesNotMatch(json, /Jane|Doe/, "nothing from inside a log line's folder path");
+    // The structured report and the plain-text answer are both something a client shows or a model reads.
+    for (const [what, text] of [["report", JSON.stringify(report)], ["text", summarizePatchDay(report)]] as const) {
+      assert.ok(!text.includes(ROOT), `no temp-folder path in the ${what}`);
+      assert.ok(!text.includes(tmpdir()), `no temp-folder path in the ${what}`);
+      assert.doesNotMatch(text, /[A-Za-z]:\\\\/, `no drive-letter path in the ${what}`);
+      assert.doesNotMatch(text, /\/(?:home|Users|tmp|var|root|mnt)\//, `no absolute POSIX path in the ${what}`);
+      assert.doesNotMatch(text, /Jane|Doe/, `nothing from inside a log line's folder path in the ${what}`);
+    }
   }
 });
 
 // ─── The MCP tool ────────────────────────────────────────────────────────────
+// The answer is a few lines of plain text that any client can show and the model
+// can read; the engine's whole report rides along as structured content.
+
+type ToolResult = {
+  content: Array<{ type: string; text: string }>;
+  structuredContent?: Record<string, unknown>;
+  isError?: boolean;
+};
 
 class MockMcpServer {
-  tools = new Map<string, { handler: (args: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> }>();
+  tools = new Map<string, { handler: (args: Record<string, unknown>) => Promise<ToolResult> }>();
   registerTool(name: string, _config: unknown, handler: never): void {
     this.tools.set(name, { handler });
   }
 }
 
-test("mw_patch_day is registered and returns the same JSON the engine does", async () => {
+function patchDayTool(): { handler: (args: Record<string, unknown>) => Promise<ToolResult> } {
   const server = new MockMcpServer();
   registerWorkbenchTools(server as unknown as never);
   const tool = server.tools.get("mw_patch_day");
   assert.ok(tool, "mw_patch_day is not registered");
+  return tool;
+}
 
+/** What a client receives on the wire: JSON, so `undefined` fields are gone. */
+const wire = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
+
+test("mw_patch_day answers in plain text and carries the engine's whole report as structured content", async () => {
   const w = healthy();
-  const viaTool = await tool.handler({ gamePath: w.gameDir });
-  assert.equal(viaTool.content.length, 1);
-  assert.equal(viaTool.content[0]!.type, "text");
-  assert.equal(viaTool.isError, undefined);
-  assert.deepEqual(JSON.parse(viaTool.content[0]!.text), JSON.parse(JSON.stringify(checkPatchDay({ gamePath: w.gameDir }))));
+  const result = await patchDayTool().handler({ gamePath: w.gameDir });
+  const engine = ok(checkPatchDay({ gamePath: w.gameDir }));
 
-  const whatIf = JSON.parse((await tool.handler({ gamePath: w.gameDir, targetVersion: "1.7.104" })).content[0]!.text);
-  assert.equal(whatIf.verdict, "wait");
-  assert.equal(whatIf.checked.source, "targetVersion");
+  assert.equal(result.isError, undefined);
+  assert.equal(result.content.length, 1);
+  assert.equal(result.content[0]!.type, "text");
+  assert.equal(result.content[0]!.text, summarizePatchDay(engine));
+  assert.match(result.content[0]!.text, /^GO — Skyrim Special Edition 1\.6\.1170\.0/);
+  assert.doesNotMatch(result.content[0]!.text, /^\s*[{[]/, "the text is an answer, not a JSON dump");
+  assert.deepEqual(wire(result.structuredContent), wire(engine));
+});
 
-  const refused = JSON.parse((await tool.handler({ gameId: "fallout4" })).content[0]!.text);
-  assert.equal(refused.ok, false);
-  assert.deepEqual(refused.supportedGames, ["skyrimspecialedition"]);
+test("mw_patch_day: a what-if says so in both the text and the report", async () => {
+  const w = healthy();
+  const result = await patchDayTool().handler({ gamePath: w.gameDir, targetVersion: "1.7.104" });
+  assert.match(result.content[0]!.text, /^WAIT — /);
+  assert.match(result.content[0]!.text, /How sure: A what-if, not a fact/);
+  const report = result.structuredContent as unknown as PatchDayReport;
+  assert.equal(report.verdict, "wait");
+  assert.equal(report.checked.source, "targetVersion");
+  assert.equal(report.confidence.evidence, "prediction");
+  assert.equal(result.isError, undefined);
+});
+
+test("mw_patch_day: a run that can't happen is flagged as an error, with the reason and the games it covers", async () => {
+  const tool = patchDayTool();
+
+  const unsupported = await tool.handler({ gameId: "fallout4" });
+  assert.equal(unsupported.isError, true);
+  assert.match(unsupported.content[0]!.text, /^Patch Day couldn't run: /);
+  assert.match(unsupported.content[0]!.text, /Games it covers: skyrimspecialedition\.$/);
+  assert.equal(unsupported.structuredContent?.ok, false);
+  assert.deepEqual(unsupported.structuredContent?.supportedGames, ["skyrimspecialedition"]);
+
+  const notAVersion = await tool.handler({ gamePath: healthy().gameDir, targetVersion: "banana" });
+  assert.equal(notAVersion.isError, true);
+  assert.match(notAVersion.content[0]!.text, /^Patch Day couldn't run: /);
+  assert.equal(notAVersion.structuredContent?.ok, false);
+});
+
+test("mw_patch_day: when SKSE's own log disagrees, the text leads with SKSE's words and shows no folder path", async () => {
+  const w = healthy();
+  const refusal =
+    "plugin C:\\Users\\Jane Doe\\Games\\Skyrim Special Edition\\Data\\SKSE\\Plugins\\good.dll (00000001 Good 00000001) disabled, incompatible with current version of the game";
+  const result = await patchDayTool().handler({ gamePath: w.gameDir, logPath: logFor(w, [...LOADED, refusal], "fresh") });
+  const text = result.content[0]!.text;
+
+  assert.match(text, /^CHECK — /);
+  assert.match(
+    text,
+    /^SKSE's own log disagrees with the file check on 1 plugin:\n- good\.dll: SKSE logged "plugin <path>\\good\.dll \(00000001 Good 00000001\) disabled, incompatible with current version of the game" but the file check passed it$/m
+  );
+  assert.ok(text.indexOf("SKSE's own log disagrees") < text.indexOf("Setup:"), "the disagreement comes before the setup details");
+  assert.doesNotMatch(text, /Jane|Doe|Users|C:/);
+});
+
+test("mw_patch_day: flagged plugins are listed worst first with their basis, and the text stays short", async () => {
+  const w = healthy();
+  put(w.plugins, "le.dll", lePlugin());
+  put(w.plugins, "legacy.dll", legacyPlugin());
+  const result = await patchDayTool().handler({ gamePath: w.gameDir });
+  const text = result.content[0]!.text;
+  assert.match(text, /^Needs attention \(\d+ of 5 plugins\), worst first:$/m);
+  assert.match(text, /^- le\.dll: BROKEN \[SKSE's source; game folder\] /m);
+  assert.match(text, /^- legacy\.dll: BROKEN \[/m);
+  assert.match(text, /^Every plugin not listed above passed\.$/m);
+  assert.ok(text.length < 2500, `the answer ran to ${text.length} characters`);
 });
