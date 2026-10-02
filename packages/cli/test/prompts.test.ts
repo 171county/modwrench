@@ -56,17 +56,74 @@ test("/mw-find interpolates the query and names the search tools", () => {
   assert.match(text, /attribution/i);
 });
 
-test("/mw-crash with a log embeds it and parses-not-guesses", () => {
-  const text = buildCrashPrompt("Unhandled exception at 0x7ff6").messages[0]?.content.text ?? "";
-  assert.match(text, /mw_parse_crashlog/);
-  assert.match(text, /0x7ff6/);
-  assert.match(text, /don't guess beyond the data/i);
+test("/mw-crash with nothing after it reads the newest log itself, and says so", () => {
+  const text = buildCrashPrompt().messages[0]?.content.text ?? "";
+  assert.match(text, /mw_crash_whisperer/);
+  assert.match(text, /with no arguments/);
+  assert.match(text, /nothing for me to paste/);
+  assert.doesNotMatch(text, /mw_parse_crashlog/, "the older parse-only tool isn't what this asks for");
+  assert.doesNotMatch(text, /logContent|---/, "no pasted text, so none is passed");
+  // The answer is plain words, ranked leads that say how sure they are, and no verdicts.
+  assert.match(text, /plain words/);
+  assert.match(text, /how sure it is and what it rests on/);
+  assert.match(text, /A lead isn't a finding/);
+  assert.match(text, /don't call anything safe/);
+  // The help post is offered, and asked for by place.
+  assert.match(text, /packet set to that place/);
+  assert.match(text, /forum, GitHub, Discord or the mod's author/);
+  // If there is no log it asks where, in a way that keeps the name out of the chat.
+  assert.match(text, /logPath/);
+  assert.match(text, /only if the file can't be reached/);
 });
 
-test("/mw-crash with no log asks where the log lives", () => {
-  const text = buildCrashPrompt().messages[0]?.content.text ?? "";
-  assert.match(text, /mw_parse_crashlog/);
-  assert.match(text, /LogOutput\.log/);
+test("/mw-crash with a file path hands the path to the tool, exactly as given, and embeds nothing", () => {
+  for (const [given, expected] of [
+    ["C:\\Users\\someone\\Documents\\My Games\\Skyrim Special Edition\\SKSE\\crash-2026-10-01-21-14-03.log", undefined],
+    ["/home/someone/Documents/My Games/Skyrim Special Edition/SKSE/crash-1.log", undefined],
+    ["~/crash.log", undefined],
+    ['"C:\\Program Files (x86)\\Steam\\steamapps\\common\\Lethal Company\\BepInEx\\LogOutput.log"', "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Lethal Company\\BepInEx\\LogOutput.log"],
+    ["'/home/someone/my crashes/crash.log'", "/home/someone/my crashes/crash.log"],
+    ["\\\\NAS\\share\\crash.log", undefined],
+    ["LogOutput.log", undefined],
+  ] as const) {
+    const text = buildCrashPrompt(`  ${given}  `).messages[0]?.content.text ?? "";
+    const path = expected ?? given;
+    assert.match(text, /mw_crash_whisperer/, given);
+    assert.match(text, /logPath set to exactly the line below/, given);
+    // On a line of its own, not escaped or quoted, so what the model passes on is the path itself.
+    assert.ok(text.includes(`:\n${path}\n\n`), `${given}: the path is on its own line, as the player's system writes it`);
+    assert.doesNotMatch(text, /logContent|---|already reached/, given);
+  }
+});
+
+test("/mw-crash with pasted text passes it as logContent and says that the paste has already reached the AI", () => {
+  const pasted = "Unhandled exception at 0x7ff6\nSystem Specs: ...\nProbable Call Stack:\n\t[ 0] 0x7ff6 SkyrimSE.exe+1";
+  for (const text_ of [pasted, "Unhandled exception at 0x7ff6"]) {
+    const text = buildCrashPrompt(text_).messages[0]?.content.text ?? "";
+    assert.match(text, /mw_crash_whisperer/);
+    assert.match(text, /log below as logContent/);
+    assert.match(text, /already reached you with my name and folders in it/);
+    assert.match(text, /`\/mw-crash` with nothing after it reads the log from disk/);
+    assert.ok(text.endsWith(`---\n${text_}`), "the pasted text comes last, whole");
+    assert.doesNotMatch(text, /logPath/);
+  }
+});
+
+test("/mw-crash never asks for the older parse-only tool, and its description says what it does and doesn't", () => {
+  for (const arg of [undefined, "C:\\x\\crash.log", "some pasted words"]) {
+    assert.doesNotMatch(buildCrashPrompt(arg).messages[0]?.content.text ?? "", /mw_parse_crashlog|mw_diagnose_crash/);
+  }
+  let description = "";
+  const server = {
+    prompt: (name: string, text: string) => {
+      if (name === "mw-crash") description = text;
+    },
+  };
+  registerPrompts(server as unknown as never);
+  assert.match(description, /^Why did my game crash\?/);
+  assert.match(description, /read-only/i);
+  assert.match(description, /A lead is not a verdict/);
+  assert.doesNotMatch(description, /culprit/i);
 });
 
 test("/mw-conflicts scopes to a game and calls the conflict checker", () => {
