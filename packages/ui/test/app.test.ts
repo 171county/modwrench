@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { Script, runInNewContext } from "node:vm";
 import {
   CRASH_WHISPERER_APP_URI,
+  DOCTOR_APP_URI,
   MCP_APP_MIME,
   MCP_APPS_EXTENSION_ID,
   PATCH_DAY_APP_URI,
@@ -10,6 +11,7 @@ import {
   appToolMeta,
   renderApp,
   renderCrashWhispererApp,
+  renderDoctorApp,
   renderPatchDayApp,
 } from "../src/index.js";
 
@@ -51,9 +53,8 @@ function scriptOf(html: string): string {
 
 test("a page is identified by the MCP Apps MIME type and a ui:// URI, and no two pages share one", () => {
   assert.equal(MCP_APP_MIME, "text/html;profile=mcp-app");
-  assert.match(PATCH_DAY_APP_URI, /^ui:\/\/modwrench\//);
-  assert.match(CRASH_WHISPERER_APP_URI, /^ui:\/\/modwrench\//);
-  assert.notEqual(PATCH_DAY_APP_URI, CRASH_WHISPERER_APP_URI);
+  for (const uri of [PATCH_DAY_APP_URI, CRASH_WHISPERER_APP_URI, DOCTOR_APP_URI]) assert.match(uri, /^ui:\/\/modwrench\//);
+  assert.equal(new Set([PATCH_DAY_APP_URI, CRASH_WHISPERER_APP_URI, DOCTOR_APP_URI]).size, 3);
 });
 
 test("the extension a client names to say it can draw pages is the one the MCP Apps spec defines", () => {
@@ -99,6 +100,7 @@ test("renderApp wraps a page in a complete document with its own policy", () => 
 const PAGES: Array<[string, () => string]> = [
   ["Patch Day", renderPatchDayApp],
   ["Crash Whisperer", renderCrashWhispererApp],
+  ["Doctor", renderDoctorApp],
 ];
 
 for (const [name, render] of PAGES) {
@@ -223,6 +225,189 @@ test("the Crash Whisperer page asks for the tool it belongs to, and only by that
   assert.match(script, /var TOOL = 'mw_crash_whisperer'/);
   assert.equal((script.match(/callTool\(/g) ?? []).length, 1, "one place calls a tool");
   assert.doesNotMatch(script, /callTool\(\s*['"]/, "a tool named inline");
+});
+
+test("the Doctor page only ever uses a value from a result as a key when it is one of a fixed table's own keys", () => {
+  const script = scriptOf(renderDoctorApp());
+  for (const table of ["VERDICTS", "STATUS", "BASIS", "AREAS", "STEAMS"]) {
+    assert.match(script, new RegExp(`var ${table} = \\{`), `${table} is not a fixed table`);
+  }
+  // A names every object inherits ("constructor", "toString") must not count as a key.
+  assert.match(script, /Object\.prototype\.hasOwnProperty\.call\(table, key\)/);
+  assert.match(script, /pick\(VERDICTS, r\.verdict, 'attention'\)/);
+  assert.match(script, /pick\(STATUS, f\.status, 'note'\)/);
+  assert.match(script, /pick\(BASIS, key, 'guess'\)/);
+  assert.match(script, /pick\(STEAMS, looked\.steam, 'none'\)/);
+  // The only data-* values built from a result are the ones picked above or fixed words.
+  const dataValues = [...script.matchAll(/'data-(?:status|basis|verdict|tone)':\s*([^,}]+)/g)].map((m) => m[1]!.trim());
+  assert.ok(dataValues.length >= 3, "the scan found almost nothing, so it proves nothing");
+  for (const value of dataValues) assert.match(value, /^(?:status|b|tone)$/, `data attribute built from ${value}`);
+});
+
+test("the Doctor page names the three verdicts and the three labels the engine uses", () => {
+  const script = scriptOf(renderDoctorApp());
+  for (const verdict of ["clear", "attention", "problems"]) assert.match(script, new RegExp(`${verdict}: '`), verdict);
+  for (const basis of ["install", "rule", "guess"]) assert.match(script, new RegExp(`${basis}: \\{ label:`), basis);
+  for (const status of ["problem", "warn", "note"]) assert.match(script, new RegExp(`${status}: '`), status);
+  const html = renderDoctorApp();
+  for (const verdict of ["clear", "attention", "problems"]) {
+    assert.match(html, new RegExp(`\\.app\\[data-verdict="${verdict}"\\]`), `no style for ${verdict}`);
+  }
+});
+
+test("the Doctor page puts a clear report as 'nothing found', not 'all clear', so it never sounds like a promise", () => {
+  const script = scriptOf(renderDoctorApp());
+  assert.match(script, /clear: 'NOTHING FOUND'/);
+  assert.doesNotMatch(renderDoctorApp(), /ALL CLEAR|all clear|SAFE\b/);
+});
+
+test("the Doctor page asks for the tool it belongs to, and only by that name", () => {
+  const script = scriptOf(renderDoctorApp());
+  assert.match(script, /var TOOL = 'mw_doctor'/);
+  assert.equal((script.match(/callTool\(/g) ?? []).length, 1, "one place calls a tool");
+  assert.doesNotMatch(script, /callTool\(\s*['"]/, "a tool named inline");
+});
+
+test("the Doctor page offers the three kinds of check, and only the tool's own words for them", () => {
+  const html = renderDoctorApp();
+  assert.match(html, /<option value="all">/);
+  assert.match(html, /<option value="setup">/);
+  assert.match(html, /<option value="deck">/);
+  const script = scriptOf(html);
+  assert.match(script, /area === 'setup' \|\| area === 'deck'/);
+});
+
+test("the Doctor page draws a stand-in result without touching markup, and shows names from other people's files as plain text", async () => {
+  // A small DOM stand-in: enough to run the page's own script, runtime included, against a report
+  // handed over the way a host hands it over, and to read back what the page drew.
+  type Fake = {
+    tag: string;
+    children: Fake[];
+    attrs: Record<string, string>;
+    textContent: string;
+    hidden: boolean;
+    value: string;
+    disabled: boolean;
+    firstChild: Fake | null;
+    offsetWidth: number;
+    style: Record<string, string>;
+    classList: { add(): void; remove(): void };
+    appendChild(n: Fake): Fake;
+    removeChild(n: Fake): Fake;
+    setAttribute(k: string, v: string): void;
+    addEventListener(): void;
+    getBoundingClientRect(): { width: number; height: number };
+    focus(): void;
+    select(): void;
+  };
+  const make = (tag: string, text = ""): Fake => {
+    const node: Fake = {
+      tag,
+      children: [],
+      attrs: {},
+      textContent: text,
+      hidden: false,
+      value: "",
+      disabled: false,
+      firstChild: null,
+      offsetWidth: 0,
+      style: {},
+      classList: { add() {}, remove() {} },
+      appendChild(n) {
+        node.children.push(n);
+        node.firstChild = node.children[0] ?? null;
+        return n;
+      },
+      removeChild(n) {
+        node.children = node.children.filter((c) => c !== n);
+        node.firstChild = node.children[0] ?? null;
+        return n;
+      },
+      setAttribute(k, v) {
+        node.attrs[k] = v;
+      },
+      addEventListener() {},
+      getBoundingClientRect: () => ({ width: 300, height: 200 }),
+      focus() {},
+      select() {},
+    };
+    return node;
+  };
+
+  const html = renderDoctorApp();
+  const byId = new Map<string, Fake>();
+  for (const m of html.matchAll(/\sid="([a-z-]+)"/g)) byId.set(m[1]!, make("x"));
+  const posted: Message[] = [];
+  const parent = { postMessage: (m: Message) => void posted.push(JSON.parse(JSON.stringify(m)) as Message) };
+  const listeners: Record<string, Listener[]> = {};
+  const sandbox: Record<string, unknown> = {
+    parent,
+    addEventListener: (type: string, fn: Listener) => void (listeners[type] ??= []).push(fn),
+    requestAnimationFrame: (fn: () => void) => {
+      fn();
+      return 1;
+    },
+    setTimeout: () => 1,
+    navigator: {},
+    document: {
+      documentElement: { setAttribute() {}, style: { setProperty() {}, colorScheme: "" } },
+      getElementById: (id: string) => byId.get(id) ?? null,
+      createElement: (tag: string) => make(tag),
+      createTextNode: (text: string) => make("#text", text),
+    },
+  };
+  sandbox.window = sandbox; // as in a browser, where the global object is the window
+  runInNewContext(scriptOf(html), sandbox);
+  assert.ok(posted.some((m) => m.method === "ui/initialize"), "the page introduced itself to the host");
+
+  const hostile = '<img src=x onerror="alert(1)"> Some Mod.esp';
+  const fromHost = (data: unknown): void => {
+    for (const fn of listeners.message ?? []) fn({ source: parent, data });
+  };
+  fromHost({
+    jsonrpc: "2.0",
+    method: "ui/notifications/tool-result",
+    params: {
+      content: [{ type: "text", text: "Doctor: x" }],
+      structuredContent: {
+        ok: true,
+        game: { id: "skyrimspecialedition", name: hostile },
+        platform: "linux",
+        steamDeck: true,
+        areas: ["setup", "deck"],
+        verdict: "constructor",
+        headline: "1 problem found. Start with the first.",
+        counts: { problem: 1, warn: 0, note: 0, ok: 0 },
+        findings: [
+          { id: "setup.masters-missing", area: "setup", status: "problem", title: hostile, detail: hostile, fix: hostile, basis: "toString", source: hostile, items: [hostile] },
+        ],
+        notChecked: [{ what: hostile, why: hostile }],
+        nextSteps: [],
+        limits: [hostile],
+        looked: { gameFolder: true, steam: "constructor", mo2: { used: false, reason: hostile } },
+      },
+    },
+  });
+  await tick();
+
+  const drawn: Fake[] = [];
+  const walk = (n: Fake): void => {
+    drawn.push(n);
+    n.children.forEach(walk);
+  };
+  for (const node of byId.values()) walk(node);
+  // Nothing was parsed as markup: every element is one the page made itself, and the hostile text is only ever text.
+  assert.ok(drawn.some((n) => n.textContent.includes("<img")), "the hostile text should appear, as text");
+  assert.ok(drawn.every((n) => !/^(img|script|iframe)$/.test(n.tag)), "no element came from the data");
+  assert.equal(byId.get("mw-root")!.attrs["data-verdict"], "attention", "an inherited name is not a verdict");
+  assert.equal(byId.get("verdict-word")!.textContent, "WORTH A LOOK");
+  assert.equal(byId.get("area-row")!.hidden, false, "on Linux there is a choice of checks");
+  const labelled = drawn.filter((n) => n.attrs["data-basis"] !== undefined);
+  assert.ok(labelled.length > 0, "the finding carries a basis label");
+  for (const n of labelled) assert.equal(n.attrs["data-basis"], "guess", "an inherited name is not a basis");
+  const rows = drawn.filter((n) => n.attrs["data-status"] !== undefined);
+  assert.ok(rows.length > 0);
+  for (const n of rows) assert.equal(n.attrs["data-status"], "problem");
 });
 
 test("the Crash Whisperer page offers the four places a post can go", () => {
