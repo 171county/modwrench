@@ -228,7 +228,7 @@ stranger sees first, and it was wrong.
   em-dash should be, on every package page. A description is baked into the
   published tarball and a published version cannot be overwritten, so a
   release was the only way to ship the fix. All six now carry the em-dash as
-  the JSON escape `\\u2014`, which no editor codepage can re-encode.
+  the JSON escape `\u2014`, which no editor codepage can re-encode.
 - **The release gate now catches it before it can happen again.**
   `check-publishable.mjs` already refused phantom dependencies and internal
   version drift; it now also refuses double-encoded text. The check runs on
