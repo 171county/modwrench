@@ -53,15 +53,15 @@ Four attachments. Install one, some, or all — `@modwrench/cli` composes whiche
 
 **Thunderstore** — browse communities, search mods, read full version history, and resolve dependency trees. No credential needed; the read API is public. *(9 tools)*
 
-**Workbench** — local, on your machine. Find your installed games, mod managers and loaders; read your load order out of MO2, r2modman or Vortex; parse a crash log from Crash Logger SSE, Buffout 4, NetScriptFramework or BepInEx; look a mod up across platforms; check known conflicts. *(6 tools)*
+**Workbench** — local, on your machine. Find your installed games, mod managers and loaders; read your load order out of MO2, r2modman or Vortex; parse a crash log from Crash Logger SSE, Buffout 4, NetScriptFramework or BepInEx; look a mod up across platforms; check known conflicts; and, before or after a game patch, check whether your SKSE plugins will survive it (Skyrim Special Edition and Anniversary Edition for now). *(7 tools)*
 
 The conflict check reads two sources: LOOT's masterlist, fetched live for Bethesda games, and a small conflict list bundled inside the package for games LOOT does not cover. **That bundled list ships empty** — all three files contain `[]` — so today it asserts nothing. It is named here because it is a channel that could carry claims about someone's mod in a future release, and `npx` pulls the latest version automatically unless you pin.
 
 Plus two meta tools for activating a platform mid-session and opening a visual panel.
 
-**49 tools. 48 of them read. One writes** — see [The one thing it writes](#the-one-thing-it-writes).
+**50 tools. 49 of them read. One writes** — see [The one thing it writes](#the-one-thing-it-writes).
 
-It also registers **five slash commands** your MCP client will offer you: `/modwrench` opens the panel, `/mw-find` searches every connected platform at once, `/mw-crash` takes a crash log, `/mw-conflicts` checks a game's load order, and `/mw-order` reads your load order. They are shortcuts that call the tools above — they add no capability the tools do not already have.
+It also registers **six slash commands** your MCP client will offer you: `/modwrench` opens the panel, `/mw-find` searches every connected platform at once, `/mw-crash` takes a crash log, `/mw-conflicts` checks a game's load order, `/mw-order` reads your load order, and `/mw-patch` asks whether a game update is safe. They are shortcuts that call the tools above — they add no capability the tools do not already have.
 
 ## How to use it
 
