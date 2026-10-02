@@ -15,7 +15,9 @@ import type { Check, Lead, SystemFacts } from "./types.js";
 //   "install"  the player's files say so, or the log and the files disagree
 //   "rule"     a documented rule or a tool's own warning applied to those facts
 //
-// Nothing here guesses. A check that can't be backed by one of those is not a check.
+// Nothing here is a ranking guess. A check that can't be backed by one of those is not a
+// check, with one exception: when the script extender's rule that refuses a plugin is itself
+// carried forward from an older game version (Patch Day's "inferred"), the check says "guess".
 
 export type CheckInput = {
   parsed: CrashlogParseResult;
