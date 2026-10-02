@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   CRASH_WHISPERER_APP_URI,
+  DOCTOR_APP_URI,
   MCP_APP_MIME,
   MCP_APPS_EXTENSION_ID,
   PATCH_DAY_APP_URI,
@@ -10,8 +11,8 @@ import { clientDrawsPages, pageAnswer, structuredMode, wantsStructured } from ".
 import { registerWorkbenchTools } from "../src/register.js";
 
 // ─── The pages and the tools that point at them ──────────────────────────────
-// mw_patch_day and mw_crash_whisperer each carry a page for clients that support
-// MCP Apps. These tests pin the rules that keep that safe to ship:
+// mw_patch_day, mw_crash_whisperer and mw_doctor each carry a page for clients that
+// support MCP Apps. These tests pin the rules that keep that safe to ship:
 //
 //   - a tool only advertises a page that was actually registered, so a client
 //     is never sent after a resource that isn't there;
@@ -101,13 +102,15 @@ const PAGES = [
     title: "Crash Whisperer",
     elsewhere: "ui://modwrench/crash-whisperer-too",
   },
+  { tool: "mw_doctor", uri: DOCTOR_APP_URI, name: "doctor_panel", title: "Doctor", elsewhere: "ui://modwrench/doctor-too" },
 ] as const;
 
 // ─── With a page ─────────────────────────────────────────────────────────────
 
-test("the two pages have their own addresses", () => {
-  assert.notEqual(PATCH_DAY_APP_URI, CRASH_WHISPERER_APP_URI);
-  for (const uri of [PATCH_DAY_APP_URI, CRASH_WHISPERER_APP_URI]) assert.match(uri, /^ui:\/\/modwrench\/[a-z-]+$/);
+test("the pages have their own addresses", () => {
+  const uris = PAGES.map((p) => p.uri);
+  assert.equal(new Set(uris).size, uris.length);
+  for (const uri of uris) assert.match(uri, /^ui:\/\/modwrench\/[a-z-]+$/);
 });
 
 test("each page is registered at its address with the MCP Apps type", () => {
@@ -164,15 +167,18 @@ test("reading a page returns one complete document with the type, the address an
   });
 });
 
-test("each page asks for its own tool and not the other's", async () => {
+test("each page asks for its own tool and not another page's", async () => {
   await withUi(undefined, async () => {
     const server = new AppsMockServer();
     register(server);
-    const patch = (await server.resources.get(PATCH_DAY_APP_URI)!.read(new URL(PATCH_DAY_APP_URI))).contents[0]!.text;
-    const crash = (await server.resources.get(CRASH_WHISPERER_APP_URI)!.read(new URL(CRASH_WHISPERER_APP_URI))).contents[0]!.text;
-    assert.ok(!patch.includes("mw_crash_whisperer"));
-    assert.ok(!crash.includes("mw_patch_day"));
-    assert.notEqual(patch, crash);
+    const text = new Map<string, string>();
+    for (const p of PAGES) text.set(p.tool, (await server.resources.get(p.uri)!.read(new URL(p.uri))).contents[0]!.text);
+    for (const p of PAGES) {
+      for (const other of PAGES) {
+        if (other.tool !== p.tool) assert.ok(!text.get(p.tool)!.includes(other.tool), `the ${p.title} page mentions ${other.tool}`);
+      }
+    }
+    assert.equal(new Set(text.values()).size, PAGES.length, "two pages are the same document");
   });
 });
 
@@ -187,15 +193,15 @@ test("a page answers with the address it was asked for", async () => {
   });
 });
 
-test("only mw_patch_day and mw_crash_whisperer point at a page, and there are eight tools", () => {
+test("only mw_patch_day, mw_crash_whisperer and mw_doctor point at a page, and there are nine tools", () => {
   withUi(undefined, () => {
     const server = new AppsMockServer();
     const { toolCount } = register(server);
-    assert.equal(toolCount, 8);
-    assert.equal(server.tools.size, 8);
+    assert.equal(toolCount, 9);
+    assert.equal(server.tools.size, 9);
     const withMeta = [...server.tools].filter(([, t]) => t.config._meta !== undefined).map(([name]) => name);
-    assert.deepEqual(withMeta.sort(), ["mw_crash_whisperer", "mw_patch_day"]);
-    assert.equal(server.resources.size, 2);
+    assert.deepEqual(withMeta.sort(), ["mw_crash_whisperer", "mw_doctor", "mw_patch_day"]);
+    assert.equal(server.resources.size, 3);
   });
 });
 
@@ -206,18 +212,18 @@ test("MODWRENCH_UI=off registers no page and the tools carry no page metadata", 
     withUi(value, () => {
       const server = new AppsMockServer();
       const { toolCount } = register(server);
-      assert.equal(toolCount, 8, value);
+      assert.equal(toolCount, 9, value);
       assert.equal(server.resources.size, 0, `a page was registered with MODWRENCH_UI=${JSON.stringify(value)}`);
       for (const p of PAGES) assert.equal(server.tools.get(p.tool)!.config._meta, undefined, `${p.tool} ${value}`);
     });
   }
 });
 
-test("a server that can't register pages still gets both tools, as text", () => {
+test("a server that can't register pages still gets every tool, as text", () => {
   withUi(undefined, () => {
     const server = new ToolsOnlyServer();
     const { toolCount } = register(server);
-    assert.equal(toolCount, 8);
+    assert.equal(toolCount, 9);
     for (const p of PAGES) {
       const tool = server.tools.get(p.tool);
       assert.ok(tool, `${p.tool} was not registered`);
@@ -230,7 +236,7 @@ test("a server that is already connected refuses the pages and the tools still r
   withUi(undefined, () => {
     const server = new ConnectedServer();
     const { toolCount } = register(server);
-    assert.equal(toolCount, 8);
+    assert.equal(toolCount, 9);
     assert.equal(server.resources.size, 0);
     for (const p of PAGES) {
       assert.ok(server.tools.has(p.tool));
@@ -239,15 +245,17 @@ test("a server that is already connected refuses the pages and the tools still r
   });
 });
 
-test("one page that can't be registered doesn't take the other down, and its tool doesn't point at it", () => {
+test("one page that can't be registered doesn't take the others down, and its tool doesn't point at it", () => {
   withUi(undefined, () => {
     const server = new OnePageServer();
     const { toolCount } = register(server);
-    assert.equal(toolCount, 8);
+    assert.equal(toolCount, 9);
     assert.deepEqual([...server.resources.keys()], [PATCH_DAY_APP_URI]);
     assert.ok(server.tools.get("mw_patch_day")!.config._meta !== undefined, "the page that registered is advertised");
-    assert.equal(server.tools.get("mw_crash_whisperer")!.config._meta, undefined, "the page that didn't isn't");
-    assert.ok(server.tools.has("mw_crash_whisperer"));
+    for (const tool of ["mw_crash_whisperer", "mw_doctor"]) {
+      assert.equal(server.tools.get(tool)!.config._meta, undefined, `${tool}: the page that didn't register isn't advertised`);
+      assert.ok(server.tools.has(tool));
+    }
   });
 });
 
