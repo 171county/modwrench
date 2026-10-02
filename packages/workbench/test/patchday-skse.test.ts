@@ -29,7 +29,7 @@ const write = (bytes: Buffer): string => {
   return path;
 };
 
-// ─── Version arithmetic ────────────────────────────────────────────────────────
+// ─── Version arithmetic ──────────────────────────────────────────────────────
 
 test("a game version packs the way SKSE packs it", () => {
   // MAKE_EXE_VERSION_EX: 8 bits major, 8 minor, 12 build, 4 revision.
