@@ -2,12 +2,14 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { log } from "@modwrench/core";
 import {
   CRASH_WHISPERER_APP_URI,
+  DOCTOR_APP_URI,
   MCP_APP_MIME,
   MCP_APPS_EXTENSION_ID,
   PATCH_DAY_APP_URI,
   appResourceMeta,
   appToolMeta,
   renderCrashWhispererApp,
+  renderDoctorApp,
   renderPatchDayApp,
 } from "@modwrench/ui";
 
@@ -87,6 +89,18 @@ export function registerCrashWhispererApp(server: McpServer): Record<string, unk
     description:
       "The page that MCP Apps clients draw for mw_crash_whisperer: what happened, which names the log points at and why, how sure it is, the setup checks, the call stack, and posts to ask for help with, ready to copy. Read-only; it makes no network requests and keeps nothing.",
     render: renderCrashWhispererApp,
+  });
+}
+
+/** The Doctor page. */
+export function registerDoctorApp(server: McpServer): Record<string, unknown> | undefined {
+  return registerPage(server, {
+    name: "doctor_panel",
+    uri: DOCTOR_APP_URI,
+    title: "Doctor page",
+    description:
+      "The page that MCP Apps clients draw for mw_doctor: where the setup stands, what needs attention and what each finding rests on, with the fix for each, and what ModWrench can't see. Read-only; it makes no network requests and keeps nothing.",
+    render: renderDoctorApp,
   });
 }
 
