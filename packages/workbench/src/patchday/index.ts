@@ -23,7 +23,9 @@ import {
 import {
   assessPlugin,
   decide,
+  describeConfidence,
   V1_7_0,
+  type Confidence,
   type PluginAssessment,
   type RuleBasis,
   type Verdict,
@@ -118,6 +120,8 @@ export type PatchDayReport = {
   verdict: Verdict;
   headline: string;
   reasons: string[];
+  /** What the verdict rests on, in a sentence, and what the flagged plugins' reasons rest on. */
+  confidence: Confidence;
   game: { id: string; name: string };
   /** The version the verdict is about. */
   checked: { version: string; source: "installed" | "targetVersion"; installed: string };
@@ -597,6 +601,15 @@ export function checkPatchDay(options: PatchDayOptions = {}): PatchDayResult {
     verdict: decision.verdict,
     headline: decision.headline,
     reasons: decision.reasons,
+    confidence: describeConfidence({
+      whatIf,
+      version: runtimeText,
+      beyondSource: runtime >= V1_7_0,
+      log: logUsable
+        ? { fresh: log.fresh, loaded: log.pluginsLoaded, refusals: log.refusals.length, disagreements: log.disagreements.length }
+        : null,
+      flagged: problems.map((p) => p.basis),
+    }),
     game: { id: game.gameId, name: game.name },
     checked: { version: runtimeText, source: whatIf ? "targetVersion" : "installed", installed: installedText },
     steam,
