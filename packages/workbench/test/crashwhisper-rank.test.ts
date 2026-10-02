@@ -248,6 +248,16 @@ test("BepInEx: an error logged under a mod's own name: +35", () => {
   assert.match(lead!.evidence[0]!.text, /recorded the error under the name "MoreCompany"/);
 });
 
+test("BepInEx: an error logged under a name that isn't a loaded plugin still scores, but the evidence doesn't say a mod reported it", () => {
+  const log = bepinex({ exception: { type: "NullReferenceException", description: "Error:SomeGameLogger: NullReferenceException: x" } });
+  const [lead] = rankLeads(log);
+  assert.equal(lead?.name, "SomeGameLogger");
+  assert.equal(lead?.score, 35);
+  assert.equal(lead?.evidence[0]?.basis, "log");
+  assert.match(lead!.evidence[0]!.text, /recorded the error under the name "SomeGameLogger"\. That isn't one of the plugins it loaded/);
+  assert.doesNotMatch(lead!.evidence[0]!.text, /the mod itself reported it/);
+});
+
 test("BepInEx: the log source 'Unity Log' and BepInEx itself are not mods", () => {
   for (const source of ["Unity Log", "BepInEx", "Console"]) {
     const log = bepinex({ exception: { type: "X", description: `Error:${source}: boom` } });
