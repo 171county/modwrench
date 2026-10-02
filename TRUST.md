@@ -154,15 +154,77 @@ In an AI client that supports [MCP Apps](https://apps.extensions.modelcontextpro
 
 What has not been checked: the page was exercised in a real browser against a stand-in for an MCP Apps host, and its message handling is tested against a fake host. It has not been run inside Claude, Cursor, VS Code, ChatGPT or any other real client, and how each one frames and polices a page is theirs to decide. If a client draws it badly, the text answer is unaffected.
 
+## Crash Whisperer: what it opens
+
+`mw_crash_whisperer` ("why did my game crash?") reads a crash log and, where it can, your install. Here is exactly what it touches.
+
+It opens, read-only:
+
+- **A crash log.** The text you pasted; or the file you pointed it at; or, when you give neither, the newest one it finds where the loggers write them: `Documents/My Games/<game>/SKSE` or `F4SE` for Crash Logger SSE and Buffout 4 (a OneDrive-moved Documents folder, and Proton's copy on Linux and Steam Deck, included), `Data/NetScriptFramework/Crash` in the game folder, and `BepInEx/LogOutput.log` in the game folder or in an r2modman profile. A log over 12 MB is read at its first 3 MB and its last 9 MB, in the same text encoding at both ends and each cut at a whole line; the part in between is never read, and the answer says how much was.
+- **Your other recent crash logs**, from those same places: up to five by default (`compareRecent`; ten at most; 0 turns it off), each read in memory to see whether the same names keep coming up. What comes out of them is a count and which names recurred.
+- **Your install, for Skyrim Special Edition** (`checkInstall`, on by default): the same reading Patch Day does. The game's executable and SKSE's DLL for their version numbers, each plugin DLL in `Data/SKSE/Plugins` (the game folder and each enabled Mod Organizer 2 mod), and the Address Library file's first bytes. That is how it can say that a plugin the log names is no longer installed, where it came from, or that SKSE's own rule refuses it on your game version.
+
+**It never runs any of it.** A DLL is read as bytes: nothing is loaded or executed. It writes nothing, makes no network request, and keeps nothing; the result lives in memory until your AI client has it. The repository's read-only scan covers it like the rest of the workbench, and a test checks that reading a log, the install and the other recent logs creates, changes and deletes nothing.
+
+**What it recognises comes out first.** Before anything else reads the log, a copy of its text is cleaned. It recognises, and replaces:
+
+- the account and computer name your operating system reports, and the values on labelled lines such as `Computer Name:` and `User Name:`, whatever the capitalisation and in their joined, abbreviated and composed forms (`jane-doe`, `JaneDoe`, `J.Doe`, an accented letter written either way, a Windows short name like `JANEDO~1`, `DOMAIN\jane`);
+- folder paths, in the forms logs use: Windows drive and share paths, `file:` addresses, `\\?\` and `\Device\` paths, Linux, Steam Deck, Proton, WSL, Cygwin and macOS home folders, `~`, `$HOME` and `%USERPROFILE%`, and paths with their separators percent-encoded. The folders go and the file name stays;
+- network addresses: IPv4 and IPv6 in the ordinary spellings, hardware addresses, and the names a private network or a dynamic-DNS service gives a machine;
+- email addresses;
+- keys, tokens and passwords: the shapes the common services use (GitHub, Discord and Slack webhooks, Google, AWS, npm and so on), the value after a label that says what it is (`STEAM_TOKEN`, `db_password`, `NexusApiKey`), in headers, cookies, web addresses, command lines, config files and markup, and whole private-key blocks;
+- account IDs.
+
+Characters that print nothing are dropped, so one can't be slipped inside a word to hide it. Each recognised thing becomes a plain label (`REDACTED-USER`, `REDACTED-PATH` and so on), and the answer says how many of each, never what they were. If cleaning runs past 20 seconds, the lines it hadn't reached are dropped, never passed along unchecked, and the answer says so. The ranking, the checks, the text answer and the help posts are all built from the cleaned copy, and each help post is checked again at the end.
+
+How that has been checked: a test plants a made-up person's name, computer, folders, addresses and keys into logs of all four formats and fails if any of it turns up in anything the tool returns; more tests send the same plants down every route data can take through an answer, and run several hundred other spellings through the cleaning rules; and the cleaning and the log reading were checked by breaking their rules on purpose and confirming a test fails. **It is pattern matching, not a guarantee.** A different person trying hard will find a form it misses.
+
+What that does not cover, because the awkward parts belong here. Where a test can pin an item, one does: it fails if the thing starts being covered, so this list can't go stale quietly.
+
+- **A name it can't know is yours.** It removes your account and computer name and anything shaped like a path, address, email or key. It cannot know that a mod called "Jane's Followers" is personal, or that a plugin's name says something about you. Names are kept as written, because a helper needs them. The help posts are shown whole so you can read them before you post.
+- **Parts of your name.** When your account name has several words, the whole name and its joined forms go, but a first or last name on its own is removed only inside a path or on a labelled line. A name under three characters is removed only with its path, and so is an account named for a common word (`Admin`, `Steam`, `Games`), because replacing those everywhere would damage the log. A name inside a longer word (a file called `JaneArmor.esp`) is left alone and counted, and the answer says so, so you can look.
+- **Secrets it can't tell are secrets.** A key with no label and no shape ModWrench knows is caught only if it is long and mixed-case (about 80 characters or more). The labels `pass`, `key`, `pin`, `cred`, `otp`, `sig`, `signature`, `licence`, `sas` and a bare `webhook` are not treated as saying "secret", because they are also ordinary words in logs. A password with spaces in it and no quotes loses only its first word (a quoted one goes whole), a secret on the line after its label stays, and so does the value after a one-letter flag such as `-p`. The real formats of Nexus Mods and Thunderstore keys have not been confirmed, so those are caught by their label or by being long, not by how they look.
+- **Paths it doesn't recognise.** A Linux or macOS path written directly against a letter, digit, underscore, dot, tilde, dollar sign or hyphen (`foo/home/jane/mods/x.dll`) isn't read as a path: your account name inside it is still removed, but the other folders in it stay. Relative paths (`../Mods/x.dll`), drive-relative ones (`D:Mods\x.dll`) and a path a log wrapped across two lines are left as they are.
+- **Addresses in other spellings.** An address written as one decimal, hexadecimal or octal number, a hardware address with no separators, a phone number, and the public name of a server a mod connected to (`play.example-game.com`) are kept.
+- **Long lines and big files.** A line over 6,000 characters is cut before it is checked (the cut is counted and said). A log over 12 MB is read at its start and its end only.
+- **The log file itself.** Nothing is done to the file: it stays on your disk exactly as the game wrote it, with everything in it. To share a crash, post a help post; don't attach the file.
+- **Hardware.** The help posts and the structured report include the hardware lines the log's own system specs carry (operating system, processor, graphics card, memory), because the first thing a helper asks for is those. The crash time is in them too. That is information about your machine, in a post you choose to make.
+
+**What goes back to your AI client.** A short plain-text answer: what happened, the names the log points at with their reasons, setup checks, next steps, what it can't tell you, and, when you ask for one, a help post. Not the log itself, and no folder path (a test fails if one appears). The structured report behind the page goes only to a client that says it can draw pages, or when you set `MODWRENCH_STRUCTURED=always`. Both are built from the cleaned copy.
+
+**A log you paste into the chat has already gone.** Whatever you type into your AI client reaches its provider before ModWrench can touch it, so the cleaning can't help with that copy. Leave the log out and let `mw_crash_whisperer` (or `/mw-crash` with nothing after it) read the file: then what ModWrench recognises is gone before the AI sees anything. The slash command says this when you paste. A file path you type after `/mw-crash` reaches the AI as you typed it, as does anything you say in the chat.
+
+**What each statement rests on.** Every statement in the answer is labelled `log` (the log itself says it), `install` (your files say it), `rule` (a published rule, such as SKSE's own compatibility check) or `guess` (ModWrench's own inference, a name match for example), and the answer counts how many rest on each. Names the log points at are **leads**, scored strong, possible or faint by ModWrench's own rules. A lead is not a finding. A test holds the answer to never calling anything safe, guilty or certain.
+
+The limits:
+
+- **It was built from the crash loggers' published source, format samples and constructed test folders. It has not yet been run against a real Skyrim, Fallout 4 or Unity crash log, or a real install.** If a result is wrong on yours, that is a bug worth reporting, and the log lines it quotes are the evidence.
+- **Where NetScriptFramework and Buffout 4 write their logs has been checked only in part**, so both likely places are read. A log kept somewhere else needs `logPath`.
+- **On Skyrim 1.7.x SKSE's own rules aren't public**, so the install check there is a prediction, as in [Patch Day](#patch-day-what-it-opens).
+- **The setup checks cover Skyrim Special Edition and BepInEx load problems.** For other games the log is read and nothing is checked against your files. It does not yet check for missing masters, a second crash logger running beside the first, a crash logger too old for your game, or a list of known conflicts.
+- **A crash log names what was running when the game stopped, not always what caused it.** A lead can be wrong, and will be.
+
+### The Crash Whisperer page
+
+`mw_crash_whisperer` offers a page in clients that support MCP Apps, built the same way as [the Patch Day page](#the-patch-day-page) and held to the same tests: one HTML document served from memory that a client fetches only if it can draw it; a Content-Security-Policy that forbids every network request; no storage; every name from your machine written as text and never as markup. What it adds:
+
+- **Copy** buttons put a help post on your clipboard, the one permission the page asks its client for. The page cannot post anywhere.
+- **A box to paste a log into.** What you paste goes to ModWrench through your client, and ModWrench takes out what it recognises before reading it. Whether your client also shows a tool call to its model is up to the client.
+- **Two check boxes**: compare with your other recent crashes or not, and leave your plugin lists out of the help posts or not. They ask your client to run the same read-only tool again.
+- **Ask about this**, shown only if your client supports it, sends a message into your chat made of the answer's headline and a fixed sentence, and only when you press it.
+
+It has been exercised in a real browser against a stand-in for an MCP Apps host. It has not been run inside Claude, Cursor, VS Code, ChatGPT or any other real client.
+
 ## What leaves your machine — read this one
 
 This is the part most tools would leave out.
 
 ModWrench hands its results to the AI client you connected it to. If that client runs a hosted model, **the results go to that provider.** That is how every MCP server works, but it matters more here because of what these particular tools read:
 
-- **Crash logs come back close to verbatim.** For Crash Logger SSE and Buffout 4, every named section is passed through as raw text so the model can actually read it. `mw_diagnose_crash` returns the whole parsed log plus the correlation.
+- **`mw_parse_crashlog` and `mw_diagnose_crash` return crash logs close to verbatim.** For Crash Logger SSE and Buffout 4, every named section is passed through as raw text so the model can actually read it. `mw_diagnose_crash` returns the whole parsed log plus the correlation. `mw_crash_whisperer` is the one that cleans first: see [Crash Whisperer](#crash-whisperer-what-it-opens).
 - **Paths with your username in them do go out.** `mw_detect_environment` returns your mod manager's data folder, Steam root, game install paths, and Proton prefix. `mw_read_load_order` returns the profile folder it read. On Windows those live under `C:\Users\<you>\`; on Linux and Steam Deck under `/home/<you>/`.
 - Crash logs may carry paths of their own, depending on which crash logger and which mods produced them. That part is up to the log, not to ModWrench.
+- **`mw_crash_whisperer` takes out what it recognises of your name, computer name, folders, addresses and keys from the log before it reads it**, and returns a short answer rather than the log. It names the plugins the log points at, and the help posts it writes list your plugins unless you ask it not to. A log you paste into the chat yourself has already gone. See [Crash Whisperer](#crash-whisperer-what-it-opens).
 - **`mw_patch_day` names your plugins** — every SKSE plugin's file name, the Mod Organizer 2 mod folder it came from, and the name it declares for itself — but returns no folder paths. See [Patch Day](#patch-day-what-it-opens).
 
 ModWrench keeps none of it — nothing written, nothing cached, nothing uploaded. But it cannot control what your AI client does with a tool result, and it cannot un-send it. If that matters to you, use a local model, or don't point the crash tools at anything you would not paste into a chat window.
@@ -179,11 +241,13 @@ If you make mods, ModWrench touches your work. So, plainly:
 
 One thing it does that you should know about, because it is the part you might object to: **`mw_diagnose_crash` can name a specific mod as the likely cause of a crash.** That is an automated tool making a negative statement about your work, to a user, without you in the room.
 
-We think the honest mitigations are: it is a heuristic and says so, it reports what it correlated rather than pronouncing a verdict, the user is told to verify, and — when the user explicitly opts in — it can link the named mod back to its author's Nexus page so the user can reach them. If you think that is not enough, [open an issue](https://github.com/171county/modwrench/issues) — that objection is legitimate and we would rather hear it from you than about you.
+**`mw_crash_whisperer` does the same, with more care about how it says it.** It ranks the mod names a crash log points at and says why, so it too can put your mod's name in front of a user as a lead. It calls that a lead, never a verdict or a culprit; it labels every reason as coming from the log, the player's files, a published rule or its own guess, and says plainly that a lead can be wrong; and the post it writes for a mod's author gives you the facts a bug report needs (the game version, what the log shows, where the stack enters your code, the call stack, and why your mod was named) with the player's name and folders taken out where ModWrench recognises them, so you aren't normally handed someone's home folder along with their problem. If you think the wording still does your work a disservice, tell us.
+
+We think the honest mitigations for `mw_diagnose_crash` are: it is a heuristic and says so, it reports what it correlated rather than pronouncing a verdict, the user is told to verify, and — when the user explicitly opts in — it can link the named mod back to its author's Nexus page so the user can reach them. If you think that is not enough, [open an issue](https://github.com/171county/modwrench/issues) — that objection is legitimate and we would rather hear it from you than about you.
 
 ## What ModWrench is bad at
 
-- **Crash diagnosis is a heuristic, not an authority.** It correlates a parsed crash log against your installed mods and known conflicts. It can be confidently wrong, and it will be.
+- **Crash diagnosis is a heuristic, not an authority.** It correlates a parsed crash log against your installed mods and known conflicts. It can be confidently wrong, and it will be. Crash Whisperer's ranking is ModWrench's own scoring of what a log shows, not a measurement; treat the top lead as the first thing to check, and the labels on its reasons as the guide to how far to trust it.
 - **Coverage is a fixed list.** Local diagnostics know 15 games — 9 Bethesda Creation Engine titles (Skyrim SE/LE/VR, Fallout 4, Fallout 4 VR, Fallout: New Vegas, Fallout 3, Starfield, Oblivion) and 6 Unity/BepInEx titles (Lethal Company, Valheim, R.E.P.O., Risk of Rain 2, Dyson Sphere Program, BONEWORKS). Your game may not be there.
 - **Four crash log formats:** Crash Logger SSE, Buffout 4, NetScriptFramework, BepInEx. An unrecognized format returns a clear error, not a guess.
 - **Three mod managers:** MO2 and r2modman properly; Vortex only well enough to notice it exists.
@@ -278,10 +342,10 @@ A string literal is not a request. The second grep finds the requests themselves
 
 The auth files hold ten of the thirteen, which is the same point made above from the other direction: the credential-carrying requests are the ones that do not go through the overridable shared client.
 
-The `method:` grep finds the POSTs: the key and OAuth exchanges in the two auth files, the GraphQL queries (GraphQL is sent as a POST; these only read), and the endorsement, which is the one write. It also matches two lines in `ui/src/app.ts`, which are the JSON-RPC `method` field the Patch Day page uses to talk to your client (see [the page](#the-patch-day-page)) and not an HTTP method. That page's Content-Security-Policy forbids it from making a network request at all.
+The `method:` grep finds the POSTs: the key and OAuth exchanges in the two auth files, the GraphQL queries (GraphQL is sent as a POST; these only read), and the endorsement, which is the one write. It also matches two lines in `ui/src/app.ts`, which are the JSON-RPC `method` field the Patch Day and Crash Whisperer pages use to talk to your client (see [the Patch Day page](#the-patch-day-page) and [the Crash Whisperer page](#the-crash-whisperer-page)) and not an HTTP method. Those pages' Content-Security-Policy forbids them from making a network request at all.
 
 If any of these greps turn up something this page does not account for, that is a bug in this page. [Report it](https://github.com/171county/modwrench/issues) and it gets fixed or this page gets corrected.
 
 ---
 
-*Last verified against the code on 2026-09-15; the Patch Day section, the Patch Day page and the two lines that mention it were added and checked against the code on 2026-10-02, when the greps above were re-run and gave the counts stated here (nine hosts, thirteen request sites, no filesystem writes in the workbench). If you find a gap between this document and the source, the source is the truth and this document is wrong.*
+*Last verified against the code on 2026-09-15; the Patch Day and Crash Whisperer sections, their pages and the lines that mention them were added and checked against the code on 2026-10-02, when the greps above were re-run and gave the counts stated here (nine hosts, thirteen request sites, no filesystem writes in the workbench). If you find a gap between this document and the source, the source is the truth and this document is wrong.*
