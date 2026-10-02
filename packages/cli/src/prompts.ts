@@ -74,11 +74,11 @@ export function buildConflictsPrompt(game?: string): PromptResult {
   const g = game?.trim();
   const forGame = g ? ` for ${g}` : "";
   const detect = g
-    ? `run \\`mw_read_load_order\\` for ${g} (and \\`mw_detect_environment\\` first if you need the manager)`
+    ? `run \`mw_read_load_order\` for ${g} (and \`mw_detect_environment\` first if you need the manager)`
     : "run `mw_detect_environment` to find the game and manager, then `mw_read_load_order`";
   return user(
     `Check my mods for known conflicts${forGame}. If you don't have my plugin/mod ` +
-      `list yet, ${detect}, then pass that list into \\`mw_check_known_conflicts\\` and ` +
+      `list yet, ${detect}, then pass that list into \`mw_check_known_conflicts\` and ` +
       "show the conflicts view. Flag what's on the list — don't imply the game will " +
       "or won't run. It's Bethesda; nothing's a promise."
   );
