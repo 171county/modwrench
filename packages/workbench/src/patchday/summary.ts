@@ -18,24 +18,21 @@ const NAMES_ONLY = 120;
 const NAME_MAX = 80;
 const MAX_DISAGREEMENTS = 10;
 
-/** Control characters, line breaks and the invisible direction/spacing marks that can make a name read as something it isn't. */
-function isInvisible(code: number): boolean {
-  return (
-    code < 32 ||
-    (code >= 127 && code <= 159) ||
-    (code >= 0x200b && code <= 0x200f) ||
-    code === 0x2028 ||
-    code === 0x2029 ||
-    (code >= 0x202a && code <= 0x202e) ||
-    (code >= 0x2066 && code <= 0x2069) ||
-    code === 0xfeff
-  );
+const INVISIBLE_CHAR = /^[\p{Cc}\p{Cf}\u034F\u115F\u1160\u3164\uFFA0\uFE00-\uFE0F\u{E0100}-\u{E01EF}\u2028\u2029]$/u;
+
+/**
+ * Control characters, line breaks and the marks nobody sees: zero-width and direction marks, soft hyphens, fillers,
+ * variation selectors and the "tag" characters (U+E0000 to U+E007F), which can spell out a message that is
+ * invisible on screen and still read by a model. Any of them can make a name read as something it isn't.
+ */
+function isInvisible(ch: string): boolean {
+  return INVISIBLE_CHAR.test(ch);
 }
 
 /** One line, no invisible characters, at most `max` characters. */
 export function clean(value: string, max = NAME_MAX): string {
   let flat = "";
-  for (const ch of value) flat += isInvisible(ch.codePointAt(0) ?? 0) ? " " : ch;
+  for (const ch of value) flat += isInvisible(ch) ? " " : ch;
   flat = flat.replace(/ {2,}/g, " ").trim();
   const chars = Array.from(flat);
   return chars.length > max ? chars.slice(0, max - 1).join("") + "…" : flat;
