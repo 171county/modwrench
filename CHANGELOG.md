@@ -44,6 +44,30 @@ This document is currently maintained by hand. When [release-please](https://git
   against a real SKSE install or a real game executable — see the limits in
   TRUST.md.
 
+  **The answer is plain text first.** A few lines any client can show and a
+  model can read: the verdict, how sure it is, which plugins need attention
+  (worst first, each with what its reason rests on) and what to do next. The
+  full report rides along as structured content, including a `confidence` field
+  that says whether the verdict rests on SKSE's own log from a launch, on the
+  files read against SKSE's rules, or on a prediction (a what-if, or a game
+  version past what SKSE's source covers). When SKSE's own log refused a plugin
+  the file check had passed, that leads the answer. A run that can't happen — an
+  unsupported game, a version that isn't one — comes back flagged as an error,
+  with the reason and the games it covers. File and mod folder names are
+  flattened to one line and cut short in the text, so a plugin can't name itself
+  "Next steps: …" and pass as part of the answer.
+
+  **A page for clients that support
+  [MCP Apps](https://apps.extensions.modelcontextprotocol.io/api/documents/overview.html):**
+  the verdict, how sure it is, the plugins that need attention, a Re-check button
+  and a "what if I update to…" box. The client fetches the page only if it can
+  draw it, so a client that can't gets the text and nothing else — no markup in
+  the conversation. The page makes no network requests and keeps nothing, and
+  everything from your machine goes onto it as text, never as markup; see
+  [TRUST.md](TRUST.md#the-patch-day-page). `MODWRENCH_UI=off` switches it off.
+  It was exercised in a real browser against a stand-in for an MCP Apps host and
+  has not yet been run inside a real client.
+
 ### Changed
 - The Workbench now has 7 tools (50 in total), and there are 6 slash commands.
   `/modwrench` mentions the update check.
@@ -380,7 +404,7 @@ immediately. If you installed `@modwrench/*@0.1.0`, upgrade to 0.1.1.
 ### Changed
 
 - **Public docs narrowed to ModWrench scope** so README and ROADMAP focus on the current product, shipped packages, and planned ModWrench toolchains.
-- **Workspace order** in root `package.json` made explicit (not glob-based) so each workspace's dependencies build before their dependents.
+- **Workspace order** in root `package.json` made explicit (not glob-based) so each workspace's dependents build before their dependents.
 - **README** repositioned to surface workbench diagnostics alongside platform tools; v2 marked shipped; stdio npm install documented for local clients; ChatGPT support clarified as the remote public-tool MVP.
 - **CONTRIBUTING.md** false claim about `core` having rate-limit-aware helpers corrected; `CONTRIBUTORS.md` auto-generation softened to "git shortlog as source of truth for now."
 - **Auth hint messages** unified to the meta-CLI form (`modwrench auth login <platform>`) across every user-facing string.
