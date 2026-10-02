@@ -12,20 +12,22 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { gunzipSync } from "node:zlib";
 
 export const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), "..", "fixtures", "patchday");
 
 // Two binaries a real toolchain (clang + lld-link) produced; see
-// fixtures/patchday/README.md. The repository stores them as base64 text, so it
-// holds no executable files, and they are written out here to a private temp
-// folder (removed when the test process exits) because the code under test
-// reads files from disk.
+// fixtures/patchday/README.md. The repository stores them as gzipped base64
+// text, so it holds no executable files, and they are written out here to a
+// private temp folder (removed when the test process exits) because the code
+// under test reads files from disk.
 const scratch = mkdtempSync(join(tmpdir(), "mw-patchday-fixtures-"));
 process.on("exit", () => rmSync(scratch, { recursive: true, force: true }));
 
 function materialise(name: string): string {
   const path = join(scratch, name);
-  writeFileSync(path, Buffer.from(readFileSync(join(FIXTURES, `${name}.b64`), "utf8"), "base64"));
+  const packed = Buffer.from(readFileSync(join(FIXTURES, `${name}.gz.b64`), "utf8"), "base64");
+  writeFileSync(path, gunzipSync(packed));
   return path;
 }
 
@@ -206,7 +208,7 @@ export function buildPe(spec: PeSpec = {}): Buffer {
   const file = Buffer.alloc(headersSize + sections.reduce((n, s) => n + s.data.length, 0));
   file.write("MZ", 0, "latin1");
   file.writeUInt32LE(0x80, 0x3c);
-  file.write("PE\\0\\0", 0x80, "latin1");
+  file.write("PE\0\0", 0x80, "latin1");
   const coff = 0x84;
   file.writeUInt16LE(is64 ? 0x8664 : 0x14c, coff);
   file.writeUInt16LE(sectionCount, coff + 2);
@@ -261,7 +263,7 @@ export function sectionOf(file: Buffer, name: string): Section {
   const optionalSize = file.readUInt16LE(0x84 + 16);
   for (let i = 0; i < count; i++) {
     const header = 0x84 + 20 + optionalSize + i * 40;
-    if (file.toString("latin1", header, header + 8).replace(/\\0+$/, "") === name) {
+    if (file.toString("latin1", header, header + 8).replace(/\0+$/, "") === name) {
       return {
         header,
         virtualAddress: file.readUInt32LE(header + 12),
