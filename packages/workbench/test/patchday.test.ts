@@ -29,6 +29,7 @@ import {
 } from "../src/patchday/skse.js";
 import { summarizePatchDay } from "../src/patchday/summary.js";
 import { registerWorkbenchTools } from "../src/register.js";
+import { MCP_APP_MIME, MCP_APPS_EXTENSION_ID } from "@modwrench/ui";
 import { buildPe, skseVersionData } from "./helpers/pe-builder.js";
 
 // ─── What these tests are ────────────────────────────────────────────────────
@@ -1042,7 +1043,10 @@ test("it changes nothing on disk and its answer contains no folder paths", () =>
 
 // ─── The MCP tool ────────────────────────────────────────────────────────────
 // The answer is a few lines of plain text that any client can show and the model
-// can read; the engine's whole report rides along as structured content.
+// can read. The engine's whole report rides along as structured content for
+// clients that say they can draw pages (or when MODWRENCH_STRUCTURED asks for it):
+// some clients show the model the structured data instead of the text, so sending
+// it to everyone would turn the short answer into the long one.
 
 type ToolResult = {
   content: Array<{ type: string; text: string }>;
@@ -1052,23 +1056,43 @@ type ToolResult = {
 
 class MockMcpServer {
   tools = new Map<string, { handler: (args: Record<string, unknown>) => Promise<ToolResult> }>();
+  /** What the connected client said it can do when it connected. */
+  constructor(private readonly clientCapabilities?: unknown) {}
+  get server(): { getClientCapabilities: () => unknown } {
+    return { getClientCapabilities: () => this.clientCapabilities };
+  }
   registerTool(name: string, _config: unknown, handler: never): void {
     this.tools.set(name, { handler });
   }
 }
 
-function patchDayTool(): { handler: (args: Record<string, unknown>) => Promise<ToolResult> } {
-  const server = new MockMcpServer();
+/** A client that says it can draw MCP Apps pages. Pass null to a helper for a client that said nothing. */
+const DRAWS_PAGES = { extensions: { [MCP_APPS_EXTENSION_ID]: { mimeTypes: [MCP_APP_MIME] } } };
+
+function patchDayTool(capabilities: unknown = DRAWS_PAGES): { handler: (args: Record<string, unknown>) => Promise<ToolResult> } {
+  const server = new MockMcpServer(capabilities);
   registerWorkbenchTools(server as unknown as never);
   const tool = server.tools.get("mw_patch_day");
   assert.ok(tool, "mw_patch_day is not registered");
   return tool;
 }
 
+function withStructured<T>(value: string | undefined, fn: () => T): T {
+  const prev = process.env.MODWRENCH_STRUCTURED;
+  if (value === undefined) delete process.env.MODWRENCH_STRUCTURED;
+  else process.env.MODWRENCH_STRUCTURED = value;
+  try {
+    return fn();
+  } finally {
+    if (prev === undefined) delete process.env.MODWRENCH_STRUCTURED;
+    else process.env.MODWRENCH_STRUCTURED = prev;
+  }
+}
+
 /** What a client receives on the wire: JSON, so `undefined` fields are gone. */
 const wire = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
 
-test("mw_patch_day answers in plain text and carries the engine's whole report as structured content", async () => {
+test("mw_patch_day answers in plain text and, for a client that draws pages, carries the engine's whole report as structured content", async () => {
   const w = healthy();
   const result = await patchDayTool().handler({ gamePath: w.gameDir });
   const engine = ok(checkPatchDay({ gamePath: w.gameDir }));
@@ -1080,6 +1104,45 @@ test("mw_patch_day answers in plain text and carries the engine's whole report a
   assert.match(result.content[0]!.text, /^GO — Skyrim Special Edition 1\.6\.1170\.0/);
   assert.doesNotMatch(result.content[0]!.text, /^\s*[{[]/, "the text is an answer, not a JSON dump");
   assert.deepEqual(wire(result.structuredContent), wire(engine));
+});
+
+test("mw_patch_day: a client that can't draw pages gets the plain text and nothing else", async () => {
+  const w = healthy();
+  const engine = ok(checkPatchDay({ gamePath: w.gameDir }));
+  // Clients that said nothing about pages, said something else, or aren't known at all.
+  for (const [what, capabilities] of [
+    ["no capabilities", null],
+    ["other capabilities", { roots: {}, sampling: {} }],
+    ["no extensions", { extensions: {} }],
+    ["another extension", { extensions: { "io.example/other": { mimeTypes: [MCP_APP_MIME] } } }],
+  ] as const) {
+    const result = await withStructured(undefined, () => patchDayTool(capabilities).handler({ gamePath: w.gameDir }));
+    assert.equal(result.content[0]!.text, summarizePatchDay(engine), what);
+    assert.equal(result.content.length, 1, what);
+    assert.ok(!("structuredContent" in result), `${what}: structured content was sent to a client that didn't ask for pages`);
+  }
+});
+
+test("mw_patch_day: a failed run is flagged as an error for every client, with or without the report", async () => {
+  for (const capabilities of [DRAWS_PAGES, null]) {
+    const result = await withStructured(undefined, () => patchDayTool(capabilities).handler({ gameId: "fallout4" }));
+    assert.equal(result.isError, true);
+    assert.match(result.content[0]!.text, /^Patch Day couldn't run: /);
+    assert.equal("structuredContent" in result, capabilities !== null);
+  }
+});
+
+test("MODWRENCH_STRUCTURED=always sends the report to a client that can't draw pages; =never withholds it from one that can", async () => {
+  const w = healthy();
+  const engine = ok(checkPatchDay({ gamePath: w.gameDir }));
+
+  const forced = await withStructured("always", () => patchDayTool(null).handler({ gamePath: w.gameDir }));
+  assert.deepEqual(wire(forced.structuredContent), wire(engine));
+  assert.equal(forced.content[0]!.text, summarizePatchDay(engine), "the text is still there");
+
+  const withheld = await withStructured("never", () => patchDayTool(DRAWS_PAGES).handler({ gamePath: w.gameDir }));
+  assert.ok(!("structuredContent" in withheld));
+  assert.equal(withheld.content[0]!.text, summarizePatchDay(engine));
 });
 
 test("mw_patch_day: a what-if says so in both the text and the report", async () => {
