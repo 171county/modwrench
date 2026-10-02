@@ -35,6 +35,9 @@ export const PATCH_DAY_APP_URI = "ui://modwrench/patch-day";
 /** The page that shows a Crash Whisperer result. */
 export const CRASH_WHISPERER_APP_URI = "ui://modwrench/crash-whisperer";
 
+/** The page that shows a Doctor result. */
+export const DOCTOR_APP_URI = "ui://modwrench/doctor";
+
 /**
  * The `_meta` a tool carries to say "draw this page for my result".
  *
