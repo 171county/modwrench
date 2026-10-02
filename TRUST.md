@@ -215,6 +215,66 @@ The limits:
 
 It has been exercised in a real browser against a stand-in for an MCP Apps host. It has not been run inside Claude, Cursor, VS Code, ChatGPT or any other real client.
 
+## The Doctors: what they open
+
+`mw_doctor` ("is my setup ready?") is a health check for the boring causes behind many "my mods keep breaking" threads. It has two halves: the **Setup Doctor** (where the game and Mod Organizer 2 live, the plugin list, MO2's Overwrite folder, crash loggers) and the **Deck Doctor** (Steam, Proton and `nxm://` links on Linux and the Steam Deck). It reads more of your install than most local tools, so here is exactly what it touches.
+
+It opens, read-only:
+
+*Both halves*
+
+- **Steam's own files, to find the game:** the Steam folder (on Linux `~/.local/share/Steam`, `~/.steam/steam` and the Flatpak build's folder under `~/.var/app/com.valvesoftware.Steam`, or `STEAM_ROOT` when you set it; on Windows and macOS the usual one), its library list (`libraryfolders.vdf`) and the game's `appmanifest_<appid>.acf`. Or the folder you pass as `gamePath`.
+
+*The Setup Doctor*
+
+- **The names in the game's `Data` folder** and at the top of each enabled Mod Organizer 2 mod's folder, to find plugin files (`.esp`, `.esm`, `.esl`), the names of the DLLs in `SKSE/Plugins`, and whether `DLLPlugins/NetScriptFramework.Runtime.dll` is there. The DLLs themselves are not opened.
+- **The front of each plugin the game would load:** the first 4,096 bytes of the file, or a little more when its header says it is longer (never past about 1 MB), to read three things from the plugin's header: whether it is flagged as a master, whether it is flagged light, and the list of masters it names. The rest of the file is never read.
+- **The plugin lists:** the game's own `plugins.txt` (under `%LOCALAPPDATA%` on Windows, in the game's Proton prefix on Linux), `Skyrim.ccc` in the game folder, which names the Creation Club plugins, and, for Mod Organizer 2, the profile's `plugins.txt` and `modlist.txt`.
+- **Mod Organizer 2's settings:** `ModOrganizer.ini` in each instance MO2 keeps (on Linux, inside its Wine prefix), to find the one for this game and where it keeps its mods and Overwrite folders; or the instance you pass as `mo2InstancePath`. Without Mod Organizer 2, none of this is read.
+- **The Overwrite folder:** every folder and file name in it and each file's size, down 16 levels and to 20,000 entries at most. No file in it is opened.
+- **The game's executable,** read as bytes the way Patch Day does, for its version number.
+- **Room and place:** how much space is free on the drive that holds the game and the one that holds MO2's mods, and which drive each is on. On Windows it also reads the *text* of those folders' paths, to see whether they sit under Program Files, OneDrive or one of your user folders, and lists the names in your user folder to find a OneDrive folder, then checks whether a `My Games` folder for the game is under your Documents or the one in OneDrive. No Windows setting or registry key is read.
+
+*The Deck Doctor (on Linux and the Steam Deck; on any other system it reads nothing and says so)*
+
+- **The game's Proton prefix:** whether `compatdata/<appid>/pfx` is there, when its `pfx.lock` was last touched, and, for BepInEx games, its `user.reg` registry file (up to 16 MB), of which only the one `winhttp` line under `DllOverrides` is looked at.
+- **The game's Steam launch options, for BepInEx games.** Steam keeps them in `userdata/<your Steam ID>/config/localconfig.vdf`, a file that also holds other personal settings. It is read (up to 16 MB) for one value, the launch options for this game, and the Doctor asks only whether they tell Proton to use BepInEx's `winhttp.dll`. Yes or no is all that comes out; the options' text, and the rest of the file, are neither returned nor kept.
+- **In the game folder:** whether `winhttp.dll` and `BepInEx/LogOutput.log` exist (BepInEx games), and the folder names two levels deep in `Data` (or `BepInEx/plugins`), to find names that differ only by capital letters.
+- **`/proc/mounts`,** for the kind of file system each Steam library is on.
+- **Which app opens `nxm://` links (Bethesda games):** the `mimeapps.list` files in the usual config and data folders, the `.desktop` launcher files they name (including the ones Flatpak exports), `mimeinfo.cache`, and whether the program a launcher points at exists, read in the order the freedesktop specification gives. `xdg-mime` is not run and no link is opened.
+
+**It never runs any of it.** No program is started: not `xdg-mime`, `flatpak` or Steam, and the workbench package contains no `child_process` call, which [the last section](#check-any-of-this-yourself) lets you grep for. Nothing is loaded or executed either. The game's executable is read as bytes for its version number and no DLL is opened at all. It writes nothing, makes no network request, and keeps nothing; the report lives in memory until your AI client has it. The repository's read-only scan covers it like the rest of the workbench. The pages a finding names as its source are shown as text and never fetched, and its debug log line holds counts and nothing from your files. The plugin reading has an eight-second allowance and the folder walks stop at a fixed number of entries, so a huge mod list on a slow drive stops short and says so instead of stalling your client. A check that fails on something unexpected is left out and listed under what ModWrench couldn't check, not passed over quietly.
+
+**What goes back to your AI client.** A short plain-text answer: the headline, what needs attention (every line says what it rests on), what is fine, what ModWrench can't see from here, and what to do next. It names plugin files and Mod Organizer 2 mod folders the way you named them (a finding reads "X.esp needs Y.esm"), the first dozen names at the top of Overwrite, folders whose names differ only by case, the kind of file system each Steam library is on (`ext4`, `ntfs`, `fuseblk`), how much room is free, which Steam holds the game and which app opens `nxm://` links. **No folder path is returned**, and a test fails if one appears. Neither is your account name, your Steam account number, or any of the text of your Steam launch options. Names are flattened to one line and cut short, so a mod can't call itself "NEXT: ..." and pass as part of the answer. That makes a hostile name harder to use, not impossible: a name is still words a model reads. A list of the plugins you run and the shape of your drives can also say a lot about you, so it is on this page. The structured report behind the page goes only to a client that says it can draw pages, or when you set `MODWRENCH_STRUCTURED=always`.
+
+**What each finding rests on.** Every finding is labelled `your files` (read straight from them), `documented rule` (a rule from another tool's own documentation, applied to what your files show, with the page named) or `ModWrench's guess` (a rule of thumb, such as "under 5 GB free is tight"). The verdict is **clear**, **attention** or **problems**, and it never says "safe": clear means the checks that can run from files passed. A run that stopped short (a folder it couldn't read, the time allowance, a check that hit an error) can't read as clear. It says attention, and says what is missing.
+
+The limits, because the awkward parts belong here:
+
+- **It was built from public documentation and constructed test installs. It has not been run against a real install.** The rules come from the pages each finding names, such as DynDOLOD's plugin-limit page, LOOT's documentation, Wabbajack's and STEP's guides, Mod Organizer 2's wiki, r2modman's wiki, BepInEx's troubleshooting page, Valve's Proton wiki and the crash loggers' Nexus pages. A plugin's header is read the way UESP's file-format page and the esplugin library describe it. Those pages were read and summarised by AI models that helped build ModWrench, not checked by someone against a running setup, so a rule can be stated more strongly or more weakly than its page does. Each finding names its page so you can check it. If a finding is wrong on your install, that is a bug worth reporting.
+- **Where its sources disagree, it says "likely".** For a master that is missing, switched off or loaded late, LOOT's documentation says the game crashes on launch and the Modding Wiki says during play, so the answer says "likely to crash" and not when.
+- **A few facts are inferences, and the findings say so.** Crash Logger SSE is recognised as `CrashLogger.dll`, taken from its build files and not from its documentation, and Trainwreck as `trainwreck.dll`, from its author's API header, both in `SKSE/Plugins`. A logger that ships under another name isn't seen, and the "no crash logger" note says that. That an exFAT or FAT drive can't hold the symlinks a Proton prefix uses is ModWrench's own inference, since no Valve page says it, and the finding is labelled a guess. "Two crash loggers fight" is a documented rule for Crash Logger SSE (its page says only one can be active, NetScriptFramework included) and a guess for any other pair.
+- **A file the game loads without listing it could be misread.** ModWrench knows the base game's five plugin files and the Creation Club files `Skyrim.ccc` names. Any other file the game loads on its own would look like a plugin that is installed but switched off, so a plugin that names it as a master would be reported as having a master that is switched off. `_ResourcePack.esl` may be one; that has not been checked against a real game folder.
+- **The plugin checks cover Skyrim Special Edition and Anniversary Edition.** For other games the Doctors check where things live, free space and, on Linux, the Deck side, and the report lists what it didn't do.
+- **It reads Mod Organizer 2's folders on disk, not what MO2 shows the game.** That view exists only while MO2 runs.
+- **What files can't show:** antivirus and Smart App Control, the pagefile, Vortex's staging folder, what `nxm://` does on Windows, anything a mod manager sets only in the environment of the game it starts, r2modman's Native or Proton setting, games outside Steam's libraries (unless you pass `gamePath`), and Flatpak's permission overrides. The report lists the ones that apply under "not checked from here" every time.
+- **`nxm://` follows the freedesktop files** the way the specification orders them. A browser can keep its own choice of app for a link type, which those files don't show.
+- **The place check reads a path's text.** A link that points somewhere else isn't followed.
+- **The counts can be a floor.** If time runs out before every plugin is read, the plugin-limit finding says it wasn't fully checked and gives what it did count, rather than "within the limits".
+- **It has only been run on Linux so far.** Its Windows behaviour is tested by giving the code Windows-style paths as text, which tests its rules, not that Windows hands it what it expects.
+
+### The Doctor page
+
+`mw_doctor` offers a page in clients that support MCP Apps, built the same way as [the Patch Day page](#the-patch-day-page) and held to the same tests: one HTML document served from memory that a client fetches only if it can draw it; a Content-Security-Policy that forbids every network request; no storage; every name from your machine written as text and never as markup. What it adds:
+
+- **The verdict and the findings, worst first,** each with what it rests on and its source named as text. The checks that came out fine are folded away.
+- **Re-check** asks your client to run the same read-only tool again. On Linux a **Look at** box chooses everything, setup only or the Deck side only.
+- **Copy summary** puts the plain-text answer on your clipboard, the one permission the page asks its client for.
+- **Ask about this**, shown only if your client supports it, sends a message into your chat made of the answer's headline and a fixed sentence, and only when you press it.
+- **What it can't see,** **how to read the labels** and **where it looked** (counts and kinds, never folders) are one click down.
+
+It has been exercised in a real browser against a stand-in for an MCP Apps host, including hostile plugin and mod names. It has not been run inside Claude, Cursor, VS Code, ChatGPT or any other real client.
+
 ## What leaves your machine — read this one
 
 This is the part most tools would leave out.
@@ -226,6 +286,7 @@ ModWrench hands its results to the AI client you connected it to. If that client
 - Crash logs may carry paths of their own, depending on which crash logger and which mods produced them. That part is up to the log, not to ModWrench.
 - **`mw_crash_whisperer` takes out what it recognises of your name, computer name, folders, addresses and keys from the log before it reads it**, and returns a short answer rather than the log. It names the plugins the log points at, and the help posts it writes list your plugins unless you ask it not to. A log you paste into the chat yourself has already gone. See [Crash Whisperer](#crash-whisperer-what-it-opens).
 - **`mw_patch_day` names your plugins** — every SKSE plugin's file name, the Mod Organizer 2 mod folder it came from, and the name it declares for itself — but returns no folder paths. See [Patch Day](#patch-day-what-it-opens).
+- **`mw_doctor` names the plugins and mod folders its findings are about** (a plugin and the master it needs, say), the first dozen names at the top of Mod Organizer 2's Overwrite folder, which kind of drive your Steam libraries sit on and how much room is free. It returns no folder paths, no account name or Steam account number, and none of the text of your Steam launch options. See [the Doctors](#the-doctors-what-they-open).
 
 ModWrench keeps none of it — nothing written, nothing cached, nothing uploaded. But it cannot control what your AI client does with a tool result, and it cannot un-send it. If that matters to you, use a local model, or don't point the crash tools at anything you would not paste into a chat window.
 
@@ -243,6 +304,8 @@ One thing it does that you should know about, because it is the part you might o
 
 **`mw_crash_whisperer` does the same, with more care about how it says it.** It ranks the mod names a crash log points at and says why, so it too can put your mod's name in front of a user as a lead. It calls that a lead, never a verdict or a culprit; it labels every reason as coming from the log, the player's files, a published rule or its own guess, and says plainly that a lead can be wrong; and the post it writes for a mod's author gives you the facts a bug report needs (the game version, what the log shows, where the stack enters your code, the call stack, and why your mod was named) with the player's name and folders taken out where ModWrench recognises them, so you aren't normally handed someone's home folder along with their problem. If you think the wording still does your work a disservice, tell us.
 
+**`mw_doctor` can put your plugin's file name in front of a user too, for a different reason.** It doesn't say a mod caused a crash. It reports facts about the player's own setup, such as a plugin that names a master that isn't installed, a list over the game's plugin limit, or files piling up in Mod Organizer 2's Overwrite folder, so a finding can read "YourMod.esp needs Another.esm". It states what the player's files show, never a judgement of your work, labels what each statement rests on, and names the page a rule comes from. If one of its findings treats a plugin of yours unfairly, [open an issue](https://github.com/171county/modwrench/issues).
+
 We think the honest mitigations for `mw_diagnose_crash` are: it is a heuristic and says so, it reports what it correlated rather than pronouncing a verdict, the user is told to verify, and — when the user explicitly opts in — it can link the named mod back to its author's Nexus page so the user can reach them. If you think that is not enough, [open an issue](https://github.com/171county/modwrench/issues) — that objection is legitimate and we would rather hear it from you than about you.
 
 ## What ModWrench is bad at
@@ -252,6 +315,7 @@ We think the honest mitigations for `mw_diagnose_crash` are: it is a heuristic a
 - **Four crash log formats:** Crash Logger SSE, Buffout 4, NetScriptFramework, BepInEx. An unrecognized format returns a clear error, not a guess.
 - **Three mod managers:** MO2 and r2modman properly; Vortex only well enough to notice it exists.
 - **Patch Day covers one game.** Skyrim Special Edition and Anniversary Edition with SKSE; Fallout 4 is next. On Skyrim 1.7.x SKSE's own rules aren't public, so the answer there is a prediction ([details](#patch-day-what-it-opens)).
+- **The Doctors read files; they don't run your game.** A clear report means the checks that can run from files passed, and that is all it means. The plugin checks cover Skyrim Special Edition and Anniversary Edition, and several of the rules are borrowed from other tools' documentation or are ModWrench's own guesses, labelled as such. It has not been run against a real install ([details](#the-doctors-what-they-open)).
 - **It is early software.** It has bugs you will find before we do.
 
 ## It is on you
@@ -314,6 +378,9 @@ grep -rn "await fetch(" packages/*/src --include=*.ts
 # Every filesystem write (the local tools should have none)
 grep -rn "writeFile\|appendFile\|createWriteStream\|rmSync\|unlink" packages/workbench/src
 
+# Every program the local tools could start (they should start none)
+grep -rn "child_process" packages/workbench/src
+
 # Every non-GET request
 grep -rn "method:" packages/*/src --include=*.ts
 
@@ -321,14 +388,26 @@ grep -rn "method:" packages/*/src --include=*.ts
 cat packages/core/src/auth.ts
 ```
 
-**The first grep returns nine hosts, and only five of them are connections.** Rather than let you wonder which, here is the whole output accounted for. The five in the table above, plus four that appear as *text* and are never contacted:
+**The first grep returns nineteen hosts, and only five of them are connections.** Rather than let you wonder which, here is the whole output accounted for. The five in the table above, plus fourteen that appear as *text* and are never contacted:
 
 | Host | Why it appears | Contacted? |
 |---|---|---|
-| `github.com` | inside the User-Agent string — `core/src/index.ts:140` | no |
+| `github.com` | inside the User-Agent string (`core/src/index.ts:140`), in the CLI's help text, and as the wikis and issue the Doctors name as sources (r2modman, Proton, Flathub, Mod Organizer 2, a Steam runtime issue) | no |
 | `help.nexusmods.com` | a link in an error message pointing at Nexus's API policy | no |
-| `mod.io` | a link telling you where to get your API key | no |
-| `www.nexusmods.com` | a link telling you where to get your API key | no |
+| `mod.io` | links telling you where to get your API key, and the address of a mod's page in a result | no |
+| `www.nexusmods.com` | the same two kinds of link, and the crash loggers' pages the Doctors name as sources | no |
+| `home` | a comment in `crashwhisper/redact.ts` saying why `https://home/x` is not read as a path | no |
+| `docs.bepinex.dev` | BepInEx's troubleshooting page, named as a source by the Deck Doctor | no |
+| `dyndolod.info` | the plugin-limit page, named as a source by the Setup Doctor | no |
+| `en.uesp.net` | a Linux modding page, named as the source for folder names that differ by case | no |
+| `learn.microsoft.com` | Microsoft's page on moving Documents into OneDrive | no |
+| `loot.readthedocs.io` | LOOT's sorting documentation, named as the source for masters | no |
+| `nexus-mods.github.io` | the Nexus Mods App's FAQ on `nxm://` links | no |
+| `specifications.freedesktop.org` | a code comment pointing at the mime-apps specification | no |
+| `stepmodifications.org` | STEP's setup guide, named as a source for where to keep a game | no |
+| `wiki.wabbajack.org` | Wabbajack's troubleshooting FAQ, named as a source for where to keep a game | no |
+
+*(An earlier version of this page said this grep returns nine hosts. The code it described already returned ten: the tenth is `home`, from a comment in the redactor, and the page had not counted it. The Doctors' source pages are the other nine. The table accounts for every line of the output.)*
 
 A string literal is not a request. The second grep finds the requests themselves — every call site, including ones whose URL is a variable that no literal-matching grep can see. On the current code it returns thirteen, and they account for everything:
 
@@ -342,10 +421,10 @@ A string literal is not a request. The second grep finds the requests themselves
 
 The auth files hold ten of the thirteen, which is the same point made above from the other direction: the credential-carrying requests are the ones that do not go through the overridable shared client.
 
-The `method:` grep finds the POSTs: the key and OAuth exchanges in the two auth files, the GraphQL queries (GraphQL is sent as a POST; these only read), and the endorsement, which is the one write. It also matches two lines in `ui/src/app.ts`, which are the JSON-RPC `method` field the Patch Day and Crash Whisperer pages use to talk to your client (see [the Patch Day page](#the-patch-day-page) and [the Crash Whisperer page](#the-crash-whisperer-page)) and not an HTTP method. Those pages' Content-Security-Policy forbids them from making a network request at all.
+The `method:` grep finds the POSTs: the key and OAuth exchanges in the two auth files, the GraphQL queries (GraphQL is sent as a POST; these only read), and the endorsement, which is the one write. It also matches two lines in `ui/src/app.ts`, which are the JSON-RPC `method` field the Patch Day, Crash Whisperer and Doctor pages use to talk to your client (see [the Patch Day page](#the-patch-day-page), [the Crash Whisperer page](#the-crash-whisperer-page) and [the Doctor page](#the-doctor-page)) and not an HTTP method. Those pages' Content-Security-Policy forbids them from making a network request at all.
 
 If any of these greps turn up something this page does not account for, that is a bug in this page. [Report it](https://github.com/171county/modwrench/issues) and it gets fixed or this page gets corrected.
 
 ---
 
-*Last verified against the code on 2026-09-15; the Patch Day and Crash Whisperer sections, their pages and the lines that mention them were added and checked against the code on 2026-10-02, when the greps above were re-run and gave the counts stated here (nine hosts, thirteen request sites, no filesystem writes in the workbench). If you find a gap between this document and the source, the source is the truth and this document is wrong.*
+*Last verified against the code on 2026-09-15; the Patch Day, Crash Whisperer and Doctors sections, their pages and the lines that mention them were added and checked against the code on 2026-10-02, when the greps above were re-run and gave the counts stated here (nineteen hosts, thirteen request sites, no filesystem writes and no `child_process` in the workbench). If you find a gap between this document and the source, the source is the truth and this document is wrong.*
