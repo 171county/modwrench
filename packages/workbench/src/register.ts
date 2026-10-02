@@ -30,6 +30,8 @@ function themeForGameId(gameId: string): string {
 }
 import { checkKnownConflicts } from "./conflicts/index.js";
 import { checkPatchDay } from "./patchday/index.js";
+import { summarizePatchDay } from "./patchday/summary.js";
+import { registerPatchDayApp } from "./apps.js";
 import { correlateCrash, type CrashSuspect } from "./crashlog/diagnose.js";
 
 /**
@@ -566,6 +568,12 @@ export function registerWorkbenchTools(server: McpServer): {
   // its Address Library file and every plugin DLL, then applies SKSE's own
   // published compatibility rules. Local and read-only: no network, nothing
   // written. See patchday/ and TRUST.md.
+  //
+  // The answer is plain text first: a short summary any client can show and the
+  // model can read. The full report rides along as structured content, and in
+  // clients that support MCP Apps the tool also points at a page that draws it
+  // (apps.ts). Clients that don't support the extension never see the page.
+  const patchDayPage = registerPatchDayApp(server);
   server.registerTool(
     "mw_patch_day",
     {
@@ -613,6 +621,7 @@ export function registerWorkbenchTools(server: McpServer): {
         idempotentHint: true,
         openWorldHint: false,
       },
+      ...(patchDayPage ? { _meta: patchDayPage } : {}),
     },
     async ({ gameId, gamePath, targetVersion, mo2InstancePath, profileName, logPath }) => {
       const result = checkPatchDay({
@@ -631,12 +640,11 @@ export function registerWorkbenchTools(server: McpServer): {
       });
 
       return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result, null, 2),
-          },
-        ],
+        content: [{ type: "text", text: summarizePatchDay(result) }],
+        structuredContent: result as unknown as Record<string, unknown>,
+        // Couldn't run (unsupported game, game not found, a version that isn't one):
+        // flagged so a client can show it as a failed call rather than an answer.
+        ...(result.ok ? {} : { isError: true }),
       };
     }
   );
