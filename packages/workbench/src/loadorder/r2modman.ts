@@ -34,7 +34,7 @@ function r2modmanRootCandidates(): string[] {
   }
 }
 
-function findR2modmanRoot(): string | null {
+export function findR2modmanRoot(): string | null {
   for (const candidate of r2modmanRootCandidates()) {
     if (pathExists(candidate)) return candidate;
   }
