@@ -66,7 +66,7 @@ test("/mw-crash with a log embeds it and parses-not-guesses", () => {
 test("/mw-crash with no log asks where the log lives", () => {
   const text = buildCrashPrompt().messages[0]?.content.text ?? "";
   assert.match(text, /mw_parse_crashlog/);
-  assert.match(text, /LogOutput\\.log/);
+  assert.match(text, /LogOutput\.log/);
 });
 
 test("/mw-conflicts scopes to a game and calls the conflict checker", () => {
@@ -89,12 +89,12 @@ test("/mw-order reads the load order", () => {
 test("/mw-patch runs the patch check and refuses to call anything safe", () => {
   const text = buildPatchPrompt().messages[0]?.content.text ?? "";
   assert.match(text, /mw_patch_day/);
-  assert.match(text, /go \\/ check \\/ wait/);
+  assert.match(text, /go \/ check \/ wait/);
   assert.match(text, /Don't call it safe/);
   assert.doesNotMatch(text, /targetVersion/);
 });
 
 test("/mw-patch with a version asks for that version to be judged", () => {
   const text = buildPatchPrompt(" 1.7.104 ").messages[0]?.content.text ?? "";
-  assert.match(text, /targetVersion "1\\.7\\.104"/);
+  assert.match(text, /targetVersion "1\.7\.104"/);
 });
