@@ -31,8 +31,10 @@ function themeForGameId(gameId: string): string {
 import { checkKnownConflicts } from "./conflicts/index.js";
 import { checkPatchDay } from "./patchday/index.js";
 import { summarizePatchDay } from "./patchday/summary.js";
-import { pageAnswer, registerCrashWhispererApp, registerPatchDayApp } from "./apps.js";
+import { pageAnswer, registerCrashWhispererApp, registerDoctorApp, registerPatchDayApp } from "./apps.js";
 import { summarizeCrashWhisper, whisper } from "./crashwhisper/index.js";
+import { runDoctor } from "./doctor/index.js";
+import { summarizeDoctor } from "./doctor/summary.js";
 import { correlateCrash, type CrashSuspect } from "./crashlog/diagnose.js";
 
 /**
@@ -778,5 +780,81 @@ export function registerWorkbenchTools(server: McpServer): {
     }
   );
 
-  return { toolCount: 8 };
+  // ─── Tool 9: mw_doctor ─────────────────────────────────────────────────────
+  // "Is my setup ready?" The boring causes behind many "my mods keep breaking"
+  // threads, read from files: where things live and how much room is left, the
+  // plugin list and the masters each plugin needs, Mod Organizer 2's Overwrite
+  // folder, crash loggers, and on Linux and Steam Deck the Steam install, Proton
+  // prefix, BepInEx override, nxm:// handler, library drive and folder-name case.
+  // Local and read-only, and no folder path ends up in the answer. See doctor/ and
+  // TRUST.md.
+  //
+  // Same shape as the other two pages: plain text first, structured report only for
+  // clients that draw pages, a page for the ones that do.
+  const doctorPage = registerDoctorApp(server);
+  server.registerTool(
+    "mw_doctor",
+    {
+      title: "Is my setup ready?",
+      description: "Is my setup ready? The Doctors: a read-only health check for the boring causes behind many \"my mods keep breaking\" threads, read from files alone. Setup Doctor: whether the game or its mods sit in a folder Windows protects or syncs (Program Files, OneDrive, Downloads, Desktop) or on a drive short of space; and, for Skyrim Special Edition, the plugin list (missing, switched-off or late masters read from each plugin's header, the 254 full plus 4096 light plugin limits, entries for plugins that are gone, Mod Organizer 2 and the game's own plugins.txt disagreeing), clutter in MO2's Overwrite folder, and crash loggers (none, or two that fight). Deck Doctor, on Linux and Steam Deck: which Steam is in use (regular or Flatpak), the game's Proton prefix, BepInEx's winhttp launch override, the nxm:// link handler, whether the library sits on an NTFS or FAT drive, and folder names that differ only by capital letters. Every finding says what it rests on: your files, a documented rule (with its source) or ModWrench's own guess. The report also lists what ModWrench can't see, such as antivirus, pagefile size and MO2's live file view. Local and read-only: no network, no program started, nothing written or kept, and no folder paths in the answer. A clear report isn't a promise the game starts. Use when the user says \"why do my mods keep breaking\", \"is my setup OK\", \"check before I install this list\", \"Wabbajack keeps failing\", or \"mods won't load on my Deck\".",
+      inputSchema: {
+        gameId: z
+          .string()
+          .optional()
+          .describe(
+            "Canonical game ID. Default 'skyrimspecialedition', which has the plugin, master and crash-logger checks; the location, disk and Deck checks cover the other games ModWrench knows too (see mw_detect_environment)."
+          ),
+        area: z
+          .enum(["all", "setup", "deck"])
+          .optional()
+          .describe(
+            "Which checks to run. Default 'all': the Setup Doctor, plus the Deck Doctor on Linux. 'deck' runs the Deck checks only and does nothing useful off Linux."
+          ),
+        gamePath: z
+          .string()
+          .optional()
+          .describe(
+            "The folder that holds the game, when ModWrench can't find it in a Steam library on its own: a GOG or Epic copy, or an unusual place."
+          ),
+        mo2InstancePath: z
+          .string()
+          .optional()
+          .describe(
+            "Mod Organizer 2 instance folder, for a portable instance that doesn't live where MO2 normally keeps them. Without it a portable instance isn't found, and the report says the plugin checks couldn't see it."
+          ),
+        profileName: z
+          .string()
+          .optional()
+          .describe("MO2 profile name. Default: the instance's active profile."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      ...(doctorPage ? { _meta: doctorPage } : {}),
+    },
+    async ({ gameId, area, gamePath, mo2InstancePath, profileName }) => {
+      const result = runDoctor({
+        ...(gameId !== undefined ? { gameId } : {}),
+        ...(area !== undefined ? { area } : {}),
+        ...(gamePath !== undefined ? { gamePath } : {}),
+        ...(mo2InstancePath !== undefined ? { mo2InstancePath } : {}),
+        ...(profileName !== undefined ? { profileName } : {}),
+      });
+
+      // Counts only: nothing from the player's files or folders.
+      log("debug", "workbench.doctor", {
+        ok: result.ok,
+        verdict: result.ok ? result.verdict : null,
+        problems: result.ok ? result.counts.problem : 0,
+        warnings: result.ok ? result.counts.warn : 0,
+      });
+
+      return pageAnswer(server, summarizeDoctor(result), result);
+    }
+  );
+
+  return { toolCount: 9 };
 }
