@@ -41,11 +41,11 @@ class MockMcpServer {
 
 // ─── Registration smoke tests ───────────────────────────────────────────────
 
-test("registerWorkbenchTools: registers 8 tools", () => {
+test("registerWorkbenchTools: registers 9 tools", () => {
   const server = new MockMcpServer();
   const result = registerWorkbenchTools(server as unknown as never);
-  assert.equal(result.toolCount, 8);
-  assert.equal(server.tools.size, 8);
+  assert.equal(result.toolCount, 9);
+  assert.equal(server.tools.size, 9);
 });
 
 test("registerWorkbenchTools: every expected tool is present", () => {
@@ -60,6 +60,7 @@ test("registerWorkbenchTools: every expected tool is present", () => {
     "mw_diagnose_crash",
     "mw_patch_day",
     "mw_crash_whisperer",
+    "mw_doctor",
   ];
   for (const name of expected) {
     assert.ok(server.tools.has(name), `missing tool: ${name}`);
