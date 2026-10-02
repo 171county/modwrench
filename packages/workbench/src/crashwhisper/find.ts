@@ -294,14 +294,14 @@ export function decodeLog(bytes: Buffer): string {
   return decodeAs(encoding, bytes.subarray(skip));
 }
 
-const LINE_BREAK = /[\r\n  \u0085]/;
+const LINE_BREAK = /[\r\n\u2028\u2029\u0085]/;
 
 function lastBreak(text: string): number {
   return Math.max(
     text.lastIndexOf("\n"),
     text.lastIndexOf("\r"),
-    text.lastIndexOf(" "),
-    text.lastIndexOf(" "),
+    text.lastIndexOf("\u2028"),
+    text.lastIndexOf("\u2029"),
     text.lastIndexOf("\u0085")
   );
 }
