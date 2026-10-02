@@ -393,7 +393,35 @@ function fail(error: string, hint?: string): PatchDayError {
   return { ok: false, error, ...(hint ? { hint } : {}), supportedGames: PATCH_DAY_GAMES };
 }
 
+/**
+ * What the check looked at, for callers inside this package that need more than the
+ * public report carries: the report names files but never folders. Not returned by
+ * `mw_patch_day`, never serialised.
+ */
+export type PatchDayInstall = {
+  gameDir: string;
+  /** Steam's app id for the game. */
+  appId: string;
+  /** The Steam library's steamapps folder, when the game sits in one. */
+  steamappsDir: string | null;
+  /** Every plugin DLL and Address Library file SKSE would see, after overlaying Mod Organizer 2 over the game folder. Keys are lower-case file names. */
+  files: ReadonlyMap<string, { file: string; abs: string; source: string }>;
+};
+
 export function checkPatchDay(options: PatchDayOptions = {}): PatchDayResult {
+  return runPatchDay(options);
+}
+
+/** The same check, plus where it looked. A failed check has no install. */
+export function inspectPatchDay(options: PatchDayOptions = {}): { result: PatchDayResult; install: PatchDayInstall | null } {
+  let install: PatchDayInstall | null = null;
+  const result = runPatchDay(options, (found) => {
+    install = found;
+  });
+  return { result, install };
+}
+
+function runPatchDay(options: PatchDayOptions, found?: (install: PatchDayInstall) => void): PatchDayResult {
   const gameId = options.gameId ?? PATCH_DAY_GAMES[0]!;
   const game = SUPPORTED.find((g) => g.gameId === gameId);
   const def: GameDef | undefined = findGameById(gameId);
@@ -595,6 +623,8 @@ export function checkPatchDay(options: PatchDayOptions = {}): PatchDayResult {
   const problems = lines
     .filter((l) => l.status !== "ok")
     .sort((a, b) => rank[a.status] - rank[b.status] || a.file.localeCompare(b.file));
+
+  found?.({ gameDir, appId: def.steamAppId, steamappsDir: steamapps, files: winners });
 
   return {
     ok: true,
