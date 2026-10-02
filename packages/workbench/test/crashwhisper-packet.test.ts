@@ -147,7 +147,7 @@ test("safeName: markup, mentions and code fences in a name are swapped for look-
   assert.equal(safeName("[img]http://x/y.png[/img].esp"), "(img)http://x/y.png(/img).esp");
   assert.equal(safeName("a`b```c"), "a'b'''c");
   assert.equal(safeName("<script>alert(1)</script>.dll"), "(script)alert(1)(/script).dll");
-  assert.equal(safeName("line one\nline two\u005Cu202Eevil"), "line one line two evil");
+  assert.equal(safeName("line one\nline two\u202Eevil"), "line one line two evil");
   assert.ok(safeName("x".repeat(500)).length <= 80);
 });
 
