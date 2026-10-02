@@ -23,8 +23,17 @@ import { esc, panelsDisabled } from "./resource.js";
 /** The MIME type MCP Apps hosts look for on a UI resource. */
 export const MCP_APP_MIME = "text/html;profile=mcp-app";
 
+/**
+ * The key a client uses, under `capabilities.extensions` when it connects, to say it
+ * can draw MCP Apps pages. Its value lists the MIME types it can draw.
+ */
+export const MCP_APPS_EXTENSION_ID = "io.modelcontextprotocol/ui";
+
 /** The page that shows a Patch Day result. */
 export const PATCH_DAY_APP_URI = "ui://modwrench/patch-day";
+
+/** The page that shows a Crash Whisperer result. */
+export const CRASH_WHISPERER_APP_URI = "ui://modwrench/crash-whisperer";
 
 /**
  * The `_meta` a tool carries to say "draw this page for my result".
