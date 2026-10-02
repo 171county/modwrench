@@ -52,19 +52,52 @@ function parseEvents(text: string): Event[] {
   return events;
 }
 
-function frameFromStackLine(line: string): CallStackFrame | null {
+/**
+ * The namespace a stack symbol belongs to, which is how a mod's code is told apart from the
+ * game's and Unity's: "Foo.Bar.Baz (args) (at ...)" is Foo's. Handles the shapes Mono and Unity
+ * print: a leading return type ("Object UnityEngine.Object.Instantiate(...)"), "(wrapper
+ * dynamic-method)" prefixes on patched methods, and "Class:Method" with a colon.
+ */
+export function namespaceRoot(symbol: string): string | undefined {
+  let s = symbol.trim().replace(/^\(wrapper [^)]*\)\s*/, "");
+  const typed = /^[^\s(]+\s+([A-Za-z_][\w`<>+]*(?:[.:][\w`<>+]+)+)\s*[(<]/.exec(s);
+  if (typed?.[1]) s = s.slice(s.indexOf(typed[1]));
+  return /^([A-Za-z_][\w`<>+]*)[.:]/.exec(s)?.[1];
+}
+
+/** A symbol with the file position and IL offset the runtime appends removed. */
+function cleanSymbol(symbol: string): string {
+  return symbol
+    .replace(/\s+\(at [^)]*\)\s*$/, "")
+    .replace(/\s*<0x[0-9a-f]+>\s*$/i, "")
+    .replace(/\s*\[0x[0-9a-f]+\](?:\s+in\s+.*)?$/i, "")
+    .trim();
+}
+
+/**
+ * One line of a stack trace. A .NET trace line starts "at"; Unity prints its own traces under a
+ * "Stack trace:" line with no "at" at all ("Foo.Bar.Baz (args) (at <hash>:0)"), which is what
+ * most mod errors look like, so lines are also read that way once a trace has started.
+ */
+function frameFromStackLine(line: string, inTrace: boolean): CallStackFrame | null {
   const match = line.match(STACK_FRAME_REGEX);
-  if (!match) return null;
-  const symbol = (match[1] ?? "").trim();
+  if (match) {
+    const symbol = cleanSymbol((match[1] ?? "").trim());
+    if (!symbol) return null;
+    const frame: CallStackFrame = {
+      module: namespaceRoot(symbol) ?? "(unknown)",
+      function: symbol,
+    };
+    if (match[2]) frame.offset = match[2].trim();
+    return frame;
+  }
+  if (!inTrace) return null;
+  const trimmed = line.trim();
+  // Markers inside a trace that aren't frames: an inner exception boundary, a separator.
+  if (!trimmed || /^Rethrow as /i.test(trimmed) || /^---/.test(trimmed)) return null;
+  const symbol = cleanSymbol(trimmed);
   if (!symbol) return null;
-  // C# format: Namespace.Class.Method(args) — module is the namespace root.
-  const moduleMatch = symbol.match(/^([^.\s]+)\./);
-  const frame: CallStackFrame = {
-    module: moduleMatch?.[1] ?? "(unknown)",
-    function: symbol,
-  };
-  if (match[2]) frame.offset = match[2].trim();
-  return frame;
+  return { module: namespaceRoot(symbol) ?? "(unknown)", function: symbol };
 }
 
 export function parseBepInExLog(text: string): CrashlogParseResult {
@@ -90,8 +123,13 @@ export function parseBepInExLog(text: string): CrashlogParseResult {
   const primary = fatalEvents[fatalEvents.length - 1];
   const callStack: CallStackFrame[] = [];
   if (primary) {
+    let inTrace = false;
     for (const stackLine of primary.stackLines) {
-      const frame = frameFromStackLine(stackLine);
+      if (/^\s*Stack trace:?\s*$/i.test(stackLine)) {
+        inTrace = true;
+        continue;
+      }
+      const frame = frameFromStackLine(stackLine, inTrace);
       if (frame) callStack.push(frame);
     }
   }
