@@ -118,6 +118,30 @@ NEXUS_ALLOW_ADULT_CONTENT=true
 
 Two deliberate choices worth stating. It is an **environment variable, not a tool parameter** — which means the AI cannot switch it off no matter what it is asked to do; only the person running ModWrench can. And ModWrench performs no age verification, so the default is the conservative one rather than a guess about who is reading.
 
+## Patch Day: what it opens
+
+`mw_patch_day` ("is it safe to update?") reads more of your game folder than the other local tools, so here is exactly what it touches.
+
+It opens, read-only:
+
+- the game's executable and SKSE's DLL for that game version, to read the version number the file carries;
+- every `.dll` directly inside `Data/SKSE/Plugins` — in the game folder, and, when Mod Organizer 2 is the active manager or you give it an instance, in each enabled mod and the overwrite folder — reading the file's header, its export table, and the 848-byte version block a plugin publishes for SKSE;
+- the first four bytes of the Address Library file, which hold its format number;
+- Steam's `appmanifest_<appid>.acf` for the game, to see whether an update is waiting;
+- SKSE's own log, `skse64.log`, if it is in the usual place or you pass its path (the first 8 MB at most).
+
+**It never runs any of it.** A DLL is read as bytes: nothing is loaded, executed or called into. It writes nothing, makes no network request, and keeps nothing — no cache, and the result lives in memory until your AI client has it. The repository's read-only scan covers it like the rest of the workbench.
+
+**What goes back to your AI client:** file names and Mod Organizer 2 mod-folder names, the name each plugin declares for itself, game and SKSE version numbers, Steam build numbers and the last-update date, and — if SKSE's log is read — its lines about refused plugins. **No folder path is returned**, and a test fails if one appears; log lines have their folders stripped, spaces in folder names included. That is stricter than `mw_detect_environment`, which does return paths. A list of the plugins you run can still say a lot about what you play, so it is on this page.
+
+The limits, because the awkward parts belong here:
+
+- **The rules are SKSE's own only where SKSE's source is published** — the 2.2.6 build, for Skyrim 1.6.1170. Skyrim 1.7.x runs on SKSE 2.3.x, which is not open source. For 1.7.x the same rules are carried forward, plus one behaviour that a public bug report shows on 1.7.104 (Address Library format 5, [SkyrimNet-GamePlugin #577](https://github.com/MinLL/SkyrimNet-GamePlugin/issues/577)), and every result is labelled with its `basis`: `skse-source`, `field-reports` or `inferred`. On 1.7.x a go is a prediction, and the tool says to launch the game once and compare against SKSE's own log.
+- **A plugin that passes SKSE's version check can still crash** if the game code it hooks has changed. That cannot be seen from files.
+- **A go is not "safe".** It means every check that can be run from files passed. The verdicts are go, check and wait — the tool never calls a result safe, and a test holds the headlines and per-plugin reasons to that.
+- **It was built from SKSE's source, public reports and constructed test folders — not yet run against a real Skyrim install.** If a result is wrong on yours, that is a bug worth reporting, and the log lines it quotes are the evidence.
+- **One game for now:** Skyrim Special Edition and Anniversary Edition. Anything else is refused with a message rather than guessed at.
+
 ## What leaves your machine — read this one
 
 This is the part most tools would leave out.
@@ -127,6 +151,7 @@ ModWrench hands its results to the AI client you connected it to. If that client
 - **Crash logs come back close to verbatim.** For Crash Logger SSE and Buffout 4, every named section is passed through as raw text so the model can actually read it. `mw_diagnose_crash` returns the whole parsed log plus the correlation.
 - **Paths with your username in them do go out.** `mw_detect_environment` returns your mod manager's data folder, Steam root, game install paths, and Proton prefix. `mw_read_load_order` returns the profile folder it read. On Windows those live under `C:\Users\<you>\`; on Linux and Steam Deck under `/home/<you>/`.
 - Crash logs may carry paths of their own, depending on which crash logger and which mods produced them. That part is up to the log, not to ModWrench.
+- **`mw_patch_day` names your plugins** — every SKSE plugin's file name, the Mod Organizer 2 mod folder it came from, and the name it declares for itself — but returns no folder paths. See [Patch Day](#patch-day-what-it-opens).
 
 ModWrench keeps none of it — nothing written, nothing cached, nothing uploaded. But it cannot control what your AI client does with a tool result, and it cannot un-send it. If that matters to you, use a local model, or don't point the crash tools at anything you would not paste into a chat window.
 
@@ -150,6 +175,7 @@ We think the honest mitigations are: it is a heuristic and says so, it reports w
 - **Coverage is a fixed list.** Local diagnostics know 15 games — 9 Bethesda Creation Engine titles (Skyrim SE/LE/VR, Fallout 4, Fallout 4 VR, Fallout: New Vegas, Fallout 3, Starfield, Oblivion) and 6 Unity/BepInEx titles (Lethal Company, Valheim, R.E.P.O., Risk of Rain 2, Dyson Sphere Program, BONEWORKS). Your game may not be there.
 - **Four crash log formats:** Crash Logger SSE, Buffout 4, NetScriptFramework, BepInEx. An unrecognized format returns a clear error, not a guess.
 - **Three mod managers:** MO2 and r2modman properly; Vortex only well enough to notice it exists.
+- **Patch Day covers one game.** Skyrim Special Edition and Anniversary Edition with SKSE; Fallout 4 is next. On Skyrim 1.7.x SKSE's own rules aren't public, so the answer there is a prediction ([details](#patch-day-what-it-opens)).
 - **It is early software.** It has bugs you will find before we do.
 
 ## It is on you
@@ -244,4 +270,4 @@ If any of these greps turn up something this page does not account for, that is 
 
 ---
 
-*Last verified against the code on 2026-09-15. If you find a gap between this document and the source, the source is the truth and this document is wrong.*
+*Last verified against the code on 2026-09-15; the Patch Day section and the two lines that mention it were added and checked against the code on 2026-10-02. If you find a gap between this document and the source, the source is the truth and this document is wrong.*
