@@ -401,7 +401,7 @@ test("a paste past four million characters is refused with a way forward", () =>
 });
 
 test("a log with a byte-order mark reads like any other", () => {
-  assert.equal(run(`﻿${SSE}`).crash.format, "crashlogger-sse");
+  assert.equal(run(`\uFEFF${SSE}`).crash.format, "crashlogger-sse");
 });
 
 test("a very large log file is read at its ends, and the answer says so", () => {
