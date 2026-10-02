@@ -1,4 +1,4 @@
-// ─── MCP-UI resource block ────────────────────────────────────────────────────
+// ─── MCP-UI resource block ──────────────────────────────────────────────────────
 // Follows the MCP-UI spec (mcpui.dev): a tool returns a content item of type
 // "resource" whose `resource.uri` starts with `ui://` and whose `text` is inline
 // HTML the host renders in a sandboxed iframe. The iframe posts intents back to
@@ -34,7 +34,7 @@ export type UIResourceBlock = {
  * Read per call rather than cached at import, so a host that mutates process.env
  * between requests is honoured, and so tests can toggle it without re-importing.
  */
-function panelsDisabled(): boolean {
+export function panelsDisabled(): boolean {
   const raw = (process.env.MODWRENCH_UI ?? "").trim().toLowerCase();
   return raw === "off" || raw === "0" || raw === "false" || raw === "none";
 }
