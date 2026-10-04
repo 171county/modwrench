@@ -18,6 +18,11 @@ export type CallStackFrame = {
   module: string;
   function?: string;
   offset?: string;
+  /**
+   * "scan" marks a frame Crash Logger SSE found by scanning raw stack memory rather than by
+   * unwinding it. Such a frame is a weaker signal: stack memory also holds leftovers.
+   */
+  source?: "scan";
 };
 
 export type LoadedPlugin = {
@@ -41,6 +46,8 @@ export type CrashlogParseResult = {
     type?: string;
     address?: string;
     description?: string;
+    /** For an access violation, the memory it touched, when the log says ("Tried to read memory at 0x8"). */
+    fault?: { access: "read" | "write" | "execute" | "unknown"; address: string };
   };
   callStack: CallStackFrame[];
   loadedPlugins: LoadedPlugin[];

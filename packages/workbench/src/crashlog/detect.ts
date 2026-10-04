@@ -10,6 +10,11 @@ export function detectCrashlogType(
   const head = text.split(/\r?\n/, 60).join("\n");
   const headLower = head.toLowerCase();
 
+  // NetScriptFramework's own header (Framework/CrashLog.cs). First, because its log can name other loggers' files.
+  if (/^FrameworkName:\s*NetScriptFramework\b/m.test(head) || /^Unhandled (?:native|managed) exception occurred at /m.test(head)) {
+    return "netscriptframework";
+  }
+
   if (
     headLower.includes("crashloggersse") ||
     /^Skyrim (SSE|VR|AE) /.test(head)
