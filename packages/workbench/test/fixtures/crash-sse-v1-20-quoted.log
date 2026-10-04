@@ -1,0 +1,143 @@
+CRASH TIME: 2026-03-13 16:50:35
+Skyrim SSE v1.6.1170
+CrashLoggerSSE v1-20-1-0 Feb 11 2026 05:26:32
+
+Unhandled exception "EXCEPTION_ACCESS_VIOLATION" at 0x000140B04CF2 SkyrimSE.exe+0B04CF2	movaps xmm0, [rax+rcx*8]
+Exception Flags: 0x00000000 (Continuable)
+Number of Parameters: 2
+Exception Thread ID: 776
+Access Violation: Tried to read memory at 0x0005E521A710
+ACCESS VIOLATION ANALYSIS:
+	Instruction: movaps xmm0, [rax+rcx*8]
+	Memory Operand: [base=rax, index=rcx, scale=8, disp=+0x0]
+	Base Register: rax = 0x00000001E97392C0
+	Index Register: rcx = 0x000000007F75C28A
+	Computed Address: 0x00000005E521A710
+
+POSSIBLE RELEVANT OBJECTS:
+	R12: (hkbVariableValueSet*)
+	RSP+48: (hkbBehaviorGraph*) "QuadrupedBehavior.hkb"
+	RSP+50: (hkbBehaviorGraph*) "WolfBehavior.hkb"
+	RSP+60: (BSLookAtModifier*) "CanineBSLookAtModifier"
+	RSP+68: (hkbVariableBindingSet*)
+	RSP+C8: (hkbVariableValueSet*)
+	RSP+D0: (hkbSymbolIdMap*)
+	RSP+D8: (hkbSymbolIdMap*)
+	RSP+E0: (hkbSymbolIdMap*)
+	RSP+E8: (hkbSymbolIdMap*)
+	RSP+130: (FormID 0x14 -> PlayerCharacter* 0xA086A080) "Prisoner" [0x00000014] ("Reduce Player Stat Offsets.esp") [0x00000014]
+	RSP+250: (Character*) "Snow Fox" [0x001059DD] ("Skyrim.esm") [0x001059DD]
+	RSP+2C0: (BShkbAnimationGraph*)
+	RSP+310: (hkbCharacter*)
+	RSP+348: (ahkpWorld*)
+	RSP+3D0: (BSAnimationGraphManager*)
+	RSP+410: (BaseExtraList*)
+	RSP+438: (ScrapHeap*)
+	RSP+488: (Character*) "Snow Fox" [0x001059DD] ("Skyrim.esm") [0x001059DD]
+	RSP+538: (Character*) "Snow Fox" [0x001059DD] ("Skyrim.esm") [0x001059DD]
+	RSP+570: (BSFadeNode*) "skeleton.nif"
+	RSP+5F8: (BSJobs::JobThread*)
+
+PROCESS INFO:
+	Process ID: 23228
+	Crash Thread ID: 776
+	Process Uptime: 00:48:05 (2885213ms)
+	Working Directory: C:\Games\SteamLibrary\steamapps\common\Skyrim Special Edition
+	Command Line: "C:\Games\SteamLibrary\steamapps\common\Skyrim Special Edition\Data\SkyrimTogetherReborn\SkyrimTogether.exe" 
+	Executable MD5: 7a44a52dfc92d78f934c4d12ed92f494
+	Executable Size: 37157144 bytes
+	Executable Modified: 2025-12-26 18:48:47
+	Elevated: No
+
+THREAD CONTEXT (HEURISTIC):
+	Thread Priority: 0
+	Likely Role: Unknown (main or worker thread)
+
+SYSTEM SPECS:
+	OS: Microsoft Windows 10 Pro v10.0.19045
+	CPU: AuthenticAMD AMD Ryzen 5 2600 Six-Core Processor            
+	CPU Cores: 12 logical, 6 physical, 1 packages
+	GPU #1: Nvidia TU104 [GeForce RTX 2060]
+	GPU #2: Nvidia TU104 [GeForce RTX 2060]
+	GPU #3: Microsoft Basic Render Driver
+	PHYSICAL MEMORY: 8.92 GB/15.95 GB
+	VIRTUAL MEMORY: 81.28 GB/131072.00 GB
+	PROCESS MEMORY: Working Set: 2765.16 MB, Private: 10761.55 MB, Peak: 6383.37 MB
+	PAGE FAULTS: 34562249 (Peak: 6693445632)
+	GPU MEMORY: 4.29/4.98 GB
+
+CALL STACK ([P]robable / [S]tack scan):
+	[ 0][P] 0x000140B04CF2              SkyrimSE.exe+0B04CF2 -> 60016+0x412	movaps xmm0, [rax+rcx*8]
+	[ 1][S] 0x0001406DE22D              SkyrimSE.exe+06DE22D -> 39256+0x3BD	nop
+	[ 2][S] 0x000140AE5289              SkyrimSE.exe+0AE5289 -> 59467+0x209	inc edi
+	[ 3][S] 0x000140AC16BC              SkyrimSE.exe+0AC16BC -> 58522+0x5C	movsxd rdi, dword ptr [rbp+0x20]
+	[ 4][S] 0x000140AD4E23              SkyrimSE.exe+0AD4E23 -> 59311+0x83	cmp byte ptr [rbx+0x48], 0x00
+	[ 5][S] 0x000140AB1CFE              SkyrimSE.exe+0AB1CFE -> 58329+0x46E	lea rbx, [0x000000014193ACA0]
+	[ 6][S] 0x00014069F770              SkyrimSE.exe+069F770 -> 37998+0x170	jmp 0x00000001406A2690
+	[ 7][S] 0x7FFF1C4E893E OpenAnimationReplacer.dll+014893E
+	[ 8][S] 0x000140BAE400              SkyrimSE.exe+0BAE400 -> 63564+0x30	test rcx, rcx
+	[ 9][S] 0x000140BB2855              SkyrimSE.exe+0BB2855 -> 63587+0x4E5	cmp byte ptr [rdi+0x243], 0x00
+	[10][S] 0x0001411F1AE2              SkyrimSE.exe+11F1AE2 -> 91791+0x102	movups xmm0, [rax]
+	[11][S] 0x00014069B335              SkyrimSE.exe+069B335 -> 37933+0x15	test al, al
+	[12][S] 0x000140BA3DDA              SkyrimSE.exe+0BA3DDA -> 63358+0x18A	add rbx, 0x08
+	[13][S] 0x000141768160              SkyrimSE.exe+1768160 -> 186363+0x8	sbb bh, cl
+	[14][S] 0x0001405486BE              SkyrimSE.exe+05486BE -> 32808+0x9E	nop
+	[15][S] 0x00014054C248              SkyrimSE.exe+054C248 -> 32899+0x58	mov bl, 0x01
+	[16][S] 0x0001406A3955              SkyrimSE.exe+06A3955 -> 38054+0x205	test al, al
+	[17][S] 0x0001402F794B              SkyrimSE.exe+02F794B -> 20123+0x9B	mov [rsp+0x48], rsi
+	[18][S] 0x000140776B09              SkyrimSE.exe+0776B09 -> 41453+0x79	mov rdx, rbx
+	[19][S] 0x000140CF7888              SkyrimSE.exe+0CF7888 -> 69378+0xD8	mov ecx, [rbx+0x0C]
+	[20][S] 0x000140CF7E51              SkyrimSE.exe+0CF7E51 -> 69380+0x361	mov r15d, eax
+	[21][S] 0x000140CF61DA              SkyrimSE.exe+0CF61DA -> 69344+0x8A	movzx eax, byte ptr [rbx+0xA74]
+	[22][S] 0x000140CD0DBD              SkyrimSE.exe+0CD0DBD -> 68445+0x3D	mov rcx, [0x00000001431CC318]
+	[23][S] 0x7FFF711B7374              KERNEL32.DLL+0017374
+	[24][S] 0x7FFF7141CC91                 ntdll.dll+004CC91
+
+REGISTERS:
+	RAX 0x1E97392C0        (void*)
+	RCX 0x7F75C28A         (char*) "ze"
+	RDX 0x140B04CD8        (void* -> SkyrimSE.exe+0B04CD8	movsxd rcx, dword ptr [rsi])
+	RBX 0x230AF890         (void*)
+	RSP 0x230AF7D0         (void*)
+	RBP 0x19F422100        (void*)
+
+MODULES:
+	SkyrimSE.exe                             0x000140000000
+	OpenAnimationReplacer.dll                0x7FFF1C3A0000
+	KERNEL32.DLL                             0x7FFF711A0000
+	ntdll.dll                                0x7FFF713D0000
+
+SKSE PLUGINS:
+	AnimationMotionRevolution.dll
+	AnimationQueueFix.dll v1.0.1
+	AuroraFix.dll v1
+	BetterJumpingSE.dll
+	CrashLogger.dll v1.20.1
+	OpenAnimationReplacer.dll v3.0.2
+
+PLUGINS:
+	Light: 246	Regular: 101	Total: 347
+	[ 0]     Skyrim.esm
+	[ 1]     Update.esm
+	[ 2]     Dawnguard.esm
+	[ 3]     HearthFires.esm
+	[ 4]     Dragonborn.esm
+	[ 5]     ccasvsse001-almsivi.esm
+	[ 6]     ccbgssse001-fish.esm
+	[ 7]     cctwbsse001-puzzledungeon.esm
+	[ 8]     cceejsse001-hstead.esm
+	[ 9]     ccbgssse016-umbra.esm
+	[ A]     ccbgssse031-advcyrus.esm
+	[ B]     ccbgssse067-daedinv.esm
+	[ C]     ccbgssse025-advdsgs.esm
+	[ D]     cceejsse005-cave.esm
+	[62]     Guard Torch Remover - Reduced Light Flickering.esp
+	[63]     NoGrassINCities.esp
+	[64]     DynDOLOD.esp
+	[FE: B6] VolumeticMistsSolstheim.esp
+	[FE: B7] Mercenary Captain and Mercenaries.esp
+	[FE: B8] Vampire Lines Expansion.esp
+	[FE: B9] Unique Towns.esp
+	[FE: BA] TrueDirectionalMovement.esp
+	[FE: BB] Reduce Player Stat Offsets.esp
+	[FE: BC] Smelters_Riften & Solitude.esp

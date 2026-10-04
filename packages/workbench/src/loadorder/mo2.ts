@@ -2,6 +2,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { pathExists } from "../detect/os.js";
+import { isNetworkPath } from "../localpath.js";
 import { findSteamRoot, findSteamLibraries } from "../detect/steam.js";
 import { detectInstalledManagers } from "../detect/manager.js";
 import type { GameDef } from "../detect/games.js";
@@ -12,7 +13,7 @@ import type { LoadOrderResult, LoadOrderMod } from "./types.js";
 // well-formed Qt-style INI; we only need a few keys, so a tiny parser keeps us
 // dep-free.
 
-function parseIni(text: string): Record<string, Record<string, string>> {
+export function parseIni(text: string): Record<string, Record<string, string>> {
   const out: Record<string, Record<string, string>> = {};
   let section = "_default";
   out[section] = {};
@@ -124,6 +125,39 @@ export function findMo2InstanceForGame(
   return null;
 }
 
+// ─── An instance's folders ────────────────────────────────────────────────────
+
+/**
+ * Where an instance keeps its profiles, mods or Overwrite folder, worked out the
+ * way MO2 does it (PathSettings in MO2's settings.cpp): the [Settings] key when
+ * it is set, else "%BASE_DIR%/<name>", with %BASE_DIR% standing for the
+ * base_directory setting or, without one, the instance folder. People with big
+ * mod lists often keep them on another drive. Under Wine the settings hold
+ * Windows paths and only Z:, the whole file system, can be placed on this
+ * machine; null for any other drive. Null too, everywhere, for a folder on
+ * another computer (\\host\share): Linux would read //host/share as a folder
+ * of its own, and on Windows opening it connects to that computer.
+ */
+export function mo2Folder(
+  instancePath: string,
+  key: "profiles_directory" | "mod_directory" | "overwrite_directory",
+  name: string
+): string | null {
+  let settings: Record<string, string> = {};
+  try {
+    settings = parseIni(readFileSync(join(instancePath, "ModOrganizer.ini"), "utf8"))["Settings"] ?? {};
+  } catch {
+    // No readable ini: MO2's defaults.
+  }
+  const base = settings["base_directory"]?.trim() || instancePath;
+  const path = (settings[key]?.trim() || `%BASE_DIR%/${name}`).replace(/%BASE_DIR%/g, () => base);
+  if (isNetworkPath(path)) return null;
+  if (process.platform === "win32") return path;
+  const drive = /^([a-zA-Z]):[\\/]/.exec(path);
+  if (drive && drive[1]!.toLowerCase() !== "z") return null;
+  return (drive ? path.slice(2) : path).replace(/\\/g, "/");
+}
+
 // ─── modlist.txt / plugins.txt parsing ────────────────────────────────────────
 
 type ModlistEntry = { name: string; enabled: boolean };
@@ -177,8 +211,12 @@ export function readMo2LoadOrder(
 
   const profile =
     opts.profileName ?? readInstanceActiveProfile(instancePath) ?? "Default";
-  const profileDir = join(instancePath, "profiles", profile);
-  if (!pathExists(profileDir)) return null;
+  const profiles = mo2Folder(instancePath, "profiles_directory", "profiles");
+  if (profiles === null) return null;
+  const profileDir = join(profiles, profile);
+  // The ini is a file anyone can plant: its profiles folder can name another computer, and a
+  // profile named "..\..\UNC\host\share" under a \\?\C:\ folder climbs onto one.
+  if (isNetworkPath(profileDir) || !pathExists(profileDir)) return null;
 
   const modlistPath = join(profileDir, "modlist.txt");
   const pluginsPath = join(profileDir, "plugins.txt");

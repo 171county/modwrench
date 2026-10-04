@@ -1,0 +1,5 @@
+# LF in every checkout, Windows included: the tests compare fixture text byte for byte.
+* text=auto eol=lf
+
+# Binary files
+*.png binary
