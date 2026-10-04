@@ -32,8 +32,9 @@ export function buildModwrenchPrompt(): PromptResult {
   return user(
     "Open ModWrench. Call `mw_deck` to show the active connectors and the " +
       "flagship-game shortcuts, then tell me in a line or two what I can do from " +
-      "here — search for mods, diagnose a crash log, check for known conflicts, or " +
-      "read my load order. Keep it tight; I'll pick from there."
+      "here — search for mods, diagnose a crash log, check for known conflicts, " +
+      "read my load order, or check whether a game update is safe. Keep it tight; " +
+      "I'll pick from there."
   );
 }
 
@@ -47,24 +48,50 @@ export function buildFindPrompt(query: string): PromptResult {
   );
 }
 
-/** `/mw-crash [log]` — crash log in, culprit out. */
+/** One line that is the address of a file, as opposed to the text of a log. */
+function asFilePath(text: string): string | undefined {
+  const unquoted = text.replace(/^(["'])(.*)\1$/s, "$2").trim();
+  if (unquoted === "" || unquoted.length > 500 || /[\r\n]/.test(unquoted)) return undefined;
+  const looksLikeOne = /^(?:[A-Za-z]:[\\/]|\\\\|\/|~[\\/])/.test(unquoted) || /\.(?:log|txt)$/i.test(unquoted);
+  return looksLikeOne ? unquoted : undefined;
+}
+
+/** `/mw-crash [log]` — why did my game crash? */
 export function buildCrashPrompt(log?: string): PromptResult {
   const trimmed = log?.trim();
-  if (trimmed) {
+  const path = trimmed ? asFilePath(trimmed) : undefined;
+  const source = !trimmed
+    ? "Why did my game crash? Run `mw_crash_whisperer` with no arguments: it finds and " +
+      "reads my newest crash log on this computer itself, so there's nothing for me to " +
+      "paste, and my name and folders come out before anything reaches you. "
+    : path
+      ? "Why did my game crash? Run `mw_crash_whisperer` with logPath set to exactly the " +
+        `line below (it reads the file itself):\n${path}\n\n`
+      : "Why did my game crash? Run `mw_crash_whisperer` with the log below as logContent. ";
+  const answer =
+    "Lead with what happened, in plain words. Then the leads it ranked, strongest first, " +
+    "each with how sure it is and what it rests on: the log, my files, a published rule, " +
+    "or ModWrench's own guess. A lead isn't a finding, so don't call any mod guilty and " +
+    "don't call anything safe. Then the setup problems it found, if any, and what I'd do " +
+    "first. Offer the help post for the forum, GitHub, Discord or the mod's author; when " +
+    "I choose one, call it again with packet set to that place and give me the text to " +
+    "copy as it is.";
+  if (!trimmed) {
     return user(
-      "Parse this crash log with `mw_parse_crashlog`, then diagnose it from the " +
-        "parsed output only — exception, call stack, registers, modules, plugins. " +
-        "Name the most likely culprit mod and the fix. Don't guess beyond the data.\n\n" +
-        "---\n" +
-        trimmed
+      source +
+        answer +
+        " If it can't find a log, ask me where mine is and use logPath; ask me to paste " +
+        "it only if the file can't be reached."
     );
   }
+  if (path) return user(source + answer);
   return user(
-    "I want to debug a crash. Ask me to paste the crash log or give a path — the " +
-      "usual spots are Documents/My Games/Skyrim Special Edition/SKSE/crash-*.log, " +
-      ".../Fallout4/F4SE/crash-*.log, or the game's BepInEx/LogOutput.log. Then parse " +
-      "it with `mw_parse_crashlog` and diagnose from the parsed data only — don't " +
-      "guess beyond what's in the log."
+    source +
+      answer +
+      " Mention once, in a sentence, that a log pasted into the chat has already reached " +
+      "you with my name and folders in it, and that `/mw-crash` with nothing after it " +
+      "reads the log from disk and removes them first.\n\n---\n" +
+      trimmed
   );
 }
 
@@ -92,6 +119,36 @@ export function buildOrderPrompt(): PromptResult {
   );
 }
 
+/** `/mw-patch [version]` — is it safe to update? */
+export function buildPatchPrompt(version?: string): PromptResult {
+  const v = version?.trim();
+  const target = v
+    ? ` Check against game version ${v}: pass targetVersion ${JSON.stringify(v)} so it judges that version, not the installed one.`
+    : "";
+  return user(
+    "Is it safe to update my game? Run `mw_patch_day` and lead with the verdict " +
+      "(go / check / wait) in one line. Then list only what's broken or unclear — " +
+      "the plugin, why, and whether the reason is SKSE's own rule or inferred — and " +
+      "what I'd have to do about each. Don't call it safe: a go only means the " +
+      "file checks passed." +
+      target
+  );
+}
+
+/** `/mw-doctor [game]` — is my setup ready? */
+export function buildDoctorPrompt(game?: string): PromptResult {
+  const g = game?.trim();
+  const forGame = g ? ` Pass gameId ${JSON.stringify(g)}.` : "";
+  return user(
+    "Is my setup ready? Run `mw_doctor` and lead with what needs fixing, worst first: " +
+      "what's wrong, what each finding rests on (my files, a documented rule, or ModWrench's " +
+      "own guess), and the one thing I'd do about it. Then say in a line what it can't see " +
+      "from here. Don't tell me the setup is fine: a clear report only means the checks that " +
+      "can run from files passed, not that the game starts." +
+      forGame
+  );
+}
+
 // ─── Prompt catalog + registration ───────────────────────────────────────────
 
 /** Canonical prompt names, in menu order. Kept in sync with registerPrompts. */
@@ -101,6 +158,8 @@ export const PROMPT_NAMES = [
   "mw-crash",
   "mw-conflicts",
   "mw-order",
+  "mw-patch",
+  "mw-doctor",
 ] as const;
 
 export const PROMPT_COUNT = PROMPT_NAMES.length;
@@ -133,13 +192,13 @@ export function registerPrompts(server: McpServer): { promptCount: number } {
 
   server.prompt(
     "mw-crash",
-    "Crash log in, culprit out. Paste a Buffout 4 / Crash Logger SSE / BepInEx log (or point at the file) and ModWrench parses it so the model can name the likely mod. It parses; it never guesses.",
+    "Why did my game crash? Reads your newest crash log (Crash Logger SSE, Buffout 4, NetScriptFramework or BepInEx), says what happened in plain words, ranks the names it points at with how sure it is, and writes a help post with the personal details it recognises taken out. Local and read-only. A lead is not a verdict.",
     {
       log: z
         .string()
         .optional()
         .describe(
-          "Paste the crash log text, or a file path. Leave it empty and I'll ask where yours lives (…/SKSE/, …/F4SE/, BepInEx/LogOutput.log)."
+          "Leave it empty and ModWrench reads your newest crash log itself, which is the most private way: ModWrench takes out the personal details it recognises before anything reaches the AI. Or give a file path (the path itself reaches the AI as you typed it). Pasting the text works, but a paste has already reached the AI as you typed it."
         ),
     },
     ({ log }) => buildCrashPrompt(log)
@@ -163,6 +222,34 @@ export function registerPrompts(server: McpServer): { promptCount: number } {
     "mw-order",
     "Post your load order — to Claude, not a Discord. Reads your MO2 / r2modman / Vortex order and lays it out.",
     () => buildOrderPrompt()
+  );
+
+  server.prompt(
+    "mw-patch",
+    "Is it safe to update? Reads your game version, SKSE and every plugin, and says which ones SKSE would refuse after the patch — before it lands or after. Local and read-only.",
+    {
+      version: z
+        .string()
+        .optional()
+        .describe(
+          "A game version to check before you update, like 1.7.104. Leave it empty to check what's installed now."
+        ),
+    },
+    ({ version }) => buildPatchPrompt(version)
+  );
+
+  server.prompt(
+    "mw-doctor",
+    "Is my setup ready? The Doctors check the boring causes behind \"my mods keep breaking\": plugin masters and limits, MO2's Overwrite folder, where things live and how much room is left, and on Linux and Steam Deck the Steam, Proton and nxm:// side. Says what each finding rests on and what it can't see. Local and read-only.",
+    {
+      game: z
+        .string()
+        .optional()
+        .describe(
+          "Canonical game id (e.g. skyrimspecialedition, lethalcompany). Leave it empty to check Skyrim Special Edition, which has the most checks."
+        ),
+    },
+    ({ game }) => buildDoctorPrompt(game)
   );
 
   return { promptCount: PROMPT_COUNT };

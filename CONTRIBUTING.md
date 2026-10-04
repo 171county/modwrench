@@ -23,7 +23,7 @@ git clone https://github.com/171county/modwrench.git
 cd modwrench
 npm install
 npm run build       # all packages, in dependency order
-npm test            # 201 tests across eight workspaces
+npm test            # 1,327 tests: eight workspaces and the release scripts
 npm run typecheck
 ```
 

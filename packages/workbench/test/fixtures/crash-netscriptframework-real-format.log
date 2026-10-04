@@ -1,0 +1,111 @@
+Unhandled native exception occurred at 0x7FF6756DF5E2 (SkyrimSE.exe+84F5E2) on thread 17984!
+
+FrameworkName: NetScriptFramework
+FrameworkVersion: 15
+FrameworkArchitecture: x64
+GameLibrary: SkyrimSE
+GameLibraryVersion: 18
+ApplicationName: SkyrimSE.exe
+ApplicationVersion: 1.5.97.0
+VersionInfo: Successfully loaded
+Time: 14 Aug 2022 09:11:36.828
+
+Possible relevant objects (4)
+{
+  [   0]    TESNPC(Name: `Prisoner`, FormId: 00000007, File: `0_StartPlayer_Spells.esp <- Skyrim.esm`)
+  [   0]    PlayerCharacter(FormId: 00000014, BaseForm: TESNPC(Name: `Prisoner`, FormId: 00000007, File: `0_StartPlayer_Spells.esp <- Skyrim.esm`))
+  [  24]    NiCamera(Name: `WorldRoot Camera`)
+  [  60]    NiNode(Name: `WorldRoot CameraNode`)
+}
+
+Probable callstack
+{
+  [0]   0x7FF6756DF5E2     (SkyrimSE.exe+84F5E2)          ThirdPersonState::Update_84F490+152
+  [1]   0x7FFB8E6AEAEE     (SmoothCam.dll+9EAEE)          
+  [2]   0x1E7255C7700                                     
+  [3]   0x1E7255C7700                                     
+  [4]   0xDD6B51F3E0                                      
+  [5]   0x7FF677DCB710     (SkyrimSE.exe+2F3B710)         
+  [6]   0x1B96712743D                                     
+  [7]   0x989680                                          
+  [8]   0x1E62EAB2E80                                     
+  [9]   0x7FFBBF576220     (VCRUNTIME140.dll+6220)        
+  [10]  0x7FFB8E69B44C     (SmoothCam.dll+8B44C)          
+  [11]  0x7FF676CA4690     (SkyrimSE.exe+1E14690)         
+  [12]  0x7FF676CA4690     (SkyrimSE.exe+1E14690)         
+  [13]  0x1E62EAB2E80                                     
+}
+
+Registers
+{
+  AX:       0x8000000000000000 (i64):[-9223372036854775808]
+  BX:       0x1E7255C7700      (ThirdPersonState*)
+  CX:       0x1E7437D4120      (BSHandleRefObject*) -> PlayerCharacter(FormId: 00000014, BaseForm: TESNPC(Name: `Prisoner`, FormId: 00000007, File: `0_StartPlayer_Spells.esp <- Skyrim.esm`))
+  DX:       0xDD6B51F018       (PlayerCharacter**) -> (FormId: 00000014, BaseForm: TESNPC(Name: `Prisoner`, FormId: 00000007, File: `0_StartPlayer_Spells.esp <- Skyrim.esm`))
+  SI:       0xDD6B51F3E0       (void*)
+  DI:       0x7FF677DCB710     (SkyrimSE.exe+2F3B710) (PlayerCamera*)
+  BP:       0x1E7437D4100      (PlayerCharacter*) -> (FormId: 00000014, BaseForm: TESNPC(Name: `Prisoner`, FormId: 00000007, File: `0_StartPlayer_Spells.esp <- Skyrim.esm`))
+  SP:       0xDD6B51F220       (PlayerCharacter**) -> (FormId: 00000014, BaseForm: TESNPC(Name: `Prisoner`, FormId: 00000007, File: `0_StartPlayer_Spells.esp <- Skyrim.esm`))
+  IP:       0x7FF6756DF5E2     (SkyrimSE.exe+84F5E2) (void*)
+  R8:       0xDD6B51F101       (void*)
+}
+
+Stack
+{
+  [SP+0]    0x1E7437D4100      (PlayerCharacter*) -> (FormId: 00000014, BaseForm: TESNPC(Name: `Prisoner`, FormId: 00000007, File: `0_StartPlayer_Spells.esp <- Skyrim.esm`))
+  [SP+8]    0x1E7255C7700      (ThirdPersonState*)
+  [SP+10]   0x0                (NULL)
+}
+
+Modules
+{
+  SkyrimSE.exe:                                     0x7FF674E90000
+  ntdll.dll:                                        0x7FFBDE570000
+  KERNEL32.DLL:                                     0x7FFBDCD90000
+  KERNELBASE.dll:                                   0x7FFBDC020000
+  apphelp.dll:                                      0x7FFBD94F0000
+  USER32.dll:                                       0x7FFBDCBF0000
+  MSVCP140.dll:                                     0x7FFBBF4E0000
+  VCRUNTIME140.dll:                                 0x7FFBBF570000
+  SmoothCam.dll:                                    0x7FFB8E610000
+}
+
+Plugins (1)
+{
+  custom_skills
+  {
+    Name: "Custom Skills"
+    Version: 1
+    Author: "meh321"
+    Assembly: CustomSkills, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+  }
+}
+
+Game plugins (351)
+{
+  [00] Skyrim.esm
+  [01] Update.esm
+  [02] Dawnguard.esm
+  [03] HearthFires.esm
+  [04] Dragonborn.esm
+  [05] Unofficial Skyrim Special Edition Patch.esp
+  [06] MajesticMountains_Landscape.esm
+  [07] BSAssets.esm
+  [08] High Poly Head.esm
+  [09] Artaeum.esp
+  [0A] Water for ENB.esm
+  [0B] BSHeartland.esm
+  [0C] BS_DLC_patch.esp
+  [0D] FISS.esp
+  [58] WSEnhancer.esp
+  [59] Water for ENB (Shades of Skyrim).esp
+  [5A] Atlas Map Markers.esp
+  [5B] RaceMenu.esp
+  [5C] CollegeOfWinterholdImmersive.esp
+  [FE 000] SmoothCam.esl
+  [FE 001] DwemerGatesNoRelock.esl
+  [FE 002] AHZmoreHUD.esl
+  [FE 003] AHZmoreHUDInventory.esl
+  [FE 004] Expressive Facegen Morphs.esl
+  [FE 005] MajesticMountains_Moss.esp
+}

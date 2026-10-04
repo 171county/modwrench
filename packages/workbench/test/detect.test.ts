@@ -12,6 +12,7 @@ import { tmpdir, userInfo } from "node:os";
 
 import {
   findSteamLibraries,
+  findSteamRoot,
   findInstalledApp,
   findProtonPrefix,
 } from "../src/detect/steam.js";
@@ -297,6 +298,56 @@ test("findProtonPrefix: returns null when the prefix was never created", () => {
   const lib = mkdirp(TMP, "proton-none", "steamapps");
   mkdirp(lib, "compatdata", "489830"); // dir exists, but no pfx inside
   assert.equal(findProtonPrefix([lib], "489830"), null);
+});
+
+// ─── findSteamRoot ────────────────────────────────────────────────────────────
+
+test("findSteamRoot: finds Flatpak Steam where the Flatpak keeps it, and the older data/Steam spot", () => {
+  setPlatform("linux");
+  const savedRoot = process.env.STEAM_ROOT;
+  delete process.env.STEAM_ROOT;
+  try {
+    const current = mkdirp(TMP, "flatpak-current-home");
+    process.env.HOME = current;
+    process.env.USERPROFILE = current;
+    const steam = mkdirp(current, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam");
+    mkdirp(steam, "steamapps");
+    assert.equal(findSteamRoot(), steam);
+
+    const older = mkdirp(TMP, "flatpak-older-home");
+    process.env.HOME = older;
+    process.env.USERPROFILE = older;
+    const data = mkdirp(older, ".var", "app", "com.valvesoftware.Steam", "data", "Steam");
+    mkdirp(data, "steamapps");
+    assert.equal(findSteamRoot(), data);
+
+    const none = mkdirp(TMP, "flatpak-none-home");
+    process.env.HOME = none;
+    process.env.USERPROFILE = none;
+    assert.equal(findSteamRoot(), null);
+  } finally {
+    if (savedRoot === undefined) delete process.env.STEAM_ROOT;
+    else process.env.STEAM_ROOT = savedRoot;
+  }
+});
+
+test("findSteamRoot: a regular Steam in the home folder comes before a Flatpak one", () => {
+  setPlatform("linux");
+  const savedRoot = process.env.STEAM_ROOT;
+  delete process.env.STEAM_ROOT;
+  try {
+    const home = mkdirp(TMP, "both-steams-home");
+    process.env.HOME = home;
+    process.env.USERPROFILE = home;
+    const native = mkdirp(home, ".local", "share", "Steam");
+    mkdirp(native, "steamapps");
+    const flatpak = mkdirp(home, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam");
+    mkdirp(flatpak, "steamapps");
+    assert.equal(findSteamRoot(), native);
+  } finally {
+    if (savedRoot === undefined) delete process.env.STEAM_ROOT;
+    else process.env.STEAM_ROOT = savedRoot;
+  }
 });
 
 // ─── detectInstalledManagers ──────────────────────────────────────────────────

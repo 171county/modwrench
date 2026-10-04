@@ -1,4 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { log } from "@modwrench/core";
 import { detectEnvironment } from "./detect/environment.js";
@@ -29,7 +30,55 @@ function themeForGameId(gameId: string): string {
   return "lethal";
 }
 import { checkKnownConflicts } from "./conflicts/index.js";
+import { checkPatchDay } from "./patchday/index.js";
+import { summarizePatchDay } from "./patchday/summary.js";
+import { pageAnswer, registerCrashWhispererApp, registerDoctorApp, registerPatchDayApp } from "./apps.js";
+import { summarizeCrashWhisper, whisper } from "./crashwhisper/index.js";
+import { runDoctor } from "./doctor/index.js";
+import { summarizeDoctor } from "./doctor/summary.js";
 import { correlateCrash, type CrashSuspect } from "./crashlog/diagnose.js";
+import { isNetworkPath } from "./localpath.js";
+
+const refusal = (text: string): CallToolResult => ({ content: [{ type: "text", text }], isError: true });
+
+/**
+ * Every tool's handler runs through here. A path argument that names another computer
+ * or a device is refused before anything opens it (see localpath.ts), and the answer
+ * names the argument but never repeats the path. An error nobody planned for, such as
+ * a file another program holds open, comes back as one plain sentence with its code:
+ * Node puts the full path, user name and all, in the error's message, and the SDK
+ * would hand that message to the client as the answer.
+ */
+function guarded<A extends unknown[]>(
+  tool: string,
+  pathArgs: readonly string[],
+  handler: (...args: A) => Promise<CallToolResult>
+): (...args: A) => Promise<CallToolResult> {
+  return async (...args) => {
+    try {
+      const input = args[0] as Record<string, unknown> | undefined;
+      for (const name of pathArgs) {
+        const value = input?.[name];
+        if (typeof value === "string" && isNetworkPath(value)) {
+          return refusal(
+            `${name} names another computer or a device (it starts with \\\\ or //), so ${tool} didn't open it. ` +
+              "The workbench tools read only this computer's own drives. Copy the file or folder to a local drive and pass that path instead."
+          );
+        }
+      }
+      return await handler(...args);
+    } catch (err) {
+      const raw = (err as { code?: unknown } | null)?.code;
+      const code = typeof raw === "string" && /^E[A-Z]+$/.test(raw) ? raw : undefined;
+      log("debug", "workbench.tool_failed", { tool, ...(code ? { code } : {}) });
+      return refusal(
+        `${tool} stopped on an error it didn't expect${code ? ` (${code})` : ""}, so there is no answer this time. ` +
+          (code ? "If a file it reads is open in another program or can't be read with your permissions, close that program and try again. " : "") +
+          "The error's own text is left out because it can hold folder names."
+      );
+    }
+  };
+}
 
 /**
  * Register all Workbench tools on the given MCP server. Workbench tools are
@@ -60,7 +109,7 @@ export function registerWorkbenchTools(server: McpServer): {
         openWorldHint: false,
       },
     },
-    async () => {
+    guarded("mw_detect_environment", [], async () => {
       const result = detectEnvironment();
 
       log("debug", "workbench.detect_environment", {
@@ -78,7 +127,7 @@ export function registerWorkbenchTools(server: McpServer): {
           },
         ],
       };
-    }
+    })
   );
 
   // ─── Tool 2: mw_read_load_order ─────────────────────────────────────────────
@@ -124,7 +173,7 @@ export function registerWorkbenchTools(server: McpServer): {
         openWorldHint: false,
       },
     },
-    async ({ gameId, modManager, profileName, instancePath }) => {
+    guarded("mw_read_load_order", ["instancePath"], async ({ gameId, modManager, profileName, instancePath }) => {
       const result = readLoadOrder({
         gameId,
         modManager,
@@ -175,7 +224,7 @@ export function registerWorkbenchTools(server: McpServer): {
           ...orderUI,
         ],
       };
-    }
+    })
   );
 
   // ─── Tool 3: mw_parse_crashlog ──────────────────────────────────────────────
@@ -223,7 +272,7 @@ export function registerWorkbenchTools(server: McpServer): {
         openWorldHint: false,
       },
     },
-    async ({ logContent, logPath, logType }) => {
+    guarded("mw_parse_crashlog", ["logPath"], async ({ logContent, logPath, logType }) => {
       const result = parseCrashlog({
         ...(logContent !== undefined ? { logContent } : {}),
         ...(logPath !== undefined ? { logPath } : {}),
@@ -254,7 +303,7 @@ export function registerWorkbenchTools(server: McpServer): {
           }),
         ],
       };
-    }
+    })
   );
 
   // ─── Tool 4: mw_query_mod_metadata ──────────────────────────────────────────
@@ -301,7 +350,7 @@ export function registerWorkbenchTools(server: McpServer): {
         openWorldHint: true,
       },
     },
-    async ({ modId, modName, platform, gameId }) => {
+    guarded("mw_query_mod_metadata", [], async ({ modId, modName, platform, gameId }) => {
       const result = await queryModMetadata({
         ...(modId !== undefined ? { modId } : {}),
         ...(modName !== undefined ? { modName } : {}),
@@ -342,7 +391,7 @@ export function registerWorkbenchTools(server: McpServer): {
           }),
         ],
       };
-    }
+    })
   );
 
   // ─── Tool 5: mw_check_known_conflicts ──────────────────────────────────────
@@ -381,7 +430,8 @@ export function registerWorkbenchTools(server: McpServer): {
         openWorldHint: true,
       },
     },
-    async ({ gameId, modIds }) => {
+    // gameId becomes part of a file name in the community lookup, so it is checked like a path.
+    guarded("mw_check_known_conflicts", ["gameId"], async ({ gameId, modIds }) => {
       const result = await checkKnownConflicts({ gameId, modIds });
 
       const conflictUI = createUIResource({
@@ -416,7 +466,7 @@ export function registerWorkbenchTools(server: McpServer): {
           conflictUI,
         ],
       };
-    }
+    })
   );
 
   // ─── Tool 6: mw_diagnose_crash ─────────────────────────────────────────────
@@ -463,7 +513,8 @@ export function registerWorkbenchTools(server: McpServer): {
         openWorldHint: true,
       },
     },
-    async ({ logContent, logPath, logType, gameId, attributeSuspects }) => {
+    // gameId reaches the same community lookup as in mw_check_known_conflicts.
+    guarded("mw_diagnose_crash", ["logPath", "gameId"], async ({ logContent, logPath, logType, gameId, attributeSuspects }) => {
       const parsed = parseCrashlog({
         ...(logContent !== undefined ? { logContent } : {}),
         ...(logPath !== undefined ? { logPath } : {}),
@@ -557,8 +608,299 @@ export function registerWorkbenchTools(server: McpServer): {
           }),
         ],
       };
-    }
+    })
   );
 
-  return { toolCount: 6 };
+  // ─── Tool 7: mw_patch_day ──────────────────────────────────────────────────
+  // "Is it safe to update?" Reads the game's version, the script extender build,
+  // its Address Library file and every plugin DLL, then applies SKSE's own
+  // published compatibility rules. Local and read-only: no network, nothing
+  // written. See patchday/ and TRUST.md.
+  //
+  // The answer is plain text first: a short summary any client can show and the
+  // model can read. The full report rides along as structured content, and in
+  // clients that support MCP Apps the tool also points at a page that draws it
+  // (apps.ts). Clients that don't support the extension never see the page.
+  const patchDayPage = registerPatchDayApp(server);
+  server.registerTool(
+    "mw_patch_day",
+    {
+      title: "Is it safe to update?",
+      description: "Is it safe to update? Right before or after a game patch, reads the game's version, the SKSE build, its Address Library file and every SKSE plugin DLL (game folder and Mod Organizer 2), applies SKSE's own published compatibility rules, and says which plugins would be refused. Verdict is go / check / wait, with a reason per plugin and a note on whether each rule is SKSE's own or inferred. Local and read-only — no network, nothing written or kept. Pass targetVersion (e.g. 1.7.104) to check a patch that isn't installed yet. Skyrim Special Edition / Anniversary Edition only for now. A GO means every check that can be run from files passed; it can't promise the game runs. Use when the user asks \"is it safe to update\", \"Steam updated Skyrim and now it won't start\", \"did SKSE break\", or \"which plugins will break after the patch\".",
+      inputSchema: {
+        gameId: z
+          .string()
+          .optional()
+          .describe(
+            "Canonical game ID. Default 'skyrimspecialedition', the only one supported so far."
+          ),
+        gamePath: z
+          .string()
+          .optional()
+          .describe(
+            "The install folder (the one holding SkyrimSE.exe), when ModWrench can't find the game on its own — a GOG copy, or a Steam library in an unusual place."
+          ),
+        targetVersion: z
+          .string()
+          .optional()
+          .describe(
+            "A game version to check instead of the installed one, like '1.7.104'. Use it before updating; the number is in the Steam patch notes or on the SKSE site."
+          ),
+        mo2InstancePath: z
+          .string()
+          .optional()
+          .describe(
+            "Mod Organizer 2 instance folder, for a portable instance that doesn't live where MO2 normally keeps them. Without it, MO2 is read only when it looks like the active manager."
+          ),
+        profileName: z
+          .string()
+          .optional()
+          .describe("MO2 profile name. Default: the instance's active profile."),
+        logPath: z
+          .string()
+          .optional()
+          .describe(
+            "Path to skse64.log if it isn't in the usual Documents/My Games folder. SKSE's own log from the last launch is cross-checked against the predictions."
+          ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      ...(patchDayPage ? { _meta: patchDayPage } : {}),
+    },
+    guarded("mw_patch_day", ["gamePath", "mo2InstancePath", "logPath"], async ({ gameId, gamePath, targetVersion, mo2InstancePath, profileName, logPath }) => {
+      const result = checkPatchDay({
+        ...(gameId !== undefined ? { gameId } : {}),
+        ...(gamePath !== undefined ? { gamePath } : {}),
+        ...(targetVersion !== undefined ? { targetVersion } : {}),
+        ...(mo2InstancePath !== undefined ? { mo2InstancePath } : {}),
+        ...(profileName !== undefined ? { profileName } : {}),
+        ...(logPath !== undefined ? { logPath } : {}),
+      });
+
+      log("debug", "workbench.patch_day", {
+        ok: result.ok,
+        verdict: result.ok ? result.verdict : null,
+        plugins: result.ok ? result.plugins.total : 0,
+      });
+
+      // Plain text for everyone; the full report only for clients that draw pages, while the
+      // page is registered (or when MODWRENCH_STRUCTURED says so). Couldn't run (unsupported
+      // game, game not found, a version that isn't one): flagged so a client can show it as a
+      // failed call.
+      return pageAnswer(server, summarizePatchDay(result), result, patchDayPage !== undefined);
+    })
+  );
+
+  // ─── Tool 8: mw_crash_whisperer ────────────────────────────────────────────
+  // "Why did my game crash?" Reads the newest crash log (or one that's pasted or
+  // pointed at), says in plain words what happened, ranks the names the log points
+  // at with the reason for each and what each rests on, checks the install for the
+  // usual causes, and writes the posts to ask for help with, minus the player's name
+  // and folders. Local and read-only. See crashwhisper/ and TRUST.md.
+  //
+  // Same shape as mw_patch_day: plain text first, structured report only for
+  // clients that draw pages, a page for the ones that do.
+  const crashWhispererPage = registerCrashWhispererApp(server);
+  server.registerTool(
+    "mw_crash_whisperer",
+    {
+      title: "Why did my game crash?",
+      description: "Why did my game crash? Reads the newest crash log (or one you paste or point at), says in plain words what happened, and lists the names the log points at, ranked, each with its reason and a label for what it rests on: the log itself, your install, a published rule, or ModWrench's own guess. A ranking is a lead, never a verdict. Also checks the setup for the usual causes (for Skyrim Special Edition: game version, SKSE build, Address Library and plugin DLLs), for a Crash Logger SSE or Buffout 4 log, compares your other recent crashes to see whether it keeps happening, and writes posts to ask for help with (forum, GitHub, Discord, or the mod's author) with the personal details it recognises (your name, computer name, folders, addresses, keys) taken out; it can miss things, so read a post before you send it. Handles Crash Logger SSE, Buffout 4, NetScriptFramework and BepInEx logs. Local and read-only — nothing is written or kept, and ModWrench sends nothing anywhere; the answer goes to the AI you're talking to. Call it with no arguments to read the newest crash log. Use when the user says \"my game crashed\", \"CTD\", \"why did it crash\", \"which mod is it\", or \"help me post about this crash\".",
+      inputSchema: {
+        logContent: z
+          .string()
+          .optional()
+          .describe(
+            "The crash log's text, if the user pasted it. Leave it out to read the newest crash log from disk. Up to about 4 MB."
+          ),
+        logPath: z
+          .string()
+          .optional()
+          .describe(
+            "A crash log file, if it isn't where the crash logger normally writes it. Leave it out and ModWrench looks for the newest one."
+          ),
+        gameId: z
+          .string()
+          .optional()
+          .describe(
+            "Which game to look for a log of: skyrimspecialedition, fallout4, lethalcompany and the other games ModWrench knows. Default: whichever game's log is newest."
+          ),
+        logType: z
+          .enum(["auto", "crashlogger-sse", "buffout4", "netscriptframework", "bepinex"])
+          .optional()
+          .describe(
+            "Format hint. Default 'auto' — detect from the content. Pass one when a truncated log can't be told apart."
+          ),
+        gamePath: z
+          .string()
+          .optional()
+          .describe(
+            "The install folder, when ModWrench can't find the game on its own — a GOG copy, or a Steam library in an unusual place. Used with gameId."
+          ),
+        mo2InstancePath: z
+          .string()
+          .optional()
+          .describe(
+            "Mod Organizer 2 instance folder, for a portable instance that doesn't live where MO2 normally keeps them."
+          ),
+        profileName: z
+          .string()
+          .optional()
+          .describe("MO2 profile name. Default: the instance's active profile."),
+        checkInstall: z
+          .boolean()
+          .optional()
+          .describe(
+            "Check the log against the player's install (Skyrim Special Edition so far). Default true. False reads the log alone."
+          ),
+        compareRecent: z
+          .number()
+          .int()
+          .min(0)
+          .max(10)
+          .optional()
+          .describe(
+            "How many of the player's other recent crash logs to compare, to see whether the same name keeps coming up (Crash Logger SSE and Buffout 4 logs only; NetScriptFramework and BepInEx logs aren't compared). Default 5; 0 skips it."
+          ),
+        hideNames: z
+          .boolean()
+          .optional()
+          .describe(
+            "Leave the plugin lists out of the help posts, for someone who'd rather not share what they run."
+          ),
+        packet: z
+          .enum(["forum", "github", "discord", "author"])
+          .optional()
+          .describe(
+            "Put the ready-to-post help text for this place into the answer. Without it the answer says the posts are ready and the page offers them."
+          ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      ...(crashWhispererPage ? { _meta: crashWhispererPage } : {}),
+    },
+    guarded("mw_crash_whisperer", ["logPath", "gamePath", "mo2InstancePath"], async ({
+      logContent,
+      logPath,
+      gameId,
+      logType,
+      gamePath,
+      mo2InstancePath,
+      profileName,
+      checkInstall,
+      compareRecent,
+      hideNames,
+      packet,
+    }) => {
+      const result = whisper({
+        ...(logContent !== undefined ? { logContent } : {}),
+        ...(logPath !== undefined ? { logPath } : {}),
+        ...(gameId !== undefined ? { gameId } : {}),
+        ...(logType !== undefined ? { logType } : {}),
+        ...(gamePath !== undefined ? { gamePath } : {}),
+        ...(mo2InstancePath !== undefined ? { mo2InstancePath } : {}),
+        ...(profileName !== undefined ? { profileName } : {}),
+        ...(checkInstall !== undefined ? { checkInstall } : {}),
+        ...(compareRecent !== undefined ? { compareRecent } : {}),
+        ...(hideNames !== undefined ? { hideNames } : {}),
+      });
+
+      // Counts and a format name only: nothing from the log or the player's files.
+      log("debug", "workbench.crash_whisperer", {
+        ok: result.ok,
+        format: result.ok ? result.crash.format : null,
+        source: result.ok ? result.crash.source : null,
+        leads: result.ok ? result.leads.length : 0,
+        checks: result.ok ? result.checks.length : 0,
+      });
+
+      return pageAnswer(server, summarizeCrashWhisper(result, packet ? { packet } : {}), result, crashWhispererPage !== undefined);
+    })
+  );
+
+  // ─── Tool 9: mw_doctor ─────────────────────────────────────────────────────
+  // "Is my setup ready?" The boring causes behind many "my mods keep breaking"
+  // threads, read from files: where things live and how much room is left, the
+  // plugin list and the masters each plugin needs, Mod Organizer 2's Overwrite
+  // folder, crash loggers, and on Linux and Steam Deck the Steam install, Proton
+  // prefix, BepInEx override, nxm:// handler, library drive and folder-name case.
+  // Local and read-only, and no folder path ends up in the answer. See doctor/ and
+  // TRUST.md.
+  //
+  // Same shape as the other two pages: plain text first, structured report only for
+  // clients that draw pages, a page for the ones that do.
+  const doctorPage = registerDoctorApp(server);
+  server.registerTool(
+    "mw_doctor",
+    {
+      title: "Is my setup ready?",
+      description: "Is my setup ready? The Doctors: a read-only health check for the boring causes behind many \"my mods keep breaking\" threads, read from files alone. Setup Doctor: whether the game or its mods sit in a folder Windows protects or syncs (Program Files, OneDrive, Downloads, Desktop) or on a drive short of space; and, for Skyrim Special Edition, the plugin list (missing, switched-off or late masters read from each plugin's header, the 254 full plus 4096 light plugin limits, entries for plugins that are gone, Mod Organizer 2 and the game's own plugins.txt disagreeing), clutter in MO2's Overwrite folder, and crash loggers (none, or two that fight). Deck Doctor, on Linux and Steam Deck: which Steam is in use (regular or Flatpak), the game's Proton prefix, BepInEx's winhttp launch override, the nxm:// link handler, whether the library sits on an NTFS or FAT drive, and folder names that differ only by capital letters. Every finding says what it rests on: your files, a documented rule (with its source) or ModWrench's own guess. The report also lists what ModWrench can't see, such as antivirus, pagefile size and MO2's live file view. Local and read-only: no network, no program started, nothing written or kept, and no folder paths in the answer. A clear report isn't a promise the game starts. Use when the user says \"why do my mods keep breaking\", \"is my setup OK\", \"check before I install this list\", \"Wabbajack keeps failing\", or \"mods won't load on my Deck\".",
+      inputSchema: {
+        gameId: z
+          .string()
+          .optional()
+          .describe(
+            "Canonical game ID. Default 'skyrimspecialedition', which has the plugin, master and crash-logger checks; the location, disk and Deck checks cover the other games ModWrench knows too (see mw_detect_environment)."
+          ),
+        area: z
+          .enum(["all", "setup", "deck"])
+          .optional()
+          .describe(
+            "Which checks to run. Default 'all': the Setup Doctor, plus the Deck Doctor on Linux. 'deck' runs the Deck checks only and does nothing useful off Linux."
+          ),
+        gamePath: z
+          .string()
+          .optional()
+          .describe(
+            "The folder that holds the game's executable (for Skyrim Special Edition, SkyrimSE.exe), not its Data folder, when ModWrench can't find it in a Steam library on its own: a GOG or Epic copy, or an unusual place."
+          ),
+        mo2InstancePath: z
+          .string()
+          .optional()
+          .describe(
+            "Mod Organizer 2 instance folder, for a portable instance that doesn't live where MO2 normally keeps them. Without it a portable instance isn't found, and the answer says the plugin checks looked at the game's own plugins.txt instead."
+          ),
+        profileName: z
+          .string()
+          .optional()
+          .describe("MO2 profile name. Default: the instance's active profile."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      ...(doctorPage ? { _meta: doctorPage } : {}),
+    },
+    guarded("mw_doctor", ["gamePath", "mo2InstancePath"], async ({ gameId, area, gamePath, mo2InstancePath, profileName }) => {
+      const result = runDoctor({
+        ...(gameId !== undefined ? { gameId } : {}),
+        ...(area !== undefined ? { area } : {}),
+        ...(gamePath !== undefined ? { gamePath } : {}),
+        ...(mo2InstancePath !== undefined ? { mo2InstancePath } : {}),
+        ...(profileName !== undefined ? { profileName } : {}),
+      });
+
+      // Counts only: nothing from the player's files or folders.
+      log("debug", "workbench.doctor", {
+        ok: result.ok,
+        verdict: result.ok ? result.verdict : null,
+        problems: result.ok ? result.counts.problem : 0,
+        warnings: result.ok ? result.counts.warn : 0,
+      });
+
+      return pageAnswer(server, summarizeDoctor(result), result, doctorPage !== undefined);
+    })
+  );
+
+  return { toolCount: 9 };
 }
