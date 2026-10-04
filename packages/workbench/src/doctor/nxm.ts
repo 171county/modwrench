@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { clean } from "../patchday/summary.js";
 import { isFile, readText } from "./fsutil.js";
 import type { DoctorFinding } from "./types.js";
@@ -24,8 +24,10 @@ export type NxmResult =
   | { status: "no-default"; claimants: string[] }
   | { status: "none" };
 
+// The XDG lists are separated by ':', which is path.delimiter on Linux. Splitting on the
+// delimiter keeps a Windows drive letter whole when the tests run there.
 function split(value: string | undefined, fallback: string[]): string[] {
-  const parts = (value ?? "").split(":").filter((p) => p !== "");
+  const parts = (value ?? "").split(delimiter).filter((p) => p !== "");
   return parts.length > 0 ? parts : fallback;
 }
 
