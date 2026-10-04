@@ -8,6 +8,256 @@ This document is currently maintained by hand. When [release-please](https://git
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Patch Day: `mw_patch_day` and the `/mw-patch` slash command — "is it safe to
+  update?"** Before or right after a Skyrim Special Edition / Anniversary Edition
+  patch, it reads the game's version, the SKSE build and its DLL, the Address
+  Library file, and every SKSE plugin DLL — the game's `Data/SKSE/Plugins`, plus
+  each enabled Mod Organizer 2 mod and the Overwrite folder, wherever the
+  instance's `ModOrganizer.ini` puts them, with MO2's priority rules — applies
+  SKSE's own published compatibility rules, and answers **go / check / wait**
+  with a reason per plugin. `targetVersion` asks the same question about a patch
+  that isn't installed yet, and says to put the new SKSE build in after the
+  update, since SKSE's loader starts only the game version its build was made
+  for. Steam's appmanifest (is an update waiting?) and SKSE's own `skse64.log`
+  (written since the last patch? did SKSE refuse anything the file check
+  passed?) are read when present and cross-checked against the prediction.
+
+  Every result says how sure it is. `basis` is `skse-source` where the rule comes
+  from SKSE's published source for that game version — SKSE 2.0.20 for 1.5.97,
+  2.2.8 for 1.6.x, 2.3.0 for 1.7.99 and 2.3.1 for 1.7.104, including 2.3.1's
+  rule for Address Library plugins built before the format change — and the
+  refusal carries SKSE's own log text; and `inferred` for everything else, such
+  as a game version no published SKSE build was made for. It never says "safe":
+  a go means the checks that can run from files passed, and it can't prove the
+  game runs.
+
+  It keeps the workbench's promises. DLLs are read as bytes by a small built-in
+  PE reader — never loaded or executed, and with nothing Windows-specific, so it
+  behaves the same on Linux and the Steam Deck. No network, nothing written or
+  kept, and no folder path appears in the result (file names and mod folder
+  names do). [TRUST.md](TRUST.md#patch-day-what-it-opens) lists exactly what it
+  opens.
+
+  Tested against real folders on disk and, for the binary reader, against files
+  a real toolchain built; the repo's read-only scan still passes. Not tested
+  against a real SKSE install or a real game executable — see the limits in
+  TRUST.md.
+
+  **The answer is plain text first.** A few lines any client can show and a
+  model can read: the verdict, how sure it is, which plugins need attention
+  (worst first, each with what its reason rests on) and what to do next. The
+  full report rides along as structured content for clients that can draw the
+  page (see Changed below), including a `confidence` field
+  that says whether the verdict rests on SKSE's own log from a launch, on the
+  files read against SKSE's rules, or on a prediction (a what-if, or a game
+  version no published SKSE build was made for). When SKSE's own log refused a
+  plugin the file check had passed, that leads the answer. A run that can't
+  happen — an unsupported game, a version that isn't one — comes back flagged as
+  an error, with the reason and the games it covers. File and mod folder names
+  are flattened to one line and cut short in the text, and flattened the same
+  way in the structured report, so a plugin can't name itself "Next steps: …"
+  and pass as part of the answer.
+
+  **A page for clients that support
+  [MCP Apps](https://apps.extensions.modelcontextprotocol.io/api/documents/overview.html):**
+  the verdict, how sure it is, the plugins that need attention, a Re-check button
+  and a "what if I update to…" box. The client fetches the page only if it can
+  draw it, so a client that can't gets the text and nothing else — no markup in
+  the conversation. The page makes no network requests and keeps nothing, and
+  everything from your machine goes onto it as text, never as markup; see
+  [TRUST.md](TRUST.md#the-patch-day-page). `MODWRENCH_UI=off` switches it off.
+  It was exercised in a real browser against a stand-in for an MCP Apps host and
+  has not yet been run inside a real client.
+
+- **Crash Whisperer: `mw_crash_whisperer`, and `/mw-crash` rebuilt around it —
+  "why did my game crash?"** Call it with nothing and it reads the newest crash
+  log the loggers wrote (or the one you paste or point at), says in plain words
+  what happened, and ranks the names the log points at, each with its reasons and
+  a label for what each reason rests on: `log` (the log says so), `install` (your
+  files say so), `rule` (a published rule, such as SKSE's own check) or `guess`
+  (ModWrench's own inference). A ranking is a **lead**, scored strong, possible or
+  faint, never a verdict; the answer never calls anything safe, guilty or
+  certain, and counts how many of its statements rest on each basis. It reads
+  Crash Logger SSE, Buffout 4, NetScriptFramework and BepInEx logs, checks the
+  setup for the usual causes (for Skyrim Special Edition it reuses Patch Day's
+  reading of the install, so it can say that a plugin the log names is gone, where
+  it came from, or that SKSE's own rule refuses it on your game version; for
+  BepInEx it reads the load problems the log itself records), and compares up to
+  ten (five by default) of your other recent Crash Logger SSE and Buffout 4 crash
+  logs to see whether the same name keeps coming up.
+
+  It writes the post you'd put on a forum, a GitHub issue or Discord, or send to
+  the mod's author, each sized for its place. **The account name, computer name,
+  folders, network addresses, email addresses, keys and account IDs it recognises
+  are taken out of the log first**, before anything else reads it, and each post
+  is checked again at the end; the answer says how many of each were removed,
+  never what they were. It recognises by shape, so it is not a guarantee, and
+  [TRUST.md](TRUST.md#crash-whisperer-what-it-opens) lists plainly what it does
+  not catch (a mod named after you, relative paths, a first name on its own, an
+  address written as one number or shaped like a version number, a password
+  with spaces and no quotes, the unlabelled key of a shape it doesn't know),
+  with a test behind each item. It also lists the flows it can't help with: a
+  log you paste into the chat, or a path you type, has already reached your AI
+  as you typed it, and the log file on your disk is never cleaned, so share a
+  help post and not the file. Reading the
+  file from disk, which is what it does by default, is the private way to use it.
+  `/mw-crash` says so when you paste. A log over 12 MB is read at both ends in
+  the same text encoding, each cut at a whole line, and the answer says how much
+  it read. The log and the other recent logs share one 20-second cleaning
+  allowance per call: when it runs out, the lines of the log not yet reached are
+  dropped rather than passed along, the recent logs not yet compared are left
+  unread, and the answer says so.
+
+  It follows Patch Day's shape: a short plain-text answer for every client, the
+  full report as structured content and a page for clients that support MCP Apps
+  (the leads and what each rests on, the checks, the call stack, the four posts
+  with Copy buttons, a box to paste a log into). The page makes no network
+  requests and keeps nothing; names from your machine go onto it as text, never
+  as markup. Local and read-only: nothing written or kept, no network.
+
+  Tested end to end on logs in all four formats, with a made-up person's name,
+  computer, folders, addresses and keys planted in each, and planted again in
+  23 places across the four formats where a log's own words reach the answer,
+  then looked for in all 15 strings a call returns; several hundred further
+  spellings of keys, labels, paths, addresses and names run through the
+  cleaning rules, a speed-up that skips rules proved to change no answer; and
+  the cleaning, the large-file reading and the help posts broken on purpose,
+  rule by rule, to confirm a test fails each time. The Crash Logger SSE and
+  NetScriptFramework readers are also checked against real logs from public
+  GitHub issues (cut down, personal details replaced). The page was exercised
+  in a real browser against a stand-in for an MCP Apps host, including hostile
+  mod names and a log full of personal details; it has not been run inside a real
+  client. **It has not been run against a real install.** The Buffout 4 and
+  BepInEx layouts follow those loggers' published source; where Buffout 4 writes
+  its logs is checked only in part.
+
+- **The Doctors: `mw_doctor` and the `/mw-doctor` slash command — "is my setup
+  ready?"** A read-only health check for the boring causes behind many "my mods
+  keep breaking" threads, which very often aren't the mods. The **Setup Doctor**
+  looks at whether the game and Mod Organizer 2 sit in a folder Windows protects
+  or syncs (Program Files, OneDrive, Desktop, Documents, Downloads) or on a drive
+  short of space, and, for Skyrim Special Edition and Anniversary Edition, at the
+  plugin list: plugins whose masters are missing, switched off or loaded after
+  them (read from each plugin's header), the limit of 254 full and 4,096 light
+  plugins, entries for plugin files that are gone, Mod Organizer 2's list and the
+  game's own `plugins.txt` disagreeing, files piling up in MO2's Overwrite folder
+  that beat every mod, and crash loggers (none, two that fight, or .NET Script
+  Framework on a game version it can't log). The **Deck Doctor**, on Linux and the
+  Steam Deck, looks at which Steam holds the game (regular or Flatpak), whether
+  Proton has made the game's prefix, whether Proton is told to load BepInEx's
+  `winhttp` (in the launch options or the prefix's `user.reg`), which app opens
+  `nxm://` links, whether a Steam library sits on an NTFS or exFAT drive, and
+  folder names that differ only by capital letters.
+
+  Every finding says what it rests on, the same way Patch Day and Crash Whisperer
+  do: `install` (your files), `rule` (another tool's own documentation, with the
+  page named) or `guess` (ModWrench's rule of thumb, such as "under 5 GB free is
+  tight"). The verdict is clear, attention or problems, and it is never "safe": a
+  clear report means the checks that can run from files passed. A run that stopped
+  short reads attention, never clear, and says what was skipped. That covers a
+  `plugins.txt` or a folder that is there but couldn't be opened (told apart
+  from one that isn't there), the time allowance, a folder walk that reached its
+  entry limit, a Mod Organizer 2 instance or profile that was asked for or found
+  but couldn't be read, and a check that hit an error. The report also says
+  what it can't see from files: antivirus and Smart App Control, the pagefile,
+  MO2's live virtual file system, settings a mod manager applies only when it
+  launches the game.
+
+  It keeps the workbench's promises. No network, no program started, nothing
+  written or kept, and no folder path in the answer (a test fails if one appears;
+  names are flattened to one line and cut short). The one file it reads that holds
+  other personal settings, Steam's `localconfig.vdf`, is read for a single value
+  and only a yes or no comes out: the launch options' text is never returned.
+  [TRUST.md](TRUST.md#the-doctors-what-they-open) lists exactly what it opens,
+  file by file, and where it is unsure.
+
+  **The answer is plain text first,** as with Patch Day and Crash Whisperer: a short
+  answer any client can show (what needs fixing worst first, each line with what it
+  rests on, what is fine, what it can't see, what to do next), the full report as
+  structured content for clients that say they can draw pages, and a page for those
+  that support MCP Apps: the verdict, the findings, Re-check, Copy summary, Ask about
+  this and, on Linux, a choice of which checks to run. The page makes no network
+  requests and keeps nothing; names from your machine go onto it as text, never as
+  markup. `MODWRENCH_UI=off` and `MODWRENCH_STRUCTURED` apply to it as to the others.
+
+  **It has not been run against a real install.** The rules come from the pages each
+  finding names and were read and summarised by AI models, so a rule can be stated
+  more strongly or more weakly than its page does, and a few facts are inferences
+  that TRUST.md lists: the file names Crash Logger SSE and Trainwreck install under,
+  whether an exFAT drive can hold a Proton prefix, and whether a file the game loads
+  without listing it could be read as a switched-off master. Where its sources
+  disagree (when a missing master crashes the game, on launch or during play) it says
+  "likely" and not when. Tested on constructed installs, including a stand-in Steam,
+  Mod Organizer 2 and Proton prefix, with 264 tests in six files and the Doctors'
+  rules broken on purpose, 43 ways, to confirm a test fails each time. The page was
+  exercised in a real browser against a stand-in for an MCP Apps host, including
+  hostile plugin and mod names. None of it has been run inside a real MCP client, on
+  Windows or macOS, or against a real game folder.
+
+### Changed
+- **`mw_patch_day` and `mw_crash_whisperer` send the structured report only to
+  clients that say they can draw pages.** Some clients hand the model the
+  structured result *instead of* the text (Codex's source, read on 2026-10-02,
+  passes a result's structured content to the model and ignores the text), so
+  sending the report to every client turned a ten-line answer into a long one. A client that declares MCP Apps support when it connects gets the
+  report, as long as the tool has its page: with `MODWRENCH_UI=off`, or when the
+  page couldn't be registered, it gets the text like everyone else. The same
+  applies to `mw_doctor`. Every other client gets the plain text. Set
+  `MODWRENCH_STRUCTURED=always` to send it to every client (for a script or an
+  agent that reads the report) or `never` to send it to none. A run that can't
+  happen is still flagged as an error for every client.
+- The three crash-log readers now read the layouts the loggers really write, which
+  also improves `mw_parse_crashlog` and `mw_diagnose_crash`. Crash Logger SSE:
+  call-stack rows with padded frame numbers (`[ 0]`) and the `[P]`/`[S]` source
+  tag, the newer `CALL STACK ([P]robable / [S]tack scan):` heading, the crash
+  time, the address an access violation touched, and symbols after the
+  disassembly; a frame found by scanning stack memory is marked as the weaker
+  signal it is. BepInEx: the stack traces Unity prints without an "at", return
+  types and `(wrapper …)` prefixes on patched methods, and which mod a frame
+  belongs to by its namespace. NetScriptFramework: the layout its own source
+  writes (the `Unhandled native exception occurred at` line, the
+  `FrameworkName:` header and the braced `Probable callstack` and `Game plugins`
+  groups), which wasn't recognised before. Crash Logger SSE v1.20 and later: the
+  quoted plugin name in relevant-object rows (`("Skyrim.esm")`), which had made
+  the game's own master a lead. BepInEx 5: a failed load (`Error loading [X] :
+  message`).
+- The Workbench now has 9 tools (52 in total), and there are 7 slash commands.
+  `/modwrench` mentions the update check, `/mw-crash` now asks for Crash
+  Whisperer, and `/mw-doctor` asks for the Doctors.
+- Steam detection on Linux also looks in the Flatpak build's current folder,
+  `~/.var/app/com.valvesoftware.Steam/.local/share/Steam`. It looked only in the
+  older `data/Steam` folder there, which not every Flatpak install has, so a
+  Flatpak Steam without it could be missed by `mw_detect_environment` and the
+  tools built on it.
+
+### Fixed
+- **Workbench tools no longer open network paths.** A path argument that named
+  another computer or a device (`\\server\share\…`, `//server/share`,
+  `\\?\UNC\…`, `\\.\…`) went straight to the filesystem. On Windows, opening one
+  connects to that computer over SMB and tries to sign in with your Windows
+  account, while the tools say they make no network request. Every workbench
+  tool now refuses such a path before anything opens it, and the answer doesn't
+  repeat it. `\\?\C:\…` local long paths still work, unless a `..` in one
+  climbs off its drive (Node opens `\\?\C:\..\UNC\…` as a network path). A
+  folder that a Mod Organizer 2 instance's own `ModOrganizer.ini`,
+  `modlist.txt` or profile name leads to on another computer isn't opened
+  either. This covers the older
+  `mw_parse_crashlog`, `mw_diagnose_crash` and `mw_read_load_order` too, and
+  `gameId` in `mw_check_known_conflicts` and `mw_diagnose_crash`.
+- **An unexpected error no longer carries a folder path.** A file another
+  program held open (`EBUSY`), or one your account couldn't read (`EPERM`), made
+  Node throw an error whose message is the full path, user name included, and
+  the SDK passed that message to the client as the answer. Every workbench tool
+  now answers such an error with its name and the error code only.
+- **`mw_read_load_order` finds a Mod Organizer 2 profile where the instance
+  keeps its profiles.** It looked only in the instance's own `profiles` folder,
+  so an instance whose `ModOrganizer.ini` puts its profiles somewhere else
+  (`profiles_directory`, or a `base_directory` elsewhere) read as having no such
+  profile.
+
 ## [0.2.4] — 2026-09-15
 
 A metadata release: nothing inside the server changed. Everything here is

@@ -31,7 +31,9 @@ function steamRootCandidates(): string[] {
       return [
         join(home, ".steam", "steam"),
         join(home, ".local", "share", "Steam"),
-        // Flatpak Steam
+        // Flatpak Steam keeps its data under .local/share/Steam inside its own folder;
+        // older installs used data/Steam.
+        join(home, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam"),
         join(home, ".var", "app", "com.valvesoftware.Steam", "data", "Steam"),
       ];
   }
