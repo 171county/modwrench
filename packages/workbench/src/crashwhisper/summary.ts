@@ -126,7 +126,7 @@ export function summarizeCrashWhisper(result: CrashWhisperResult, options: { pac
       "",
       ctx?.objects?.length
         ? "Leads: none. Nothing from a mod was on the call stack, and none of the objects the log lists comes from a mod's plugin."
-        : "Leads: none. Nothing from a mod was on the call stack, and the log lists no objects the game was working with."
+        : "Leads: none. Nothing from a mod was on the call stack, and the log names no object from a mod's plugin."
     );
   }
 

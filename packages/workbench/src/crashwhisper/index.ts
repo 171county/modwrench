@@ -185,6 +185,34 @@ const leadTarget = (lead: Lead): string => {
   return lead.mod ? `${clean(lead.mod, 60)} (${file})` : file;
 };
 
+/** Which part of Havok the game was in, from a Havok class name at the top of the call stack or in a register. */
+type HavokHint = { area: "physics" | "animation"; name: string };
+
+// Havok's class names carry its product prefix: hkp and hknp are its physics, hkb its behavior graphs and hka its
+// animation (the same prefixes the game's .hkx files use). BShkb is Bethesda's animation graph built on hkb.
+const HAVOK: Array<{ re: RegExp; area: HavokHint["area"] }> = [
+  { re: /^hk(?:np|p)[A-Z]/, area: "physics" },
+  { re: /^(?:hk[ab]|BShkb)[A-Z]/, area: "animation" },
+];
+
+function havokHint(frames: Frame[], context: CrashContext | undefined): HavokHint | undefined {
+  const names = [...frames.slice(0, 5).map((f) => f.function?.split("::")[0] ?? ""), ...(context?.types ?? []).map((t) => t.type)];
+  for (const name of names) {
+    const hit = HAVOK.find((h) => h.re.test(name));
+    if (hit) return { area: hit.area, name: clean(name, 60) };
+  }
+  return undefined;
+}
+
+/** Where to start when the log shows the game in Havok code and no mod stands out. */
+function havokStep(h: HavokHint, game: GameFacts): string {
+  const where = `The log shows the game in Havok's ${h.area} code (${h.name}).`;
+  return h.area === "physics"
+    ? `${where} Look first at mods that add or change collision, ragdolls or physics objects, starting with the ones you added or changed most recently.`
+    : `${where} Look first at animation mods, starting with the ones you added or changed most recently.` +
+        (/skyrim/i.test(game.id ?? game.name) ? " If you use Nemesis or Pandora, run it again so its behavior files match the animation mods you have now." : "");
+}
+
 function headlineFor(a: {
   bepinex: boolean;
   type: string | undefined;
@@ -197,8 +225,11 @@ function headlineFor(a: {
   lastError: CrashlogParseResult["lastError"];
   errors: number;
   lastMessage: string | undefined;
+  havok: HavokHint | undefined;
 }): string {
   let text = headlineCore(a);
+  // With no lead stronger than faint, the Havok code it was in is the most the log says about where to look.
+  if (a.havok && !a.leads.some((l) => l.strength !== "faint")) text += ` The log shows it was in Havok's ${a.havok.area} code (${a.havok.name}).`;
   // BepInEx's log runs for the whole session: entries after the last error mean the game went on past it.
   const after = a.bepinex ? (a.lastError?.entriesAfter ?? 0) : 0;
   if (after > 0) {
@@ -292,6 +323,7 @@ function nextStepsFor(a: {
   /** How many plugins the log lists, when it lists them. */
   pluginCount: number | undefined;
   pluginList: CrashlogParseResult["pluginList"];
+  havok: HavokHint | undefined;
 }): string[] {
   const steps: string[] = [];
   const add = (step: string | undefined): void => {
@@ -360,7 +392,9 @@ function nextStepsFor(a: {
       add(
         `Start with what the log shows the game was handling: ${files.slice(0, 3).map((f) => clean(f, 120)).join(", ")}. Your mod manager can show which mod each comes from; try without that mod, or reinstall it.`
       );
-    } else if (near) {
+    }
+    if (a.havok) add(havokStep(a.havok, a.game));
+    if (files.length === 0 && near) {
       add(
         `The first code the log can place is ${clean(near.module, 60)}${near.about ? ` (${clean(near.about, 120)})` : ""}, frame ${near.index}. It isn't a mod, so it isn't ranked as a lead, but it is where to start: check it is up to date, and name it when you ask for help.`
       );
@@ -714,6 +748,8 @@ export function whisper(options: WhisperOptions = {}): CrashWhisperResult {
   const site = top ? tidyFrame(stray ? { ...top, address: stray } : top) : undefined;
   const near = stray ? allFrames.slice(1).find((f) => !f.scan && placed(f)) : undefined;
   const nearest = near ? tidyFrame(near) : undefined;
+  // A crash site ModWrench can already name (NVIDIA FleX, MO2's usvfs) says more than the Havok code around it.
+  const havok = site?.about ? undefined : havokHint(allFrames, context);
 
   // 8. What the exception means.
   const type = parsed.exception.type ?? (cpp?.type ? "C++ exception" : undefined);
@@ -831,6 +867,7 @@ export function whisper(options: WhisperOptions = {}): CrashWhisperResult {
       lastError: parsed.lastError,
       errors: facts?.errorCount ?? 0,
       lastMessage: bepinex ? parsed.exception.description?.replace(/^(?:Fatal|Error):[^:]*:\s*/, "").split(/\r?\n/, 1)[0] : undefined,
+      havok,
     }),
     confidence: { evidence, summary: `${base} ${counts}`, basis },
     crash: {
@@ -890,6 +927,7 @@ export function whisper(options: WhisperOptions = {}): CrashWhisperResult {
       context,
       pluginCount: parsed.pluginList === "listed" ? parsed.loadedPlugins.length : undefined,
       pluginList: parsed.pluginList,
+      havok,
     }),
   };
   return report;
