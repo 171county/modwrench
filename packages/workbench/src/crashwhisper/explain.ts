@@ -65,6 +65,84 @@ export function classifyModule(name: string): ModuleKind {
   return "mod";
 }
 
+// ─── Whose DLL it is ─────────────────────────────────────────────────────────
+// A DLL's file name often isn't the name players know its mod by, and a few are libraries that other mods call. A
+// crash inside one of those can come from what the calling mod asked of it, and taking it out breaks every mod that
+// needs it. Each entry is from the mod's own source or page, named beside it.
+
+export type KnownModule = {
+  /** The mod it comes with, as players know it. */
+  mod: string;
+  /** A library other mods call. */
+  shared?: true;
+};
+
+const KNOWN_MODULES = new Map<string, KnownModule>([
+  // SKSE's own plugin loader names skee64.dll "RaceMenu" (ianpatt/skse64, skse64/PluginManager.cpp), and skee64 hands its
+  // interfaces to other SKSE plugins that ask for them (expired6978/SKSE64Plugins, skee64/main.cpp, InterfaceExchangeMessage).
+  ["skee64", { mod: "RaceMenu", shared: true }],
+  // JContainers' README: JSON data structures for Papyrus scripts, made for other mods' authors (ryobg/JContainers).
+  ["jcontainers64", { mod: "JContainers", shared: true }],
+  // PapyrusUtil SE's source: PapyrusUtil.dll and the Papyrus scripts (StorageUtil, JsonUtil, MiscUtil) other mods call (eeveelo/PapyrusUtil).
+  ["papyrusutil", { mod: "PapyrusUtil", shared: true }],
+  // OBody's SKSE plugin builds OBody.dll and calls RaceMenu's interface (Sairion350/OBody-SKSE, cmakelists.txt, src/SKEE.h).
+  ["obody", { mod: "OBody" }],
+  // PureDark's upscaler (DLSS, FSR2, XeSS) builds SkyrimUpscaler.dll and links its PDPerfPlugin library (PureDark/Skyrim-Upscaler).
+  ["skyrimupscaler", { mod: "PureDark's upscaler" }],
+  ["pdperfplugin", { mod: "PureDark's upscaler" }],
+]);
+
+/** The mod a well-known DLL comes with, and whether other mods call it. */
+export function knownModule(name: string): KnownModule | undefined {
+  return KNOWN_MODULES.get(moduleBase(name));
+}
+
+// DLLs that aren't mods but say more by what they are than by their kind ("the game's own code", "an overlay or loader").
+const FLEX = "NVIDIA FleX, which Fallout 4 uses for its Weapon Debris effect";
+const ABOUT_MODULES = new Map<string, string>([
+  // usvfs' README: a core component of Mod Organizer 2 (ModOrganizer2/usvfs).
+  ["usvfs_x64", "Mod Organizer 2's virtual file system"],
+  ["usvfs_x86", "Mod Organizer 2's virtual file system"],
+  // PCGamingWiki's Fallout 4 page: NVIDIA FleX runs the optional Weapon Debris effect, on NVIDIA cards only; Bethesda's
+  // 1.3 patch notes (Steam, February 2016) added it as "New weapon debris effects (PC NVIDIA cards)".
+  ["flexrelease_x64", FLEX],
+  ["flexextrelease_x64", FLEX],
+]);
+
+/** What a well-known DLL that isn't a mod is: "Mod Organizer 2's virtual file system". */
+export function aboutModule(name: string): string | undefined {
+  return ABOUT_MODULES.get(moduleBase(name));
+}
+
+/**
+ * The game files worth naming among those a log's registers and stack name. Plugins are among the objects already, and a
+ * name that begins with "_" ("_msn.DDS") is a piece of a file name, not a file.
+ */
+export function gameFiles(paths: readonly string[]): string[] {
+  return paths.filter((f) => !/\.(?:esp|esm|esl)$/i.test(f) && !/(?:^|[\\/])_[^\\/]*$/.test(f));
+}
+
+/**
+ * An address no module holds, in words. 64-bit Windows gives programs the addresses below 0x800000000000; code can't
+ * be at one above that, so the game got there by jumping through a broken pointer.
+ */
+export function strayAddress(address: string): string {
+  let n: bigint | undefined;
+  try {
+    n = BigInt(address);
+  } catch {
+    n = undefined;
+  }
+  return n !== undefined && n >= 0x800000000000n
+    ? `${address}, an address where no code can be: something jumped to a broken address`
+    : `${address}, an address in no module the log lists`;
+}
+
+/** True for NVIDIA FleX, whose crashes Fallout 4's Weapon Debris setting can switch off. */
+export function isFlex(name: string): boolean {
+  return ABOUT_MODULES.get(moduleBase(name)) === FLEX;
+}
+
 /** How to refer to the owner of a kind of module in a sentence. */
 export const KIND_PHRASE: Record<ModuleKind, string> = {
   game: "the game's own code",
@@ -178,7 +256,48 @@ const EXCEPTIONS: ExceptionRule[] = [
 
 export type ExceptionExplanation = { plain: string; basis: "rule" };
 
-export type Fault = { access: "read" | "write" | "execute" | "unknown"; address: string };
+/** `derived`: worked out from the faulting instruction and the registers, because the log didn't write the address down. */
+export type Fault = { access: "read" | "write" | "execute" | "unknown"; address: string; derived?: true };
+
+const REGISTER_64 = /^(?:r[abcd]x|r[sd]i|r[sb]p|r(?:[89]|1[0-5]))$/i;
+
+/**
+ * The address an access violation touched, from the faulting instruction the log quotes after its crash line and the
+ * registers it records: "mov rcx, [r8+0x20]" with R8 = 0x10 read address 0x30. For the loggers that don't write the
+ * address down (Crash Logger SSE before it printed "Tried to read memory at"). Only a memory operand made of 64-bit
+ * registers and numbers is worked out; anything else (an instruction that touches no memory, a register the log
+ * doesn't give) is left alone rather than guessed.
+ */
+export function faultFromInstruction(description: string | undefined, registers: Record<string, string> | undefined): Fault | undefined {
+  const m = /\t\s*([a-z]\w*)\s+([^\t]+?)\s*$/i.exec(description ?? "");
+  if (!m?.[1] || !m[2] || !registers) return undefined;
+  const mnemonic = m[1].toLowerCase();
+  const operands = m[2];
+  // lea and nop name an address without touching it.
+  if (mnemonic === "lea" || mnemonic === "nop" || mnemonic.startsWith("prefetch")) return undefined;
+  const memory = /\[([^\]]+)\]/.exec(operands);
+  if (!memory?.[1]) return undefined;
+  const value = (name: string): bigint | undefined => {
+    const raw = REGISTER_64.test(name) ? registers[name.toUpperCase()] : undefined;
+    return raw && /^0x[0-9a-f]+$/i.test(raw) ? BigInt(raw) : undefined;
+  };
+  let address = 0n;
+  for (const term of memory[1].replace(/\s+/g, "").split(/(?=[+-])/)) {
+    const negative = term.startsWith("-");
+    const body = term.replace(/^[+-]/, "");
+    const scaled = /^(\w+)\*([1248])$/.exec(body);
+    const part = scaled?.[1] && scaled[2]
+      ? (value(scaled[1]) ?? -1n) * BigInt(scaled[2])
+      : /^(?:0x[0-9a-f]+|\d+)$/i.test(body)
+        ? BigInt(body)
+        : (value(body) ?? -1n);
+    if (part < 0n) return undefined;
+    address += negative ? -part : part;
+  }
+  // A move into memory writes it; anything else that names memory reads it first.
+  const write = mnemonic.startsWith("mov") && operands.indexOf("[") < (operands.indexOf(",") < 0 ? Infinity : operands.indexOf(","));
+  return { access: write ? "write" : "read", address: `0x${BigInt.asUintN(64, address).toString(16).toUpperCase()}`, derived: true };
+}
 
 /**
  * What touching a particular address means. Windows never maps the first 64 KB of the address space,
@@ -195,11 +314,12 @@ function describeFault(fault: Fault | undefined): string {
   }
   const where = `0x${n.toString(16).toUpperCase()}`;
   const verb = fault.access === "write" ? "write to" : fault.access === "execute" ? "run code at" : "read from";
+  const how = fault.derived ? " (worked out from the instruction and the registers in the log)" : "";
   if (n === 0n) {
-    return " It was at address 0, which means code followed a pointer that pointed at nothing: something asked for an object that wasn't there.";
+    return ` It was at address 0${how}, which means code followed a pointer that pointed at nothing: something asked for an object that wasn't there.`;
   }
   if (n < 0x10000n) {
-    return ` It tried to ${verb} address ${where}, just past 0. That usually means code followed an empty pointer to an object and then reached into one of its fields: something asked for an object that wasn't there.`;
+    return ` It tried to ${verb} address ${where}${how}, just past 0. That usually means code followed an empty pointer to an object and then reached into one of its fields: something asked for an object that wasn't there.`;
   }
   return "";
 }

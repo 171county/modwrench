@@ -73,6 +73,8 @@ const CSS = String.raw`
 .muted{color:var(--sub)}
 .mt{margin-top:8px}
 code{overflow-wrap:anywhere}
+.ctx{margin:0 0 6px;padding-left:22px}
+.ctx li{margin:4px 0;overflow-wrap:anywhere}
 
 .llist{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .lead{padding:12px 14px;border:1px solid var(--line);border-left-width:4px;border-radius:var(--radius);background:var(--panel)}
@@ -399,21 +401,62 @@ const SCRIPT = String.raw`
     show('sure', true);
   }
 
+  function frameAt(f) { return tidy(f.module, 60) + (f.offset ? '+' + tidy(f.offset, 16) : ''); }
+
+  // What a well-known module that isn't a mod is, or that the log lists two of its name, as the text answer says it.
+  function moduleNote(f) {
+    if (num(f.copies) > 1) return "Windows' own " + tidy(f.module, 60) + " or a graphics mod's copy of it: the log lists " + num(f.copies);
+    return f.about ? tidy(f.about, 120) : '';
+  }
+
+  // An object the game was working with, as the text answer writes it. The player's own character is never named.
+  function objectWords(o) {
+    o = o || {};
+    var kind = o.kind ? tidy(o.kind, 40) + ' ' : '';
+    var what = o.player ? "the player's character (" + kind + tidy(o.formId, 12) + ')' : kind + (o.name ? '“' + tidy(o.name, 60) + '” ' : '') + tidy(o.formId, 12);
+    var where = o.origin === 'stack' ? ' (in stack memory)' : o.origin === 'register' ? ' (beside a register)' : '';
+    var plugins = Array.isArray(o.plugins) ? o.plugins.map(function (p) { return tidy(p, 80); }) : [];
+    return what + where + (plugins.length > 0 ? ', from ' + plugins[0] + (plugins.length > 1 ? ', changed by ' + plugins.slice(1).join(', ') : '') : '');
+  }
+
+  function contextItems(ctx) {
+    var items = [];
+    if (Array.isArray(ctx.objects) && ctx.objects.length > 0) items.push('Objects: ' + ctx.objects.slice(0, 8).map(objectWords).join('; '));
+    if (Array.isArray(ctx.types) && ctx.types.length > 0) {
+      items.push('Object types in the registers: ' + ctx.types.map(function (t) {
+        t = t || {};
+        return tidy(t.type, 60) + (Array.isArray(t.registers) ? ' (' + t.registers.map(function (x) { return tidy(x, 8); }).join(', ') + ')' : '');
+      }).join(', '));
+    }
+    if (Array.isArray(ctx.files) && ctx.files.length > 0) items.push('Files: ' + ctx.files.map(function (f) { return tidy(f, 120); }).join(', '));
+    if (Array.isArray(ctx.scripts) && ctx.scripts.length > 0) items.push('Papyrus: ' + ctx.scripts.map(function (s) { return tidy(s, 100); }).join(', '));
+    return items;
+  }
+
   function renderHappened(r) {
     var host = el('happened');
     clear(host);
     var c = r.crash || {};
     var ex = c.exception;
     var site = c.site;
-    if (!ex && !site) { show('happened', false); return; }
+    var items = c.context ? contextItems(c.context) : [];
+    if (!ex && !site && items.length === 0) { show('happened', false); return; }
     host.appendChild(h('h2', { class: 'h2', text: 'What happened' }));
     if (ex) {
       host.appendChild(h('p', { class: 'p' }, [ex.type ? h('code', { text: tidy(ex.type, 80) }) : null, ex.type && ex.plain ? ': ' : null, ex.plain ? tidy(ex.plain, 900) : null]));
     }
     if (site) {
-      var where = tidy(site.module, 60) + (site.offset ? '+' + tidy(site.offset, 16) : '');
       var label = c.format === 'bepinex' ? 'Where the error began' : 'Where it stopped';
-      host.appendChild(h('p', { class: 'p muted' }, [label + ': frame ' + num(site.index) + ', ', h('code', { text: where }), ' (' + (KIND[site.kind] || KIND.unknown) + ').']));
+      var line = site.address
+        ? [label + ': frame ' + num(site.index) + ', at ', h('code', { text: tidy(site.address, 24) }), ', an address in no module.']
+        : [label + ': frame ' + num(site.index) + ', ', h('code', { text: frameAt(site) }), ' (' + (moduleNote(site) || KIND[site.kind] || KIND.unknown) + ').'];
+      var near = site.address ? c.nearest : null;
+      if (near) line.push(' The first frame the log can place is frame ' + num(near.index) + ', ', h('code', { text: frameAt(near) }), ' (' + (moduleNote(near) || KIND[near.kind] || KIND.unknown) + ').');
+      host.appendChild(h('p', { class: 'p muted' }, line));
+    }
+    if (items.length > 0) {
+      host.appendChild(h('p', { class: 'p', text: 'What the log shows the game was working with:' }));
+      host.appendChild(h('ul', { class: 'ctx' }, items.map(function (item) { return h('li', { text: item }); })));
     }
     show('happened', true);
   }
@@ -447,6 +490,7 @@ const SCRIPT = String.raw`
     var head = h('div', { class: 'lhead' }, [
       h('span', { class: 'lrank', text: '#' + num(lead.rank) }),
       h('code', { class: 'lname', text: tidy(lead.name, 80) }),
+      lead.mod ? h('span', { class: 'muted', text: '(' + tidy(lead.mod, 60) + ')' }) : null,
       h('span', { class: 'badge st', text: STRENGTH[strength] })
     ]);
     var rec = lead.recurrence;
@@ -474,7 +518,16 @@ const SCRIPT = String.raw`
     var leads = Array.isArray(r.leads) ? r.leads : [];
     host.appendChild(h('h2', { class: 'h2' }, ['Leads', h('span', { class: 'count', text: "names the log points at, ranked by ModWrench's own scoring. A lead is not a finding." })]));
     if (leads.length === 0) {
-      host.appendChild(h('p', { class: 'calm', text: 'None. Nothing from a mod was on the call stack or among the objects the logger lists.' }));
+      var c = r.crash || {};
+      var objects = c.context && Array.isArray(c.context.objects) ? c.context.objects.length : 0;
+      host.appendChild(h('p', {
+        class: 'calm',
+        text: c.format === 'bepinex'
+          ? 'None. No mod that loaded is named in what BepInEx logged.'
+          : objects > 0
+            ? "None. Nothing from a mod was on the call stack, and none of the objects the log lists comes from a mod's plugin."
+            : 'None. Nothing from a mod was on the call stack, and the log lists no objects the game was working with.'
+      }));
       show('leads', true);
       return;
     }
@@ -534,7 +587,7 @@ const SCRIPT = String.raw`
       var li = h('li', { 'data-kind': kind, 'data-scan': f.scan ? 'true' : 'false' }, [
         h('span', { class: 'fidx', text: '[' + num(f.index) + ']' }),
         h('span', { class: 'fmod', text: tidy(f.module, 80) + (f.offset ? '+' + tidy(f.offset, 16) : '') + (f.function ? '  ' + tidy(f.function, 120) : '') }),
-        h('span', { class: 'fnote', text: (f.scan ? 'stack scan · ' : '') + KIND[kind] })
+        h('span', { class: 'fnote', text: (f.scan ? 'stack scan · ' : '') + (moduleNote(f) || KIND[kind]) })
       ]);
       list.appendChild(li);
     });

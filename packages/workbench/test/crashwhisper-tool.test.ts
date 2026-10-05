@@ -199,6 +199,9 @@ test("mw_crash_whisperer: the description says what it does and what it doesn't"
   assert.match(description, /for a Crash Logger SSE or Buffout 4 log, compares your other recent crashes/);
   const args = tool().config.inputSchema as Record<string, { description?: string }>;
   assert.match(args.compareRecent!.description!, /Crash Logger SSE and Buffout 4 logs only; NetScriptFramework and BepInEx logs aren't compared/);
+  // hideNames leaves out the lists; the objects, files and Papyrus functions the log names, with their plugins, stay (packet.ts).
+  assert.match(args.hideNames!.description!, /^Leave the plugin lists \(plugins, SKSE or F4SE plugins, DLLs\) out of the help posts/);
+  assert.match(args.hideNames!.description!, /the objects, game files and Papyrus functions the log names, with every plugin that changed those objects/);
 });
 
 // ─── Plain text first ────────────────────────────────────────────────────────

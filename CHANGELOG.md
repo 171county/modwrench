@@ -90,11 +90,30 @@ This document is currently maintained by hand. When [release-please](https://git
   logs to see whether the same name keeps coming up.
 
   It writes the post you'd put on a forum, a GitHub issue or Discord, or send to
-  the mod's author, each sized for its place. **The account name, computer name,
+  the mod's author, each sized for its place. Besides the call stack, a post
+  carries what the log names: the objects the logger lists (or, marked weaker,
+  prints beside the registers and stack) with the plugins that changed them, the
+  game files, Papyrus functions and object types named in the registers and
+  stack, a NetScriptFramework log's DLL list, the Address Library id the logger
+  gives each game frame, and BepInEx's, Unity's and each plugin's version, and
+  its title gives where the game stopped (`SkyrimSE.exe+D6DDDA`). When the game
+  stopped at an address in no module, the post gives that address and the first
+  frame the log can place, and it says what a well-known DLL that isn't a mod is
+  (Mod Organizer 2's usvfs, NVIDIA FleX). A log with no plugin list, or one its
+  logger couldn't write, is posted as that, never as "0 plugins", and one its
+  logger couldn't write leaves a blank for your load order. A faint lead is not
+  named as the mod involved and gets no message to its author, and a BepInEx
+  error is not called a crash. Names keep their spelling, except that square
+  brackets show as round ones, angle brackets and backticks as look-alikes, `@`
+  as `(at)` and a run of spaces as one, and each post but the short Discord one
+  says so.
+  **The account name, computer name,
   folders, network addresses, email addresses, keys and account IDs it recognises
   are taken out of the log first**, before anything else reads it, and each post
   is checked again at the end; the answer says how many of each were removed,
-  never what they were. It recognises by shape, so it is not a guarantee, and
+  never what they were. A spelled-out email address has to end in letters, as a
+  real domain does, so a processor's `CPU @ 4.10GHz` is not taken for one. It
+  recognises by shape, so it is not a guarantee, and
   [TRUST.md](TRUST.md#crash-whisperer-what-it-opens) lists plainly what it does
   not catch (a mod named after you, relative paths, a first name on its own, an
   address written as one number or shaped like a version number, a password
@@ -120,18 +139,18 @@ This document is currently maintained by hand. When [release-please](https://git
 
   Tested end to end on logs in all four formats, with a made-up person's name,
   computer, folders, addresses and keys planted in each, and planted again in
-  23 places across the four formats where a log's own words reach the answer,
+  30 places across the four formats where a log's own words reach the answer,
   then looked for in all 15 strings a call returns; several hundred further
   spellings of keys, labels, paths, addresses and names run through the
   cleaning rules, a speed-up that skips rules proved to change no answer; and
   the cleaning, the large-file reading and the help posts broken on purpose,
-  rule by rule, to confirm a test fails each time. The Crash Logger SSE and
-  NetScriptFramework readers are also checked against real logs from public
-  GitHub issues (cut down, personal details replaced). The page was exercised
+  rule by rule, to confirm a test fails each time. The readers are also checked
+  against real logs that people published, in all four formats (Crash Logger SSE
+  v1.11.1 and v1.20.1, Buffout 4 v1.26.2 and v1.36.0, NetScriptFramework, BepInEx
+  5.4.21; cut down, personal details replaced). The page was exercised
   in a real browser against a stand-in for an MCP Apps host, including hostile
   mod names and a log full of personal details; it has not been run inside a real
-  client. **It has not been run against a real install.** The Buffout 4 and
-  BepInEx layouts follow those loggers' published source; where Buffout 4 writes
+  client. **It has not been run against a real install.** Where Buffout 4 writes
   its logs is checked only in part.
 
 - **The Doctors: `mw_doctor` and the `/mw-doctor` slash command — "is my setup
@@ -257,6 +276,51 @@ This document is currently maintained by hand. When [release-please](https://git
   so an instance whose `ModOrganizer.ini` puts its profiles somewhere else
   (`profiles_directory`, or a `base_directory` elsewhere) read as having no such
   profile.
+- **Crash logs are read more fully, checked against twelve published logs.**
+  Buffout 4 v1.36 plugin rows written with no space (`[00]Fallout4.esm`) are
+  read, where a 106-plugin list came out empty. A log with no plugin list, or
+  one whose logger failed to write it (`PLUGINS:` then `ERROR`), is now told
+  apart from an empty one (`pluginList`). NetScriptFramework's "Possible
+  relevant objects", crash time and framework version are read, and a call stack
+  that is really raw stack memory is marked as a scan, without values that can't
+  be return addresses. Objects that Crash Logger SSE before v1.20 and Buffout 4
+  print under registers and stack slots are read as weaker evidence than a
+  relevant-objects list (`origin`), and NetScriptFramework's are read as register
+  or stack objects too: its list is every object it found there, and the number
+  before each is how far from the registers it was found, not how relevant it is.
+  Crash Logger SSE v1.20's relevant objects keep their kind and in-game name, and
+  an object it lists at several stack slots is read once.
+  Register types (and the R8 and R9 registers,
+  which were dropped), Address Library ids on frames, the loaded modules for
+  every format, the game files and Papyrus functions the stack names, and
+  BepInEx's own version and each plugin's version are kept. A game file whose
+  path has an empty folder in it (two slashes in a row) is left out, because a
+  network share can hide there. A BepInEx log now says whether its last error is
+  a real exception and how much the log went on after it (`lastError`). The name
+  of the player's own character is left out of the objects read. This changes
+  what `mw_parse_crashlog` and `mw_diagnose_crash` return too; `mw_diagnose_crash`
+  lists an object found beside a register or in stack memory, or the player's own
+  character, after the mods on the call stack, and says which it is.
+- **Crash Whisperer reads more of what a log shows, and its advice fits the
+  crash.** It no longer tells you to remove a library other mods need (RaceMenu's
+  skee64.dll, JContainers, PapyrusUtil): it says so and points at the mod that
+  may have called it, which the ranking now scores like the first mod code. It
+  names the mod behind a few well-known DLLs, weighs an object by where the
+  logger found it (its own list, beside a register, in stack memory, or the
+  player's own character), names the plugin a Papyrus script in the log is
+  named like as a guess, and says what the game was working with: objects, game
+  files, the kinds of object in the registers and Papyrus functions. A crash at
+  an address in no module says so and names the first frame the log can place;
+  a crash inside NVIDIA FleX suggests turning Fallout 4's Weapon Debris off; a
+  d3d11.dll the module list names twice is no longer called Windows' graphics
+  layer. A BepInEx log whose last error isn't an exception, or that went on
+  after it, is no longer called a crash, and a repeated error shows its message
+  without calling Unity's own log a mod. With no lead, the steps start from what
+  the log shows and size the halving to the load order, an older Crash Logger
+  SSE log's empty-pointer read is explained from its instruction and registers,
+  and a NetScriptFramework log's module list is read at last. The Crash
+  Whisperer page says where the game stopped, the mod behind a DLL and what the
+  game was working with as the answer does.
 
 ## [0.2.4] — 2026-09-15
 

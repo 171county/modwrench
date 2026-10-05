@@ -770,7 +770,7 @@ export function registerWorkbenchTools(server: McpServer): {
           .boolean()
           .optional()
           .describe(
-            "Leave the plugin lists out of the help posts, for someone who'd rather not share what they run."
+            "Leave the plugin lists (plugins, SKSE or F4SE plugins, DLLs) out of the help posts, for someone who'd rather not share what they run. The leads, the call stack, and the objects, game files and Papyrus functions the log names, with every plugin that changed those objects, still appear."
           ),
         packet: z
           .enum(["forum", "github", "discord", "author"])

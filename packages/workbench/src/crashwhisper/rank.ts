@@ -1,6 +1,6 @@
-import type { CallStackFrame, CrashlogParseResult, LoadedPlugin } from "../crashlog/types.js";
+import { PLAYER_FORM_IDS, type CallStackFrame, type CrashlogParseResult, type LoadedPlugin, type SuspectedRef } from "../crashlog/types.js";
 import type { ErrorEvent } from "./bepinex-scan.js";
-import { KIND_PHRASE, classifyModule, isOfficialPlugin, moduleBase, splitModule } from "./explain.js";
+import { KIND_PHRASE, aboutModule, classifyModule, isOfficialPlugin, knownModule, moduleBase, splitModule } from "./explain.js";
 import type { Evidence, Frame, Lead, ModuleKind, Strength } from "./types.js";
 
 // ─── Which names to look at first ────────────────────────────────────────────
@@ -16,10 +16,16 @@ import type { Evidence, Frame, Lead, ModuleKind, Strength } from "./types.js";
 //   a mod's code is the place the game stopped                      +80
 //   the C++ exception was thrown from its code                      +60
 //   the first mod code on the call stack, in the top five           +40   (+25 if further down)
+//   the game stopped inside a library other mods call (explain.ts
+//     knownModule), and this is the first other mod code under it   +40   (+25 if more than five frames under it)
 //   other mod code on the stack, in the top ten                     +15   (+5 if further down)
 //   each further frame of the same mod                              +5    (up to +15)
 //   only seen in the frames found by scanning stack memory          +8
 //   the crash logger lists a plugin's object as involved            +35   (+5 per extra, up to +15)
+//     ...printed it beside a register instead                       +25
+//     ...found it in stack memory, or it is the player's character  +15
+//   a Papyrus script in the log is named like the plugin (a guess)  +25   (+15 more when the game stopped inside
+//                                                                          a library other mods call: it may be the caller)
 //   a plugin and a DLL share a name (probably one mod)              +20
 //   BepInEx logged the error under that name                        +35
 //   named in other errors BepInEx logged                            +10   (up to +25, as the count grows)
@@ -67,11 +73,29 @@ type Candidate = {
   functions: string[];
   formIds: string[];
   objects: number;
+  /** The object that says the most about it, and where the logger found it. */
+  object?: { ref: SuspectedRef; seen: ObjectSeen };
+  /** Papyrus functions in the log whose script is named like this plugin: "metaSkillMenuScript.load_data". */
+  scripts: string[];
   loggedBy: boolean;
   /** The source BepInEx logged the error under is not one of the plugins it loaded, so it may not be a mod at all. */
   loggedByUnloaded: boolean;
   thrown: boolean;
   errorsNamed: number;
+  /** The shared library at the top of the stack, when this is the first other mod code under it. */
+  calls?: string;
+};
+
+/** Where the logger found an object: its own list, beside a register, in stack memory, or the player's own character. */
+type ObjectSeen = "objects" | "register" | "stack" | "player";
+
+const OBJECT_SCORE: Record<ObjectSeen, number> = { objects: 35, register: 25, stack: 15, player: 15 };
+
+const OBJECT_LINE: Record<ObjectSeen, string> = {
+  objects: "The game was working with an object from it.",
+  register: "A register held an object from it.",
+  stack: "Stack memory held an object from it, which is weak evidence.",
+  player: "It was the last plugin to change the player's character, which is in use the whole time you play.",
 };
 
 const EXTENSION = /\.(?:dll|esp|esm|esl|asi)$/i;
@@ -101,7 +125,7 @@ export function cleanFunction(fn: string, max = 90): string {
  * A namespace (or log source) that is a loaded plugin's, or begins with its whole name. Not the other way round: the
  * game's own Terminal class and the DunGen library are the beginnings of the mods "Terminal Api" and DunGenPlus.
  */
-function matchPlugin(key: string, plugins: LoadedPlugin[]): LoadedPlugin | undefined {
+export function matchPlugin(key: string, plugins: LoadedPlugin[]): LoadedPlugin | undefined {
   if (key.length < 3) return undefined;
   return plugins.find((p) => {
     const other = leadKey(p.name);
@@ -125,6 +149,7 @@ export function toFrame(frame: CallStackFrame, fallbackIndex: number, bepinexPlu
   const { name, offset } = splitModule(frame.module);
   // A BepInEx frame's "offset" is the file position the runtime printed, which says nothing about where in a module it is.
   const off = bepinexPlugins !== undefined ? undefined : (frame.offset ?? offset);
+  const about = bepinexPlugins !== undefined ? undefined : aboutModule(name);
   return {
     index: frame.index ?? fallbackIndex,
     module: name,
@@ -132,11 +157,12 @@ export function toFrame(frame: CallStackFrame, fallbackIndex: number, bepinexPlu
     ...(frame.function ? { function: cleanFunction(frame.function, 120) } : {}),
     kind: frameKind(name, bepinexPlugins),
     ...(frame.source === "scan" ? { scan: true as const } : {}),
+    ...(about ? { about } : {}),
   };
 }
 
 // HarmonyX is the source name BepInEx gives Harmony's own log (HarmonyLogSource.cs).
-const GENERIC_SOURCE = /^(?:unity ?log|bepinex|console|unity|harmonyx?|mono|chainloader|preloader)$/i;
+export const GENERIC_SOURCE = /^(?:unity ?log|bepinex|console|unity|harmonyx?|mono|chainloader|preloader)$/i;
 
 /** The name BepInEx gave the log source when it logged the error: "Error:SomePlugin: ..." -> "SomePlugin". */
 function errorSource(parsed: CrashlogParseResult): string | undefined {
@@ -172,6 +198,7 @@ export function rankWithKeys(parsed: CrashlogParseResult, options: RankOptions =
         functions: [],
         formIds: [],
         objects: 0,
+        scripts: [],
         loggedBy: false,
         loggedByUnloaded: false,
         thrown: false,
@@ -199,14 +226,57 @@ export function rankWithKeys(parsed: CrashlogParseResult, options: RankOptions =
     if (!scan && frame.function) push(c.functions, frame.function);
   });
 
-  // 2. Plugins the crash logger lists among the objects involved. The game's own plugins are in every log.
-  for (const ref of parsed.suspectedRefs ?? []) {
+  // 1b. The game stopped inside a library other mods call: the first other mod code under it is the mod that called it.
+  const library = isBepInEx ? undefined : sharedLibraryAt(frames);
+  let libraryEnd = -1;
+  let callerPosition = -1;
+  if (library) {
+    while (libraryEnd + 1 < frames.length && splitModule(frames[libraryEnd + 1]!.module).name === library) libraryEnd++;
+    callerPosition = frames.findIndex((frame, position) => {
+      const { name } = splitModule(frame.module?.trim() ?? "");
+      return position > libraryEnd && frame.source !== "scan" && classifyModule(name) === "mod" && leadKey(name) !== leadKey(library);
+    });
+    if (callerPosition >= 0) {
+      const caller = candidates.get(leadKey(splitModule(frames[callerPosition]!.module.trim()).name));
+      if (caller) caller.calls = library;
+    }
+  }
+
+  // 2. Plugins the crash logger lists among the objects involved. The game's own plugins are in every log. An object the
+  // logger only printed beside a register, and more so one it found in stack memory, says less than its own list does,
+  // and the player's own character is in use the whole time anyone plays.
+  const refs = parsed.suspectedRefs ?? [];
+  for (const ref of refs) {
     const source = ref.likelySource?.trim();
     if (!source || isOfficialPlugin(source)) continue;
     const c = candidate(leadKey(source), source);
     push(c.plugins, source);
-    c.objects++;
+    // A reference and the base object it was placed from, both listed, are one thing the game was working with.
+    if (!refs.some((other) => other.base === ref.value && other.likelySource?.trim() === source)) c.objects++;
     push(c.formIds, ref.value);
+    const seen: ObjectSeen = PLAYER_FORM_IDS.has(ref.value) ? "player" : (ref.origin ?? "objects");
+    if (!c.object || OBJECT_SCORE[seen] > OBJECT_SCORE[c.object.seen]) c.object = { ref, seen };
+  }
+
+  // 2b. A Papyrus script in the registers or stack whose name begins with a loaded plugin's whole name is probably that
+  // mod's script. Eight characters or more, as for a DLL and a plugin below, so short names don't match by accident.
+  let scriptCaller = false;
+  for (const fn of parsed.papyrus ?? []) {
+    if (fn.native) continue;
+    const script = leadKey(fn.script);
+    const owner = plugins.find((p) => {
+      const key = leadKey(p.name);
+      return key.length >= 8 && script.startsWith(key) && !isOfficialPlugin(p.name);
+    });
+    if (!owner) continue;
+    const c = candidate(leadKey(owner.name), owner.name);
+    push(c.plugins, owner.name);
+    push(c.scripts, `${fn.script}.${fn.function}`);
+    // Under a library other mods call, with no other mod's code under it on the stack, the first such script may be the caller.
+    if (library && callerPosition === -1 && !scriptCaller) {
+      c.calls = library;
+      scriptCaller = true;
+    }
   }
 
   // 3. The mod BepInEx says logged the error, and the mods named in the other errors.
@@ -255,6 +325,9 @@ export function rankWithKeys(parsed: CrashlogParseResult, options: RankOptions =
         plugin.plugins.forEach((name) => push(dll.plugins, name));
         plugin.formIds.forEach((id) => push(dll.formIds, id));
         dll.objects += plugin.objects;
+        if (plugin.object && (!dll.object || OBJECT_SCORE[plugin.object.seen] > OBJECT_SCORE[dll.object.seen])) dll.object = plugin.object;
+        plugin.scripts.forEach((s) => push(dll.scripts, s));
+        dll.calls = dll.calls ?? plugin.calls;
         dll.loggedBy = dll.loggedBy || plugin.loggedBy;
         plugin.keys.forEach((k) => dll.keys.add(k));
         candidates.delete(plugin.key);
@@ -281,6 +354,16 @@ export function rankWithKeys(parsed: CrashlogParseResult, options: RankOptions =
           text: isBepInEx
             ? `The error BepInEx logged was thrown inside ${named}: it is the top of that error's stack trace (frame ${topIndex}).`
             : `The game stopped inside ${named}: it was the code running at the moment of the crash (frame ${topIndex}).`,
+          basis: "log",
+        });
+      } else if (top === callerPosition && library) {
+        score += top - libraryEnd <= 5 ? 40 : 25;
+        evidence.push({
+          text:
+            (top === libraryEnd + 1
+              ? `Its code called ${library} directly: it is right underneath it on the call stack (frame ${topIndex}). `
+              : `It is the first other mod code under ${library} on the call stack (frame ${topIndex}). `) +
+            `${library} is a library other mods call, so the mod that called it is a lead too.`,
           basis: "log",
         });
       } else if (top === firstModPosition) {
@@ -316,15 +399,38 @@ export function rankWithKeys(parsed: CrashlogParseResult, options: RankOptions =
       evidence.push({ text: `The crash logger found the C++ exception was thrown from ${named}'s code.`, basis: "log" });
     }
 
-    if (c.objects > 0) {
-      score += 35 + Math.min(15, 5 * (c.objects - 1));
-      const id = c.formIds[0] ? ` (for example ${c.formIds[0]})` : "";
+    if (c.objects > 0 && c.object) {
+      const { ref, seen } = c.object;
+      score += OBJECT_SCORE[seen] + Math.min(15, 5 * (c.objects - 1));
+      const some = c.objects === 1 ? "an object" : `${c.objects} objects`;
+      const from = c.plugins[0] ?? named;
+      const example = `for example ${ref.kind ? `${ref.kind} ` : ""}${ref.name ? `"${ref.name}", ` : ""}${ref.value}`;
       evidence.push({
         text:
-          `The crash logger lists ${c.objects === 1 ? "an object" : `${c.objects} objects`} from ${c.plugins[0] ?? named} among those involved${id}. ` +
-          "That is the logger's own guess about what the game was working with.",
+          seen === "player"
+            ? `The object is the player's character (${ref.value}), and ${from} was the last plugin to change it. The player's character is in use the whole time you play, so this says less than another object would.`
+            : seen === "stack"
+              ? `The crash logger found ${some} from ${from} in stack memory (${example}). Stack memory also holds leftovers, so this is weak evidence.`
+              : seen === "register"
+                ? `The crash logger printed ${some} from ${from} beside a register (${example}). A register can still hold an object the crashing code had finished with, so this is weaker evidence than it looks.`
+                : `The crash logger lists ${some} from ${from} among those involved (${example}). That is the logger's own guess about what the game was working with.`,
         basis: "log",
       });
+    }
+
+    if (c.scripts.length > 0) {
+      score += 25;
+      evidence.push({
+        text: `The log's registers or stack hold the Papyrus function ${c.scripts[0]}, from a script named like ${c.plugins[0] ?? named}, so it is probably that mod's script. That is a name match, not proof.`,
+        basis: "guess",
+      });
+      if (c.calls && c.positions.length === 0) {
+        score += 15;
+        evidence.push({
+          text: `The game stopped inside ${c.calls}, a library other mods call (from their Papyrus scripts too), so a script in memory at the time may be what called it.`,
+          basis: "guess",
+        });
+      }
     }
 
     if (c.loggedBy) {
@@ -386,6 +492,7 @@ export function rankWithKeys(parsed: CrashlogParseResult, options: RankOptions =
     }
 
     const strength: Strength = score >= STRONG_AT ? "strong" : score >= POSSIBLE_AT ? "possible" : "faint";
+    const known = isBepInEx || !c.dlls[0] ? undefined : knownModule(c.dlls[0]);
     leads.push({
       lead: {
         rank: 0,
@@ -396,6 +503,9 @@ export function rankWithKeys(parsed: CrashlogParseResult, options: RankOptions =
         evidence,
         ...(install ? { install } : {}),
         ...(recurrence ? { recurrence } : {}),
+        ...(known ? { mod: known.mod } : {}),
+        ...(known?.shared ? { shared: true as const } : {}),
+        ...(c.calls ? { calls: c.calls } : {}),
         score,
       },
       keys: [...c.keys],
@@ -407,6 +517,14 @@ export function rankWithKeys(parsed: CrashlogParseResult, options: RankOptions =
     entry.lead.rank = i + 1;
   });
   return leads.slice(0, MAX_LEADS);
+}
+
+/** The DLL the game stopped inside, when it is a library other mods call. */
+function sharedLibraryAt(frames: CallStackFrame[]): string | undefined {
+  const top = frames[0];
+  if (!top || top.source === "scan") return undefined;
+  const { name } = splitModule(top.module.trim());
+  return classifyModule(name) === "mod" && knownModule(name)?.shared ? name : undefined;
 }
 
 function lookupInstall(files: string[], find: (file: string) => InstallNote | undefined): InstallNote | undefined {
@@ -423,6 +541,8 @@ function summarise(c: Candidate, recurrence: Lead["recurrence"], firstModPositio
   let line: string;
   if (c.thrown) line = "The crash logger found the exception was thrown from its code.";
   else if (top === 0) line = bepinex ? "The error BepInEx logged was thrown inside its code." : "The game stopped inside it.";
+  else if (c.calls && top < 0) line = `A Papyrus script named like it was in memory when the game stopped inside ${c.calls}, and may have called it.`;
+  else if (c.calls) line = `It called ${c.calls}, the library the game stopped inside.`;
   else if (top >= 0 && c.objects > 0) line = "It is on the call stack, and the game was working with its data.";
   else if (top >= 0 && top !== firstModPosition) line = "It is on the call stack, below other mod code.";
   else if (top >= 0 && top <= 4) line = "The first mod code on the call stack.";
@@ -431,7 +551,8 @@ function summarise(c: Candidate, recurrence: Lead["recurrence"], firstModPositio
   else if (c.errorsNamed > 1) line = `Named in ${c.errorsNamed} of the errors BepInEx logged.`;
   else if (c.scanned.length > 0 && c.objects === 0) line = "It only turns up in a scan of the stack's raw memory.";
   else if (c.errorsNamed === 1) line = "Named in one error BepInEx logged.";
-  else line = "The game was working with an object from it.";
+  else if (c.scripts.length > 0 && c.objects === 0) line = "A Papyrus script named like it was in memory when the game crashed.";
+  else line = OBJECT_LINE[c.object?.seen ?? "objects"];
   if (recurrence) line += ` It also came up in ${recurrence.logs} of your other ${recurrence.of} recent crash${recurrence.of === 1 ? "" : "es"}.`;
   return line;
 }

@@ -1,7 +1,9 @@
 import type { CrashlogParseResult } from "../crashlog/types.js";
+import { clean } from "../patchday/summary.js";
 import type { BepInExFacts, LoadProblem } from "./bepinex-scan.js";
 import { sameVersion, versionParts, type InstallContext } from "./context.js";
-import type { GameFacts } from "./explain.js";
+import { classifyModule, splitModule, type GameFacts } from "./explain.js";
+import { GENERIC_SOURCE, leadKey, matchPlugin } from "./rank.js";
 import type { Check, Lead, SystemFacts } from "./types.js";
 
 // ─── The setup checks ────────────────────────────────────────────────────────
@@ -227,30 +229,49 @@ export function runChecks(input: CheckInput): Check[] {
     high.push(`system memory ${gb(system.ram.used)} of ${gb(system.ram.total)}`);
   }
   if (high.length > 0) {
+    const ease = "use smaller textures or fewer heavy texture and mesh mods, close other programs, and check Windows' page file isn't switched off.";
+    // When the game stopped inside a mod's code, that is the better place to start; memory is for a crash that moves around.
+    const top = parsed.callStack[0];
+    const stoppedInMod = !input.bepinex && top !== undefined && top.source !== "scan" && classifyModule(splitModule(top.module).name) === "mod";
     checks.push({
       id: "memory",
       severity: "note",
       title: "Memory was nearly full when the game crashed",
-      detail: `The log records ${high.join(" and ")}. A game that runs out of memory can fail almost anywhere, so this can matter more than any name on the list.`,
+      detail: stoppedInMod
+        ? `The log records ${high.join(" and ")}. A game that runs out of memory can fail almost anywhere, but this time it stopped inside a mod's code, so start with that lead.`
+        : `The log records ${high.join(" and ")}. A game that runs out of memory can fail almost anywhere, so this can matter more than any name on the list.`,
       basis: "log",
-      fix: "Rule it out first: use smaller textures or fewer heavy texture and mesh mods, close other programs, and check Windows' page file isn't switched off.",
+      fix: stoppedInMod ? `If the crash keeps turning up in different places, rule memory out: ${ease}` : `Rule it out first: ${ease}`,
     });
   }
 
-  // A mod failing over and over.
-  const repeat = input.bepinex?.repeats[0];
-  if (repeat && repeat.count >= 5) {
-    checks.push({
-      id: "bepinex-repeats",
-      severity: "note",
-      title: `The same error was logged ${repeat.count} times`,
-      detail:
-        `BepInEx logged ${repeat.type ?? "the same error"} ${repeat.count} times, each time involving ${repeat.source}. ` +
-        "A mod failing again and again like that is worth a look even when the last error in the log is something else.",
-      basis: "log",
-      fix: `Disable ${repeat.source} if it is a mod, and see whether the errors stop.`,
+  // The same error over and over, with what it says. Unity's own log and BepInEx's are no mod, whatever logs through them.
+  (input.bepinex?.repeats ?? [])
+    .filter((repeat) => repeat.count >= 5)
+    .slice(0, 2)
+    .forEach((repeat, i) => {
+      const generic = GENERIC_SOURCE.test(repeat.source);
+      const mod = generic ? undefined : matchPlugin(leadKey(repeat.source), parsed.loadedPlugins);
+      const who = generic
+        ? `each time from ${repeat.source}, which is the game's or BepInEx's own log, not a mod`
+        : mod
+          ? `each time involving ${mod.name}, a mod that loaded`
+          : `each time involving ${repeat.source}`;
+      checks.push({
+        id: i === 0 ? "bepinex-repeats" : `bepinex-repeats-${i + 1}`,
+        severity: "note",
+        title: `The same error was logged ${repeat.count} times`,
+        detail:
+          `BepInEx logged the same error${repeat.type ? ` (${repeat.type})` : ""} ${repeat.count} times: "${clean(repeat.message, 100)}", ${who}. ` +
+          "An error repeated like that is worth a look even when the last error in the log is something else.",
+        basis: "log",
+        fix: generic
+          ? "Read what the message says failed. It doesn't name a mod, so search for it with the game's name to find which mod or setting it comes from."
+          : mod
+            ? `Disable ${mod.name} and see whether the errors stop; the message may also say what to change.`
+            : `Disable ${repeat.source} if it is a mod, and see whether the errors stop.`,
+      });
     });
-  }
 
   // A BepInEx log with nothing wrong in it.
   if (input.bepinex && input.bepinex.errorCount === 0) {
@@ -265,8 +286,17 @@ export function runChecks(input: CheckInput): Check[] {
     });
   }
 
-  // A log with no call stack.
-  if (parsed.callStack.length === 0 && (input.bepinex ? input.bepinex.errorCount > 0 : true)) {
+  // A log with no call stack. BepInEx's last error can be a plain message, which never has a stack trace.
+  if (parsed.callStack.length === 0 && input.bepinex && input.bepinex.errorCount > 0 && parsed.lastError?.exception === false) {
+    checks.push({
+      id: "no-call-stack",
+      severity: "info",
+      title: "The last error is a message, not an exception",
+      detail:
+        "Code wrote it to the log as an error, but it isn't an exception, so BepInEx has no stack trace to show which code it came from. The leads come from the names the errors were logged under.",
+      basis: "log",
+    });
+  } else if (parsed.callStack.length === 0 && (input.bepinex ? input.bepinex.errorCount > 0 : true)) {
     checks.push({
       id: "no-call-stack",
       severity: "note",

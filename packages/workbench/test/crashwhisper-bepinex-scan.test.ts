@@ -90,7 +90,15 @@ test("every logged error is kept with its type and the namespaces on its stack",
 
 test("errors that repeat are counted, most repeated first", () => {
   const f = scanBepInEx(fixture("LogOutput-real-format.log"));
-  assert.deepEqual(f.repeats, [{ key: "NullReferenceException|MoreCompany", type: "NullReferenceException", source: "MoreCompany", count: 2 }]);
+  assert.deepEqual(f.repeats, [
+    {
+      key: "NullReferenceException|MoreCompany",
+      type: "NullReferenceException",
+      source: "MoreCompany",
+      count: 2,
+      message: "NullReferenceException: Object reference not set to an instance of an object",
+    },
+  ]);
 });
 
 test("a log with no errors has none, and says so", () => {
@@ -138,4 +146,18 @@ test("Windows line endings read the same as Unix ones", () => {
 test("text that isn't a BepInEx log at all gives nothing, without failing", () => {
   const f = scanBepInEx("hello\nworld\n");
   assert.deepEqual(f, { problems: [], events: [], errorCount: 0, repeats: [] });
+});
+
+test("a repeated error keeps the message it repeats, so the answer can show what it says", () => {
+  // The R.E.P.O. log in Kirazake/REPO-Game-PTBR-Mod: the same Unity message, again and again, with no exception.
+  const line =
+    "[Error  : Unity Log] Material 'TextMeshPro/Mobile/Distance Field (Instance)' with Shader 'TextMeshPro/Mobile/Distance Field' doesn't have a color property '_GlowColor'";
+  const f = scanBepInEx([line, line, line].join("\n"));
+  assert.equal(f.repeats.length, 1);
+  assert.equal(f.repeats[0]?.source, "Unity Log");
+  assert.equal(f.repeats[0]?.count, 3);
+  assert.equal(
+    f.repeats[0]?.message,
+    "Material 'TextMeshPro/Mobile/Distance Field (Instance)' with Shader 'TextMeshPro/Mobile/Distance Field' doesn't have a color property '_GlowColor'"
+  );
 });

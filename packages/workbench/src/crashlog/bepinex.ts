@@ -114,9 +114,13 @@ export function parseBepInExLog(text: string): CrashlogParseResult {
       const entry: LoadedPlugin = { name: pluginMatch[1] ?? "(unnamed)" };
       // Don't have an index for BepInEx plugins — they load in dependency
       // order, not by numeric slot.
+      if (pluginMatch[2]) entry.version = pluginMatch[2];
       loadedPlugins.push(entry);
     }
   }
+  // The first line is "BepInEx 5.4.21.0 - Lethal Company (11/23/2023 9:01:25 PM)": the loader's version, the game, and
+  // the time the game's executable was last written (BepInEx.Preloader/Preloader.cs), which is not when the log was.
+  const loader = events.find((ev) => ev.source === "BepInEx" && /^BepInEx \S+ - /.test(ev.message))?.message.split(" - ")[0];
 
   // Surface the most recent fatal event as the exception; older ones go into
   // rawSections so the LLM can still see them if it asks.
@@ -152,11 +156,22 @@ export function parseBepInExLog(text: string): CrashlogParseResult {
       .join("\n\n");
   }
 
-  return {
+  const result: CrashlogParseResult = {
     detectedType: "bepinex",
     exception,
     callStack,
     loadedPlugins,
+    // The chainloader logs "N plugins to load" before loading any (BepInEx 5.4.21, Bootstrap/Chainloader.cs), so the
+    // list is there even when N is 0.
+    pluginList: loadedPlugins.length > 0 || events.some((ev) => /^\d+ plugins? to load$/.test(ev.message.trim())) ? "listed" : "absent",
     rawSections,
   };
+  if (loader) result.loggerVersion = loader;
+  // An error BepInEx logs need not stop the game (a real Lethal Company log goes on for dozens of entries after its
+  // exception), and BepInEx writes nothing when the game closes (Bootstrap/Chainloader.cs, Logging/DiskLogListener.cs
+  // at 5.4.21), so what follows the last error is the only sign of whether it stopped the game.
+  if (primary) {
+    result.lastError = { exception: Boolean(exception.type) || callStack.length > 0, entriesAfter: events.length - 1 - events.indexOf(primary) };
+  }
+  return result;
 }
