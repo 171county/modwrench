@@ -321,6 +321,16 @@ This document is currently maintained by hand. When [release-please](https://git
   and a NetScriptFramework log's module list is read at last. The Crash
   Whisperer page says where the game stopped, the mod behind a DLL and what the
   game was working with as the answer does.
+- **Crash Whisperer says when a crash was in Havok code, and no longer
+  contradicts itself about objects.** With no lead stronger than faint, a Havok
+  class at the top of the call stack or in a register (hknp and hkp for physics;
+  hkb, hka or BShkb for animation) is named in the headline, with a step to look
+  at physics or animation mods first. For Skyrim the animation step also says to
+  run Nemesis or Pandora again. A crash site ModWrench already names, such as
+  NVIDIA FleX, keeps its own advice instead. A log that lists object types in
+  its registers but no game objects no longer says it "lists no objects the game
+  was working with": the answer and the posts now say the log names no object
+  from a mod's plugin.
 
 ## [0.2.4] — 2026-09-15
 
