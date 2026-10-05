@@ -12,12 +12,18 @@ import {
   type SuspectAttribution,
 } from "./metadata/attribute.js";
 import {
-  renderShell,
-  createUIResource,
   themeForCrashType,
-  type CrashData,
-  type ConflictsData,
-  type DepsData,
+  pageAnswer,
+  pageData,
+  registerAppPage,
+  CONFLICTS_PAGE,
+  CRASH_PAGE,
+  DEPS_PAGE,
+  MODS_PAGE,
+  conflictsView,
+  crashView,
+  modsView,
+  orderView,
 } from "@modwrench/ui";
 
 /** Pick the theme skin from a canonical game id. */
@@ -32,7 +38,7 @@ function themeForGameId(gameId: string): string {
 import { checkKnownConflicts } from "./conflicts/index.js";
 import { checkPatchDay } from "./patchday/index.js";
 import { summarizePatchDay } from "./patchday/summary.js";
-import { pageAnswer, registerCrashWhispererApp, registerDoctorApp, registerPatchDayApp } from "./apps.js";
+import { registerCrashWhispererApp, registerDoctorApp, registerPatchDayApp } from "./apps.js";
 import { summarizeCrashWhisper, whisper } from "./crashwhisper/index.js";
 import { runDoctor } from "./doctor/index.js";
 import { summarizeDoctor } from "./doctor/summary.js";
@@ -136,6 +142,7 @@ export function registerWorkbenchTools(server: McpServer): {
   // Vortex returns mod folders only (no enable state) until LevelDB support
   // lands.
 
+  const depsPage = registerAppPage(server, DEPS_PAGE);
   server.registerTool(
     "mw_read_load_order",
     {
@@ -172,6 +179,7 @@ export function registerWorkbenchTools(server: McpServer): {
         idempotentHint: true,
         openWorldHint: false,
       },
+      ...(depsPage ? { _meta: depsPage } : {}),
     },
     guarded("mw_read_load_order", ["instancePath"], async ({ gameId, modManager, profileName, instancePath }) => {
       const result = readLoadOrder({
@@ -188,32 +196,27 @@ export function registerWorkbenchTools(server: McpServer): {
         mods: result.ok ? result.totalCount : 0,
       });
 
-      const orderUI = result.ok
-        ? [
-            createUIResource({
-              uri: "ui://modwrench/order",
-              html: renderShell({
-                theme: themeForGameId(gameId),
-                view: "deps",
-                deps: {
-                  loadOrder: result.mods.map((m) => ({
-                    name: m.name,
-                    enabled: m.enabled,
-                    index: m.loadOrderIndex,
-                    version: m.version,
-                    source: m.sourcePlatform,
-                    pluginFile: m.pluginFile,
-                  })),
-                  manager: result.modManager,
-                  profile: result.profile,
-                  enabledCount: result.enabledCount,
-                  totalCount: result.totalCount,
-                } as DepsData,
-              }),
-              meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
-            }),
-          ]
-        : [];
+      // The page gets the entries without the folder they were read from.
+      const order = result.ok
+        ? orderView({
+            theme: themeForGameId(gameId),
+            ok: true,
+            manager: result.modManager,
+            profile: result.profile,
+            enabledCount: result.enabledCount,
+            totalCount: result.totalCount,
+            loadOrder: result.mods.map((m) => ({
+              name: m.name,
+              enabled: m.enabled,
+              index: m.loadOrderIndex,
+              version: m.version,
+              source: m.sourcePlatform,
+              pluginFile: m.pluginFile,
+              author: m.author,
+            })),
+            warning: result.warning,
+          })
+        : orderView({ theme: themeForGameId(gameId), ok: false, reason: result.reason });
 
       return {
         content: [
@@ -221,8 +224,8 @@ export function registerWorkbenchTools(server: McpServer): {
             type: "text",
             text: JSON.stringify(result, null, 2),
           },
-          ...orderUI,
         ],
+        ...pageData(server, order, depsPage !== undefined),
       };
     })
   );
@@ -234,6 +237,7 @@ export function registerWorkbenchTools(server: McpServer): {
   // crashes; here we hand the LLM clean structured data so it can reason
   // across the user's specific load order.
 
+  const crashPage = registerAppPage(server, CRASH_PAGE);
   server.registerTool(
     "mw_parse_crashlog",
     {
@@ -271,6 +275,7 @@ export function registerWorkbenchTools(server: McpServer): {
         idempotentHint: true,
         openWorldHint: false,
       },
+      ...(crashPage ? { _meta: crashPage } : {}),
     },
     guarded("mw_parse_crashlog", ["logPath"], async ({ logContent, logPath, logType }) => {
       const result = parseCrashlog({
@@ -292,16 +297,8 @@ export function registerWorkbenchTools(server: McpServer): {
             type: "text",
             text: JSON.stringify(result, null, 2),
           },
-          createUIResource({
-            uri: "ui://modwrench/crash",
-            html: renderShell({
-              theme: themeForCrashType(result.ok ? result.detectedType : undefined),
-              view: "crash",
-              crash: result as unknown as CrashData,
-            }),
-            meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
-          }),
         ],
+        ...pageData(server, crashView(result, themeForCrashType(result.ok ? result.detectedType : undefined)), crashPage !== undefined),
       };
     })
   );
@@ -312,6 +309,7 @@ export function registerWorkbenchTools(server: McpServer): {
   // the LLM is structurally prevented from stripping credit, per the trust
   // architecture in the wiring prompt.
 
+  const modsPage = registerAppPage(server, MODS_PAGE);
   server.registerTool(
     "mw_query_mod_metadata",
     {
@@ -349,6 +347,7 @@ export function registerWorkbenchTools(server: McpServer): {
         idempotentHint: true,
         openWorldHint: true,
       },
+      ...(modsPage ? { _meta: modsPage } : {}),
     },
     guarded("mw_query_mod_metadata", [], async ({ modId, modName, platform, gameId }) => {
       const result = await queryModMetadata({
@@ -366,7 +365,6 @@ export function registerWorkbenchTools(server: McpServer): {
       const cards = result.found
         ? [
             {
-              id: result.mod.id,
               name: result.mod.name,
               author: result.mod.attribution.author,
               platform: result.mod.platform,
@@ -384,12 +382,12 @@ export function registerWorkbenchTools(server: McpServer): {
             type: "text",
             text: JSON.stringify(result, null, 2),
           },
-          createUIResource({
-            uri: "ui://modwrench/mods",
-            html: renderShell({ view: "mods", mods: { mods: cards } }),
-            meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
-          }),
         ],
+        ...pageData(
+          server,
+          modsView({ theme: "skyrim", mods: cards, ...(result.found ? {} : { note: result.reason }) }),
+          modsPage !== undefined
+        ),
       };
     })
   );
@@ -404,7 +402,11 @@ export function registerWorkbenchTools(server: McpServer): {
   // filename (.esp/.esm/.esl) or a platform-prefixed ID (nexus:N, modio:N,
   // thunderstore:X). Plugin matches drive the LOOT pass; both kinds drive the
   // community pass.
+  //
+  // In clients that support MCP Apps the tool also points at the Conflicts page
+  // (conflicts-app.ts in @modwrench/ui); every client gets the same text answer.
 
+  const conflictsPage = registerAppPage(server, CONFLICTS_PAGE);
   server.registerTool(
     "mw_check_known_conflicts",
     {
@@ -429,25 +431,11 @@ export function registerWorkbenchTools(server: McpServer): {
         idempotentHint: true,
         openWorldHint: true,
       },
+      ...(conflictsPage ? { _meta: conflictsPage } : {}),
     },
     // gameId becomes part of a file name in the community lookup, so it is checked like a path.
     guarded("mw_check_known_conflicts", ["gameId"], async ({ gameId, modIds }) => {
       const result = await checkKnownConflicts({ gameId, modIds });
-
-      const conflictUI = createUIResource({
-        uri: "ui://modwrench/conflicts",
-        html: renderShell({
-          theme: themeForGameId(gameId),
-          view: "conflicts",
-          conflicts: {
-            gameId,
-            conflicts: result.conflicts,
-            sources: result.sources,
-            warnings: result.warnings,
-          } as ConflictsData,
-        }),
-        meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
-      });
 
       log("debug", "workbench.check_known_conflicts", {
         gameId,
@@ -463,8 +451,18 @@ export function registerWorkbenchTools(server: McpServer): {
             type: "text",
             text: JSON.stringify(result, null, 2),
           },
-          conflictUI,
         ],
+        ...pageData(
+          server,
+          conflictsView({
+            theme: themeForGameId(gameId),
+            gameId,
+            conflicts: result.conflicts,
+            sources: result.sources,
+            warnings: result.warnings,
+          }),
+          conflictsPage !== undefined
+        ),
       };
     })
   );
@@ -512,6 +510,7 @@ export function registerWorkbenchTools(server: McpServer): {
         idempotentHint: true,
         openWorldHint: true,
       },
+      ...(crashPage ? { _meta: crashPage } : {}),
     },
     // gameId reaches the same community lookup as in mw_check_known_conflicts.
     guarded("mw_diagnose_crash", ["logPath", "gameId"], async ({ logContent, logPath, logType, gameId, attributeSuspects }) => {
@@ -523,18 +522,8 @@ export function registerWorkbenchTools(server: McpServer): {
 
       if (!parsed.ok) {
         return {
-          content: [
-            { type: "text", text: JSON.stringify(parsed, null, 2) },
-            createUIResource({
-              uri: "ui://modwrench/crash",
-              html: renderShell({
-                theme: "skyrim",
-                view: "crash",
-                crash: parsed as unknown as CrashData,
-              }),
-              meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
-            }),
-          ],
+          content: [{ type: "text", text: JSON.stringify(parsed, null, 2) }],
+          ...pageData(server, crashView(parsed, "skyrim"), crashPage !== undefined),
         };
       }
 
@@ -597,16 +586,8 @@ export function registerWorkbenchTools(server: McpServer): {
               2
             ),
           },
-          createUIResource({
-            uri: "ui://modwrench/crash",
-            html: renderShell({
-              theme: themeForCrashType(parsed.detectedType),
-              view: "crash",
-              crash: parsed as unknown as CrashData,
-            }),
-            meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
-          }),
         ],
+        ...pageData(server, crashView(parsed, themeForCrashType(parsed.detectedType)), crashPage !== undefined),
       };
     })
   );

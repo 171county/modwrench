@@ -12,51 +12,44 @@ It runs on your machine. No account, no service, no server anyone operates.
 
 **Paste a crash log. Get the mod that caused it.**
 
-![The crash panel: an access violation parsed into its exception, suspected form IDs, call stack, registers and loaded plugins](docs/media/crash-panel.png)
+![The Crash log page: an access violation parsed into its exception, suspected form IDs, call stack, registers and loaded plugins](docs/media/crash-panel.png)
 
 `SomeArmorMod.esp` is named as a suspect, and `SomeArmorMod.dll` is sitting at frame 2 of
 the call stack. ModWrench parsed the log and laid out what is in it. It did not decide the
-cause — that is the model's job, and the panel says so.
+cause — that is the model's job, and the page says so.
 
 **Search every platform you have connected, with the author on every row.**
 
-![The mods panel: three Skyrim mods, each with author, platform, version, download and endorsement counts, and a link to the mod page](docs/media/mods-panel.png)
+![The Mods page: three Skyrim mods, each with author, platform, version, download and endorsement counts, and the address of the mod's page](docs/media/mods-panel.png)
 
-These panels are not screenshots of a website. Each one is an interactive
-[MCP-UI](https://mcpui.dev) resource that a tool returns inline with its answer — self-contained
-HTML with no external scripts, no stylesheets, no fetches and no images. Your MCP client
-renders it locally, or shows the text answer if it does not support MCP-UI yet. Nothing about
-it reaches a server.
+These are not screenshots of a website. Each is an
+[MCP Apps](https://apps.extensions.modelcontextprotocol.io/api/documents/overview.html) page:
+one self-contained HTML document with no external scripts, no stylesheets, no fetches and no
+images. Every tool answers in text that any client can show and a model can read. Crash logs,
+mod lists, dependencies and load orders, known conflicts, the deck, Patch Day, Crash Whisperer
+and the Doctors also have a page, drawn only in a client that supports MCP Apps: the tool
+points at its page, the client fetches it and draws it, and the data the page draws comes with
+the answer as structured data. A client that can't draw pages never fetches one and is never
+sent that data, so it gets the text answer and no HTML at all. The pictures above were drawn in
+a stand-in for an MCP Apps host; no page has been tried in a real client yet.
 
-One caveat worth knowing before you hit it. A client that does not support MCP-UI does not
-quietly ignore the panel — it puts the HTML into the conversation as text, and the model
-reads markup it can do nothing with. One panel is about 28kb, roughly 8,800 tokens, near 7%
-of a 128k context window. If that is happening to you, turn panels off:
+**Patch Day, Crash Whisperer and the Doctors** (`mw_patch_day`, `mw_crash_whisperer`,
+`mw_doctor`) keep their text to a few lines, and the full report goes to their page. The
+structured data goes only to clients that say they can draw pages, because some clients hand
+the model the structured data *instead of* the text, which would turn a ten-line answer into a
+long one. If you want it anyway, for a script or an agent that reads it, set
+`MODWRENCH_STRUCTURED=always`; `MODWRENCH_STRUCTURED=never` sends it to nobody.
+`MODWRENCH_UI=off` switches every page off, and with them the structured data, unless
+`MODWRENCH_STRUCTURED=always` asks for it. The pages make no network requests and keep
+nothing; [TRUST.md](TRUST.md#the-patch-day-page) and
+[the other pages](TRUST.md#the-other-pages) say what they can and can't do.
 
-```
-MODWRENCH_UI=off
-```
-
-Set it wherever your client puts environment variables. The payload drops from 28kb to about
-130 bytes — a 219x reduction — and every tool keeps working exactly as before. Panels are on
-by default; this is opt-out, not opt-in.
-
-**Patch Day, Crash Whisperer and the Doctors are built the other way round.**
-`mw_patch_day`, `mw_crash_whisperer` and `mw_doctor` answer in a few lines of plain text that
-every client can show and a model can read, and that is the whole answer for any client that
-can't do more. In a client
-that supports
-[MCP Apps](https://apps.extensions.modelcontextprotocol.io/api/documents/overview.html) each
-also points at a page, which the client fetches only if it can draw it, and the full report
-goes to it as structured data. A client that can't draw pages never fetches the page and is
-never sent the structured data, because some clients hand the model the structured data
-*instead of* the text, which would turn a ten-line answer into a long one. If you want it
-anyway, for a script or an agent that reads the report, set `MODWRENCH_STRUCTURED=always`;
-`MODWRENCH_STRUCTURED=never` sends it to nobody. `MODWRENCH_UI=off` switches the pages off,
-and with them the structured data, unless `MODWRENCH_STRUCTURED=always` asks for it.
-The pages make no network requests and keep nothing;
-[TRUST.md](TRUST.md#the-patch-day-page) says what they can and can't do. They are the first
-panels made this way; the others work as described above.
+The optional HTTP server, `@modwrench/remote`, is the exception. It starts a fresh server for
+every request, so it never learns that a client can draw pages. Its Thunderstore mod lists and
+dependency tools still point at their pages, but by default no client is sent the data, so in a
+client that draws pages the page shows only the text answer. A deployment that wants drawn
+pages sets `MODWRENCH_STRUCTURED=always`, which sends the data to every client of that
+deployment.
 
 **The Doctors** (`mw_doctor`, or `/mw-doctor`) answer "is my setup ready?", and they are the
 boring half of modding support: a lot of "my mods keep breaking" threads end with a cause that
@@ -121,11 +114,11 @@ Four attachments. Install one, some, or all — `@modwrench/cli` composes whiche
 
 The conflict check reads two sources: LOOT's masterlist, fetched live for Bethesda games, and a small conflict list bundled inside the package for games LOOT does not cover. **That bundled list ships empty** — all three files contain `[]` — so today it asserts nothing. It is named here because it is a channel that could carry claims about someone's mod in a future release, and `npx` pulls the latest version automatically unless you pin.
 
-Plus two meta tools for activating a platform mid-session and opening a visual panel.
+Plus two meta tools: one activates a platform mid-session, and one opens the deck, which shows which platforms are connected (a page in clients that support MCP Apps, the connector list as text everywhere else).
 
 **52 tools. 51 of them read. One writes** — see [The one thing it writes](#the-one-thing-it-writes).
 
-It also registers **seven slash commands** your MCP client will offer you: `/modwrench` opens the panel, `/mw-find` searches every connected platform at once, `/mw-crash` asks why your game crashed (it reads your newest crash log itself), `/mw-conflicts` checks a game's load order, `/mw-order` reads your load order, `/mw-patch` asks whether a game update is safe, and `/mw-doctor` asks whether your setup is ready. They are shortcuts that call the tools above — they add no capability the tools do not already have.
+It also registers **seven slash commands** your MCP client will offer you: `/modwrench` opens the deck, `/mw-find` searches every connected platform at once, `/mw-crash` asks why your game crashed (it reads your newest crash log itself), `/mw-conflicts` checks a game's load order, `/mw-order` reads your load order, `/mw-patch` asks whether a game update is safe, and `/mw-doctor` asks whether your setup is ready. They are shortcuts that call the tools above — they add no capability the tools do not already have.
 
 ## How to use it
 
@@ -211,7 +204,7 @@ Everything ModWrench talks to, and nothing else:
 | `127.0.0.1` | a local listener that catches the OAuth redirect, during `auth login` only |
 | whatever CDN host Nexus names in a file's `content_preview_link` | `nexus_file_preview` only — Nexus serves archive listings off-API, so this one call follows a URL Nexus returns rather than a fixed host. Sent with no credential |
 
-Other domains show up in ModWrench's *output* — `www.nexusmods.com` and `mod.io` links back to mod pages — but it does not fetch them. Your browser does, if you click one.
+Other domains show up in ModWrench's *output* — `www.nexusmods.com` and `mod.io` links back to mod pages — but it does not fetch them. Your browser does, if you open one. On the Mods page, Open asks your AI client to open a mod's page, and your client decides.
 
 No telemetry. No analytics. No accounts. Nothing is sent to us, because there is no us to send it to — no server is run for this project.
 

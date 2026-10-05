@@ -14,7 +14,7 @@ import { readFileSync } from "node:fs";
 // The consequence is specific: on the three paths most likely to surface an
 // author's work to a stranger, the link back to that author was stripped before
 // the model ever saw it, so the assistant could not cite it even when asked
-// directly. The UI card helper had the same hole — ModCard has had a pageUrl
+// directly. The old panel's card helper had the same hole — ModCard had a pageUrl
 // field all along and mod.io never populated it.
 //
 // Hand-built summaries are exactly the shape that drops fields silently, so
@@ -61,16 +61,18 @@ for (const tool of MOD_TOOLS) {
   });
 }
 
-test("the mod.io UI card carries the page URL too", () => {
+test("the mod.io rows for the Mods page carry the page URL too", () => {
   const src = readFileSync(REGISTER, "utf8");
-  const start = src.indexOf("function modioModsUI");
-  assert.ok(start > -1, "modioModsUI not found — this guard would pass vacuously");
-  const body = src.slice(start, src.indexOf("createUIResource", start));
+  const start = src.indexOf("function modioModsView");
+  assert.ok(start > -1, "modioModsView not found — this guard would pass vacuously");
+  // To the next top-level function, so only the helper's own body is searched.
+  const next = src.slice(start + 1).search(/^(?:export )?function /m);
+  const body = src.slice(start, next === -1 ? undefined : start + 1 + next);
 
   assert.match(
     body,
     /pageUrl: r\.pageUrl/,
-    "the mod.io card no longer sets pageUrl — ModCard has the field and the rendered " +
-      "card will show no link back to the author"
+    "the mod.io rows no longer set pageUrl — ModRow has the field and the Mods page " +
+      "will show no link back to the author"
   );
 });

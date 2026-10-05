@@ -1,12 +1,9 @@
 // ─── MCP Apps: the shared page runtime ───────────────────────────────────────
-// The panels in views.ts and shell.ts travel inside the tool result as an
-// embedded `ui://` resource. That works in clients that draw them and puts the
-// whole page into the conversation in clients that don't. MCP Apps (the
-// extension the MCP project standardised in 2026) is built the other way round:
-// the tool result stays plain, the tool points at a `ui://` resource by URI, and
-// a client that supports the extension fetches that page itself and draws it in a
-// sandboxed frame. A client that doesn't support it never fetches it, so nothing
-// lands in the conversation.
+// Every ModWrench page is an MCP Apps page (the extension the MCP project
+// standardised in 2026): the tool result stays plain, the tool points at a
+// `ui://` resource by URI, and a client that supports the extension fetches that
+// page itself and draws it in a sandboxed frame. A client that doesn't support it
+// never fetches it, so nothing lands in the conversation.
 //
 // This file holds what every such page needs: the identifiers, the metadata the
 // server attaches, and a small runtime that speaks the page side of the protocol
@@ -16,9 +13,31 @@
 //
 // Pages built on it are a pure function of the tool result: they hold nothing,
 // store nothing and make no network requests. They draw what the host hands them
-// and, when the person presses a button, ask the host to call a tool again.
+// and, when the person presses a button, ask the host to call a tool again, put a
+// message in the chat or open a link.
 
-import { esc, panelsDisabled } from "./resource.js";
+/**
+ * True when the person has turned pages off with MODWRENCH_UI=off (or 0, false,
+ * none). Tools then point at no page and send no structured data for one.
+ *
+ * Read per call rather than cached at import, so a host that mutates process.env
+ * between requests is honoured, and so tests can toggle it without re-importing.
+ */
+export function panelsDisabled(): boolean {
+  const raw = (process.env.MODWRENCH_UI ?? "").trim().toLowerCase();
+  return raw === "off" || raw === "0" || raw === "false" || raw === "none";
+}
+
+/** Escape a string for safe interpolation into HTML text/attribute context. */
+export function esc(value: unknown): string {
+  const s = value === null || value === undefined ? "" : String(value);
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 /** The MIME type MCP Apps hosts look for on a UI resource. */
 export const MCP_APP_MIME = "text/html;profile=mcp-app";
@@ -42,9 +61,10 @@ export const DOCTOR_APP_URI = "ui://modwrench/doctor";
  * The `_meta` a tool carries to say "draw this page for my result".
  *
  * `ui.resourceUri` is the current key; the flat `ui/resourceUri` is the older
- * spelling some hosts still read. `visibility` includes "app" so the page can
- * call the tool itself (the Re-check button) and "model" so the assistant can
- * still call it.
+ * spelling some hosts still read. `visibility` includes "app" so a page can
+ * call the tool itself (the Patch Day, Crash Whisperer and Doctor pages can run
+ * their check again; the other pages never call a tool) and "model" so the
+ * assistant can still call it.
  *
  * Returns undefined when the person has switched panels off (MODWRENCH_UI=off),
  * so the tool then advertises no page at all.
@@ -135,7 +155,7 @@ code,.mono{font-family:var(--mono)}
 //   page -> host   ui/initialize (request), then ui/notifications/initialized
 //   host -> page   ui/notifications/tool-input, tool-result, tool-cancelled, host-context-changed
 //                  ui/resource-teardown and ping (requests; answered with {})
-//   page -> host   tools/call, ui/message, ui/notifications/size-changed
+//   page -> host   tools/call, ui/message, ui/open-link, ui/notifications/size-changed
 // Messages are accepted only from the parent window, and anything that isn't a
 // JSON-RPC message is ignored. Written without template literals: this text is
 // embedded in a template literal itself.
@@ -287,6 +307,13 @@ var mwApp = (function () {
     sendMessage: function (text) {
       return request('ui/message', { role: 'user', content: [{ type: 'text', text: text }] }).then(function (result) {
         if (result && result.isError) throw new Error('The host did not take the message');
+        return result;
+      });
+    },
+    // The same for ui/open-link: the host may refuse with an error or answer isError.
+    openLink: function (url) {
+      return request('ui/open-link', { url: url }).then(function (result) {
+        if (result && result.isError) throw new Error('The host did not open the link');
         return result;
       });
     },
