@@ -828,10 +828,12 @@ test("real Buffout 4 log with no lead and no objects: the posts don't speak of o
   for (const venue of ["forum", "github"] as const) {
     assert.match(
       packets[venue].text,
-      /No mod stood out: nothing from a mod was on the call stack, and the log lists no objects the game was working with\./,
+      /No mod stood out: nothing from a mod was on the call stack, and the log names no object from a mod's plugin\./,
       venue
     );
     assert.doesNotMatch(packets[venue].text, /among the objects involved/, venue);
+    // The post lists the register types the game was working with, so it can't also say the log lists none.
+    assert.doesNotMatch(packets[venue].text, /lists no objects the game was working with/, venue);
   }
 });
 
