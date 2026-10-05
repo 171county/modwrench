@@ -12,8 +12,11 @@ on:
     branches: [main]
 
 # Read-only permissions — gitleaks doesn't need to modify the repo.
+# pull-requests: read lets gitleaks-action list a PR's commits, which a
+# private repository refuses without it.
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   scan:
