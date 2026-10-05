@@ -335,7 +335,7 @@ function noLead(d: PacketData): string {
   if (d.format === "bepinex") return "No mod stood out: no mod that loaded is named in what BepInEx logged.";
   return (d.log?.suspectedRefs ?? []).some((r) => r.origin !== undefined)
     ? "No mod stood out: nothing from a mod was on the call stack, and none of the objects the log lists comes from a mod's plugin."
-    : "No mod stood out: nothing from a mod was on the call stack, and the log lists no objects the game was working with.";
+    : "No mod stood out: nothing from a mod was on the call stack, and the log names no object from a mod's plugin.";
 }
 
 /** " (RaceMenu)": the mod a well-known DLL comes with, to put after its name. */

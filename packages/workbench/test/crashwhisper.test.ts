@@ -865,7 +865,62 @@ test("Buffout 4: the object types in the registers are said, and 'no leads' does
   assert.deepEqual(r.crash.context?.types, [{ type: "hknpStreamContactSolver", registers: ["R11"] }]);
   const text = summarizeCrashWhisper(r);
   assert.match(text, /^- Object types in the registers: hknpStreamContactSolver \(R11\)$/m);
-  assert.match(text, /^Leads: none\. Nothing from a mod was on the call stack, and the log lists no objects the game was working with\.$/m);
+  // The register types are things the game was working with, so "no leads" can't say the log lists none.
+  assert.match(text, /^Leads: none\. Nothing from a mod was on the call stack, and the log names no object from a mod's plugin\.$/m);
+  assert.doesNotMatch(text, /lists no objects the game was working with/);
+  // The Havok type says which part of the game it was in, in the headline and in where to start.
+  assert.match(r.headline, / The log shows it was in Havok's physics code \(hknpStreamContactSolver\)\.$/);
+  assert.ok(r.nextSteps.some((s) => /^The log shows the game in Havok's physics code \(hknpStreamContactSolver\)\. /.test(s)), r.nextSteps.join("\n"));
+  assert.doesNotMatch(r.nextSteps.join("\n"), /Nemesis|Pandora/);
+});
+
+test("Buffout 4: inside NVIDIA FleX, the Weapon Debris step is the advice, not the Havok physics around it", () => {
+  // crash-12624.log: stopped in flexRelease_x64.dll with a Havok shape in a register.
+  const r = run(
+    lines(
+      "Fallout 4 v1.10.984",
+      "Buffout 4 v1.36.0",
+      "",
+      'Unhandled exception "EXCEPTION_ACCESS_VIOLATION" at 0x7FFDA6F27AE3 flexRelease_x64.dll+0027AE3',
+      "",
+      "PROBABLE CALL STACK:",
+      "\t[0] 0x7FFDA6F27AE3 flexRelease_x64.dll+0027AE3",
+      "",
+      "REGISTERS:",
+      "\tRAX 0x0                (size_t) [0]",
+      "\tR11 0x1B2AD031700      (hknpCompressedHeightFieldShape*)",
+      ""
+    )
+  );
+  assert.doesNotMatch(r.headline, /Havok/);
+  assert.ok(r.nextSteps.some((s) => /Turn Weapon Debris off/.test(s)), r.nextSteps.join("\n"));
+  assert.doesNotMatch(r.nextSteps.join("\n"), /Havok's physics code/);
+});
+
+test("NetScriptFramework: Havok animation code at the top of the call stack is said, with the behavior-file step for Skyrim", () => {
+  // Shadowrend.txt: the game stopped in Havok Behavior code (hkbClipGenerator), under Skyrim's animation graph.
+  const r = run(
+    lines(
+      ...NSF_HEAD("0x7FF71ED8D780 (SkyrimSE.exe+A0D780)", "12 Mar 2024 14:00:52.000"),
+      "Probable callstack",
+      "{",
+      "  [0]   0x7FF71ED8D780     (SkyrimSE.exe+A0D780)          hkbClipGenerator::unk_A0D770+10",
+      "  [1]   0x7FF71ED8E62E     (SkyrimSE.exe+A0E62E)          hkbClipGenerator::unk_A0E620+E",
+      "  [2]   0x7FF71ED70069     (SkyrimSE.exe+9F0069)          hkbBehaviorGraph::unk_9EFCC0+3A9",
+      "  [3]   0x7FF71EE6C31C     (SkyrimSE.exe+AEC31C)          BShkbAnimationGraph::unk_AEC270+AC",
+      "}",
+      "",
+      "Game plugins (1)",
+      "{",
+      "  [00] Skyrim.esm",
+      "}"
+    )
+  );
+  assert.equal(r.leads.length, 0);
+  assert.match(r.headline, / The log shows it was in Havok's animation code \(hkbClipGenerator\)\.$/);
+  const step = r.nextSteps.find((s) => /^The log shows the game in Havok's animation code \(hkbClipGenerator\)\. /.test(s));
+  assert.ok(step, r.nextSteps.join("\n"));
+  assert.match(step!, /Nemesis or Pandora/);
 });
 
 test("NetScriptFramework, inside JContainers: the Papyrus script in the log names the mod that likely called it", () => {
