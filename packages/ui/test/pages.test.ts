@@ -283,6 +283,65 @@ test("the compare box is offered only for the logs the comparison runs on", asyn
   }
 });
 
+// ─── What Crash Whisperer's page says about the crash ───────────────────────
+
+/** All the text an element and what is inside it show. */
+const textOf = (node: Fake): string => node.textContent + node.children.map(textOf).join("");
+
+test("the Crash Whisperer page says where it stopped as the answer does, names a DLL's mod, and shows what the game was working with", async () => {
+  // The values the answer gives for the public USVFS, Shadowrend, D6DDDA and JContainers NetScriptFramework logs.
+  const base = crashReport("A headline.", "netscriptframework") as { crash: Record<string, unknown> };
+  const page = loadPage(renderCrashWhispererApp());
+  await page.show({
+    ...base,
+    crash: {
+      ...base.crash,
+      site: { index: 0, module: "(unknown)", kind: "unknown", address: "0xFFFFFF0024A48D48" },
+      nearest: { index: 1, module: "usvfs_x64.dll", offset: "4C8AE", kind: "overlay", about: "Mod Organizer 2's virtual file system" },
+      frames: [
+        { index: 0, module: "(unknown)", kind: "unknown" },
+        { index: 1, module: "usvfs_x64.dll", offset: "4C8AE", kind: "overlay", about: "Mod Organizer 2's virtual file system" },
+        { index: 10, module: "d3d11.dll", offset: "15EF1E", kind: "unknown", copies: 2 },
+      ],
+      context: {
+        objects: [{ formId: "0x00000007", kind: "TESNPC", plugins: ["Skyrim.esm", "Skyrim Unbound.esp"], origin: "objects", player: true }],
+        types: [{ type: "hkbClipGenerator", registers: ["BX", "CX"] }],
+        files: ["textures\\terrain\\tamriel\\skyrim.dds"],
+        scripts: ["metaSkillMenuScript.load_data"],
+      },
+    },
+    leads: [{ rank: 1, name: "JContainers64.dll", mod: "JContainers", strength: "strong", summary: "The game stopped inside it.", evidence: [] }],
+  });
+  const happened = textOf(page.el("happened"));
+  assert.match(
+    happened,
+    /Where it stopped: frame 0, at 0xFFFFFF0024A48D48, an address in no module\. The first frame the log can place is frame 1, usvfs_x64\.dll\+4C8AE \(Mod Organizer 2's virtual file system\)\./
+  );
+  assert.match(happened, /Objects: the player's character \(TESNPC 0x00000007\), from Skyrim\.esm, changed by Skyrim Unbound\.esp/);
+  assert.match(happened, /Object types in the registers: hkbClipGenerator \(BX, CX\)/);
+  assert.match(happened, /Files: textures\\terrain\\tamriel\\skyrim\.dds/);
+  assert.match(happened, /Papyrus: metaSkillMenuScript\.load_data/);
+  const stack = textOf(page.el("stack-body"));
+  assert.match(stack, /usvfs_x64\.dll\+4C8AEMod Organizer 2's virtual file system/);
+  assert.match(stack, /d3d11\.dll\+15EF1EWindows' own d3d11\.dll or a graphics mod's copy of it: the log lists 2/);
+  assert.match(textOf(page.el("leads")), /JContainers64\.dll\(JContainers\)/);
+});
+
+test("the Crash Whisperer page's 'no leads' says what the log has, as the answer does", async () => {
+  const cases: Array<[format: string, context: unknown, expected: RegExp]> = [
+    ["buffout4", undefined, /^None\. Nothing from a mod was on the call stack, and the log lists no objects the game was working with\.$/],
+    ["crashlogger-sse", { objects: [{ formId: "0x0003CA03", kind: "Armature", plugins: ["Skyrim.esm"], origin: "stack" }] }, /none of the objects the log lists comes from a mod's plugin\.$/],
+    ["bepinex", undefined, /^None\. No mod that loaded is named in what BepInEx logged\.$/],
+  ];
+  for (const [format, context, expected] of cases) {
+    const base = crashReport("A headline.", format) as { crash: Record<string, unknown> };
+    const page = loadPage(renderCrashWhispererApp());
+    await page.show({ ...base, crash: { ...base.crash, ...(context ? { context } : {}) }, leads: [] });
+    const none = page.el("leads").children.find((c) => c.attrs.class === "calm");
+    assert.match(none?.textContent ?? "", expected, format);
+  }
+});
+
 // ─── Patch Day's "Where it looked" and labels ────────────────────────────────
 
 test("the Patch Day page says Mod Organizer 2 wasn't read when it loads the plugins but couldn't be read", async () => {

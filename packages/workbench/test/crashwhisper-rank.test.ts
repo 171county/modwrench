@@ -439,3 +439,96 @@ test("toFrame: a BepInEx frame carries no offset, because the runtime's file pos
   assert.equal(frame.offset, undefined);
   assert.equal(frame.kind, "framework");
 });
+
+// ─── Well-known DLLs ─────────────────────────────────────────────────────────
+
+test("a well-known DLL's lead says which mod it is, and a library other mods call is marked shared", () => {
+  // Crash Logger SSE v1.11 (evildarkarchon/crash-logs, crash-2023-12-11-02-34-31.log): RaceMenu's skee64.dll under OBody's code.
+  const leads = rankLeads(parsedWith({ callStack: frames(...Array(6).fill("skee64.dll"), "OBody.dll", "OBody.dll", "ucrtbase.dll", "KERNEL32.DLL") }));
+  const race = leads.find((l) => l.name === "skee64.dll");
+  assert.equal(race?.mod, "RaceMenu");
+  assert.equal(race?.shared, true);
+  const obody = leads.find((l) => l.name === "OBody.dll");
+  assert.equal(obody?.mod, "OBody");
+  assert.equal(obody?.shared, undefined);
+  assert.equal(only(parsedWith({ callStack: frames("SomeMod.dll") })).mod, undefined);
+});
+
+test("when the game stopped inside a library other mods call, the mod right under it called it: scored as the first mod code", () => {
+  // The same log. The old rule gave OBody +15 as "below other mod code", which made the mod that called RaceMenu a faint lead.
+  const leads = rankLeads(parsedWith({ callStack: frames(...Array(6).fill("skee64.dll"), "OBody.dll", "OBody.dll", "ucrtbase.dll", "KERNEL32.DLL") }));
+  const obody = leads.find((l) => l.name === "OBody.dll")!;
+  assert.equal(obody.score, 40 + 5);
+  assert.equal(obody.strength, "possible");
+  assert.equal(obody.calls, "skee64.dll");
+  assert.match(obody.evidence[0]!.text, /called skee64\.dll directly: it is right underneath it on the call stack \(frame 6\)/);
+  assert.match(obody.summary, /called skee64\.dll/);
+  assert.doesNotMatch(obody.summary, /below other mod code/);
+  // A mod under one that is no shared library is still only "below other mod code".
+  const plain = rankLeads(parsedWith({ callStack: frames("ModA.dll", "ModB.dll") }));
+  assert.equal(plain.find((l) => l.name === "ModB.dll")?.score, 15);
+  assert.equal(plain.find((l) => l.name === "ModB.dll")?.calls, undefined);
+});
+
+// ─── Where the logger found an object ────────────────────────────────────────
+
+const ref = (likelySource: string, origin: "objects" | "register" | "stack", value = "0x0003C9FE", extra = {}) => ({ type: "formid", value, likelySource, origin, ...extra });
+
+test("an object the logger printed beside a register is weaker than one on its own list, and one in stack memory weaker still", () => {
+  // Crash Logger SSE before v1.20 prints the objects it finds under a register or a stack slot (crash-2023-12-11-02-34-31.log).
+  const listed = only(parsedWith({ suspectedRefs: [ref("Weapons Armor Clothing & Clutter Fixes.esp", "objects")] }));
+  assert.equal(listed.score, 35);
+  const register = only(parsedWith({ suspectedRefs: [ref("Weapons Armor Clothing & Clutter Fixes.esp", "register")] }));
+  assert.equal(register.score, 25);
+  assert.match(register.evidence[0]!.text, /beside a register .* so this is weaker evidence than it looks\.$/);
+  const stack = only(parsedWith({ suspectedRefs: [ref("Weapons Armor Clothing & Clutter Fixes.esp", "stack", "0x0003C9FE", { kind: "Armor", name: "Roughspun Tunic" })] }));
+  assert.equal(stack.score, 15);
+  assert.equal(stack.strength, "faint");
+  assert.match(stack.evidence[0]!.text, /in stack memory \(for example Armor "Roughspun Tunic", 0x0003C9FE\)/);
+  assert.match(stack.evidence[0]!.text, /Stack memory also holds leftovers, so this is weak evidence\.$/);
+  assert.match(stack.summary, /stack memory/i);
+});
+
+test("a reference and the base object it was placed from count as one object, and a base another plugin placed counts for its own", () => {
+  // NetScriptFramework, D6DDDA.txt: Skyrim Unbound's sack and its base container, both found at [SP+C90].
+  const sack = ref("Skyrim Unbound.esp", "stack", "0xD885F93A", { kind: "TESObjectCONT", name: "Large Sack" });
+  const one = only(parsedWith({ detectedType: "netscriptframework", suspectedRefs: [sack, ref("Skyrim Unbound.esp", "stack", "0xD8841320", { kind: "TESObjectREFR", base: "0xD885F93A" })] }));
+  assert.equal(one.score, 15);
+  assert.match(one.evidence[0]!.text, /^The crash logger found an object from Skyrim Unbound\.esp in stack memory \(for example TESObjectCONT "Large Sack", 0xD885F93A\)/);
+  const placed = rankLeads(parsedWith({ detectedType: "netscriptframework", suspectedRefs: [sack, ref("Some Other Mod.esp", "stack", "0xD8841320", { base: "0xD885F93A" })] }));
+  assert.deepEqual(placed.map((l) => [l.name, l.score]), [["Skyrim Unbound.esp", 15], ["Some Other Mod.esp", 15]]);
+});
+
+test("the player's own character, last changed by a plugin, is a weak lead: it is in use the whole time you play", () => {
+  // NetScriptFramework, Shadowrend.txt: the player's TESNPC, last changed by an alternate-start plugin.
+  const lead = only(
+    parsedWith({
+      detectedType: "netscriptframework",
+      suspectedRefs: [ref("Skyrim Unbound.esp", "objects", "0x00000007", { kind: "TESNPC", plugins: ["Skyrim.esm", "ccbgssse018-shadowrend.esl", "Skyrim Unbound.esp"] })],
+    })
+  );
+  assert.equal(lead.score, 15);
+  assert.equal(lead.strength, "faint");
+  assert.match(lead.evidence[0]!.text, /player's character/);
+});
+
+test("a Papyrus script in the log named like a loaded plugin makes that plugin a lead, labelled a guess", () => {
+  // NetScriptFramework, JContainers.txt: metaSkillMenuScript.load_data on the stack, metaSkillMenu.esp in the load order.
+  const papyrus = [
+    { script: "JValue", function: "GotoState" },
+    { script: "metaSkillMenuScript", function: "load_data" },
+    { script: "Actor", function: "AddSpell", native: true as const },
+  ];
+  const loadedPlugins = [{ name: "Skyrim.esm" }, { name: "metaSkillMenu.esp" }];
+  const alone = rankLeads(parsedWith({ detectedType: "netscriptframework", loadedPlugins, papyrus }));
+  assert.deepEqual(alone.map((l) => [l.name, l.score]), [["metaSkillMenu.esp", 25]]);
+  assert.equal(alone[0]!.evidence[0]!.basis, "guess");
+  assert.match(alone[0]!.evidence[0]!.text, /metaSkillMenuScript\.load_data/);
+  assert.match(alone[0]!.evidence[0]!.text, /name match, not proof/);
+  // Under a library other mods call, the script is a likely caller.
+  const called = rankLeads(parsedWith({ detectedType: "netscriptframework", loadedPlugins, papyrus, callStack: frames("JContainers64.dll", "(unknown)") }));
+  const meta = called.find((l) => l.name === "metaSkillMenu.esp")!;
+  assert.equal(meta.score, 40);
+  assert.equal(meta.strength, "possible");
+  assert.equal(meta.calls, "JContainers64.dll");
+});

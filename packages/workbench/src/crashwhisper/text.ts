@@ -2,13 +2,16 @@ import { clean } from "../patchday/summary.js";
 
 // ─── Small text helpers shared by the answer and the help packets ────────────
 
-const SWAPS: Record<string, string> = { "<": "(", ">": ")", "[": "(", "]": ")", "`": "'" };
+// "‹" and "›" (U+2039, U+203A) read like "<" and ">" in a C++ or C# name ("EntryDB‹BGSBtrDB::DBTraits›"), but only the
+// ASCII "<" opens a tag, an autolink or a mention: in the HTML standard's tokenizer, CommonMark's raw HTML and
+// autolinks, and Discord's message formatting ("<@id>", "<#id>").
+const SWAPS: Record<string, string> = { "<": "‹", ">": "›", "[": "(", "]": ")", "`": "'" };
 
 /**
  * A name from a log or from a mod folder, made safe to put in text someone will post. Anyone can name
  * a mod anything, and the packets end up on forums, in GitHub issues and in Discord, where square
  * brackets can be markup, backticks end a code block, and "@" pings a person or a whole channel.
- * Those are swapped for harmless look-alikes, and the name is cut to one short line.
+ * Those are swapped for harmless look-alikes (square brackets for round ones), and the name is cut to one short line.
  */
 export function safeName(value: string, max = 80): string {
   return clean(value, max)

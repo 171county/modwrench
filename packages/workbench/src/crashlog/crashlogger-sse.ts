@@ -2,9 +2,12 @@ import type {
   CallStackFrame,
   CrashlogParseResult,
   CrashlogType,
+  LoadedModule,
   LoadedPlugin,
   SuspectedRef,
 } from "./types.js";
+import { PLAYER_FORM_IDS } from "./types.js";
+import { assetPaths } from "./assets.js";
 
 // Shared parser for the FudgyDuff / NG family: Crash Logger SSE and Buffout 4
 // emit nearly identical section-based layouts. We split into named sections
@@ -178,6 +181,9 @@ function parseCallStack(section: string[] | undefined): CallStackFrame[] {
       if (mod[2]) frame.offset = mod[2];
       const fn = frameFunction(mod[3], mod[4]);
       if (fn) frame.function = fn;
+      // "-> 1242880+0x1FE": the Address Library id of the game function and the offset into it.
+      const id = /^->\s*(\d+\+0x[0-9A-Fa-f]+)/.exec(mod[4]?.trim() ?? "")?.[1];
+      if (id) frame.addressId = id;
     }
     frames.push(frame);
   }
@@ -188,6 +194,7 @@ function parseCallStack(section: string[] | undefined): CallStackFrame[] {
 //   [00]     Skyrim.esm
 //   [FE 001] LightPlugin.esl
 //   [FF]     SomeOverride.esp
+//   [00]Fallout4.esm         (Buffout 4 v1.36 writes no space after the index; seen in real logs)
 
 function parsePlugins(section: string[] | undefined): LoadedPlugin[] {
   if (!section) return [];
@@ -195,7 +202,7 @@ function parsePlugins(section: string[] | undefined): LoadedPlugin[] {
   for (const raw of section) {
     const line = raw.trimEnd();
     if (!line) continue;
-    const match = line.match(/^\s*\[([A-F0-9 :]+)\]\s+(.+)$/i);
+    const match = line.match(/^\s*\[([A-F0-9 :]+)\]\s*(.+)$/i);
     if (!match) continue;
     plugins.push({
       loadIndex: (match[1] ?? "").trim(),
@@ -205,17 +212,34 @@ function parsePlugins(section: string[] | undefined): LoadedPlugin[] {
   return plugins;
 }
 
-// REGISTERS section: "RAX 0xDEADBEEF (type info)" — one per line.
+/**
+ * Whether the PLUGINS section holds the list. Each part of the log is printed through a wrapper that, when printing it
+ * fails, writes "<part>:" and the error (or "ERROR") under the heading already written (Crash Logger SSE's
+ * CrashHandler.cpp); Buffout 4 v1.26 logs show the bare word "ERROR". Such a section has no list in it, which is not
+ * the same as having no plugins.
+ */
+function pluginListState(section: string[] | undefined, plugins: LoadedPlugin[]): CrashlogParseResult["pluginList"] {
+  if (plugins.length > 0) return "listed";
+  if (section?.some((line) => /^\s*(?:ERROR|print_plugins:.*)\s*$/.test(line))) return "failed";
+  return "absent";
+}
 
-function parseRegisters(section: string[] | undefined): Record<string, string> {
-  if (!section) return {};
-  const out: Record<string, string> = {};
-  for (const raw of section) {
+// REGISTERS section: "RAX 0xDEADBEEF (type info)" — one per line. The type is what the logger made of the value:
+// "(size_t) [0]", "(void* -> skee64.dll+01E8668<TAB>add [rax], al)", "(hknpStreamContactSolver*)".
+
+function parseRegisters(section: string[] | undefined): { values: Record<string, string>; types: Record<string, string> } {
+  const values: Record<string, string> = {};
+  const types: Record<string, string> = {};
+  for (const raw of section ?? []) {
     const line = raw.trim();
-    const match = line.match(/^(R[A-Z0-9]{2,4}|XMM\d+|RIP|RBP|RSP)\s+(\S+)/);
-    if (match && match[1] && match[2]) out[match[1]] = match[2];
+    // R8 and R9 have one character after the R.
+    const match = line.match(/^(R[A-Z0-9]{1,4}|XMM\d+|RIP|RBP|RSP)\s+(\S+)(?:\s+\(([^()]*?)(?:\s*->[^)]*)?\))?/);
+    if (!match?.[1] || !match[2]) continue;
+    values[match[1]] = match[2];
+    const type = match[3]?.trim();
+    if (type) types[match[1]] = type;
   }
-  return out;
+  return { values, types };
 }
 
 // POSSIBLE RELEVANT OBJECTS / RELEVANT OBJECTS list FormIDs and their owning
@@ -226,6 +250,7 @@ function parseRegisters(section: string[] | undefined): Record<string, string> {
 function parseRelevantObjects(section: string[] | undefined): SuspectedRef[] {
   if (!section) return [];
   const refs: SuspectedRef[] = [];
+  const seen = new Set<string>();
   for (const raw of section) {
     const line = raw.trim();
     if (!line) continue;
@@ -237,6 +262,16 @@ function parseRelevantObjects(section: string[] | undefined): SuspectedRef[] {
       type: "formid",
       value: `0x${idMatch[1]}`,
     };
+    // The same object at several stack slots is one object.
+    if (seen.has(ref.value.toUpperCase())) continue;
+    seen.add(ref.value.toUpperCase());
+    // Since v1.20 the kind and the in-game name come before the id: (Character*) "Snow Fox" [0x001059DD], and the
+    // player's (FormID 0x14 -> PlayerCharacter* 0xA086A080) "Prisoner" [0x00000014], whose name the player chose.
+    const before = line.slice(0, idMatch.index);
+    const kind = /\((?:FormID 0x[0-9A-Fa-f]+ -> )?([A-Za-z_][\w:]*)\*/.exec(before)?.[1];
+    if (kind) ref.kind = kind;
+    const name = /"([^"]*)"\s*$/.exec(before)?.[1];
+    if (name && !PLAYER_FORM_IDS.has(ref.value)) ref.name = name;
     // Capture the plugin name as the run of chars from after the FormID up to
     // the .esp/.esm/.esl extension. Plugin names contain spaces, so a
     // non-greedy ".+?" is critical — earlier versions used \S+ and clipped
@@ -247,9 +282,64 @@ function parseRelevantObjects(section: string[] | undefined): SuspectedRef[] {
     const bracketed = after.match(/^\]?\s*\(\s*"?(.+?\.(?:esp|esm|esl))"?\s*\)/i);
     const sourceMatch = bracketed ?? after.match(/\s+(.+?\.(?:esp|esm|esl))\b/i);
     if (sourceMatch && sourceMatch[1]) ref.likelySource = sourceMatch[1].trim();
+    ref.origin = "objects";
     refs.push(ref);
   }
   return refs;
+}
+
+// Before v1.20 Crash Logger SSE has no list of relevant objects: what it knows about an object is printed right under
+// the register or stack slot that holds it, one "Key: value" a tab deeper (CrashHandler.cpp and Introspection.cpp at
+// v1.11.1). A game form is printed in this order, each line only when known:
+//   File: "Last To Change It.esp"   Modified by: First.esm -> ... -> Last To Change It.esp   Flags: ...
+//   Name: "Roughspun Tunic"   EditorID: "..."   FormID: 0x0003C9FE   FormType: Armor (26)
+// An object can hold others (an actor and its base record, a mesh node and the reference it belongs to), printed the
+// same way, sometimes straight after one another, so the same form turns up many times. Buffout 4 prints fewer keys,
+// sorted by name ("File", "Flags", "Form ID"), with no FormType (Buffout 4's Introspection.cpp).
+
+const FORM_LINE = /^\s+(File|Modified by|Flags|Name|EditorID|FormID|Form ID|FormType):\s?(.*)$/;
+
+function readInlineObjects(section: string[] | undefined, origin: "register" | "stack"): SuspectedRef[] {
+  const refs: SuspectedRef[] = [];
+  let form = new Map<string, string>();
+  const close = () => {
+    const id = /^0x([0-9A-Fa-f]{8})$/.exec(form.get("FormID") ?? "")?.[1];
+    if (id) {
+      const ref: SuspectedRef = { type: "formid", value: `0x${id.toUpperCase()}`, origin };
+      const kind = form.get("FormType")?.replace(/\s*\(\d+\)$/, "");
+      if (kind) ref.kind = kind;
+      const name = form.get("Name");
+      if (name && !PLAYER_FORM_IDS.has(ref.value)) ref.name = name;
+      const file = form.get("File");
+      if (file) ref.likelySource = file;
+      const plugins = form.get("Modified by")?.split(/\s*->\s*/).filter(Boolean) ?? (file ? [file] : []);
+      if (plugins.length > 0) ref.plugins = plugins;
+      refs.push(ref);
+    }
+    form = new Map();
+  };
+  for (const raw of section ?? []) {
+    const line = FORM_LINE.exec(raw.trimEnd());
+    // Anything else (the next register or slot, a node's own keys) ends the form being read.
+    if (!line?.[1]) {
+      close();
+      continue;
+    }
+    const key = line[1] === "Form ID" ? "FormID" : line[1];
+    if (form.has(key)) close();
+    form.set(key, (line[2] ?? "").trim().replace(/^"(.*)"$/, "$1"));
+    if (key === "FormType") close();
+  }
+  close();
+  return refs;
+}
+
+/** The objects under the registers, then those under the stack slots, the top of the stack first: each form once, at most 30. */
+function inlineObjects(registers: string[] | undefined, stack: string[] | undefined): SuspectedRef[] {
+  const seen = new Set<string>();
+  return [...readInlineObjects(registers, "register"), ...readInlineObjects(stack, "stack")]
+    .filter((ref) => !seen.has(ref.value) && seen.add(ref.value))
+    .slice(0, 30);
 }
 
 // Scan call stack for FormIDs as a fallback when no RELEVANT OBJECTS section
@@ -278,6 +368,17 @@ function scanCallStackForFormIds(
   return refs.slice(0, 30);
 }
 
+// MODULES section: "XINPUT1_3.dll    0x000000400000", the name and the address it was loaded at.
+
+function parseModules(section: string[] | undefined): LoadedModule[] {
+  const modules: LoadedModule[] = [];
+  for (const raw of section ?? []) {
+    const row = /^\s*(.+?)\s+(0x[0-9A-Fa-f]+)\s*$/.exec(raw);
+    if (row?.[1] && row[2]) modules.push({ name: row[1], base: row[2] });
+  }
+  return modules;
+}
+
 function rawSectionsFromMap(sections: SectionMap): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [name, lines] of sections) {
@@ -296,12 +397,16 @@ export function parseCrashloggerSse(
 
   const callStackLines = sections.get("PROBABLE CALL STACK");
   const callStack = parseCallStack(callStackLines);
-  const plugins = parsePlugins(sections.get("PLUGINS"));
-  const registers = parseRegisters(sections.get("REGISTERS"));
+  const pluginSection = sections.get("PLUGINS");
+  const plugins = parsePlugins(pluginSection);
+  const { values: registers, types: registerTypes } = parseRegisters(sections.get("REGISTERS"));
 
   const relevant =
     sections.get("RELEVANT OBJECTS") ?? sections.get("POSSIBLE RELEVANT OBJECTS");
   let suspectedRefs = parseRelevantObjects(relevant);
+  if (suspectedRefs.length === 0) {
+    suspectedRefs = inlineObjects(sections.get("REGISTERS"), sections.get("STACK"));
+  }
   if (suspectedRefs.length === 0) {
     suspectedRefs = scanCallStackForFormIds(callStack, callStackLines);
   }
@@ -311,12 +416,18 @@ export function parseCrashloggerSse(
     exception,
     callStack,
     loadedPlugins: plugins,
+    pluginList: pluginListState(pluginSection, plugins),
     rawSections: rawSectionsFromMap(sections),
   };
   if (gameVersion) result.gameVersion = gameVersion;
   if (loggerVersion) result.loggerVersion = loggerVersion;
   if (timestamp) result.timestamp = timestamp;
   if (Object.keys(registers).length > 0) result.registers = registers;
+  if (Object.keys(registerTypes).length > 0) result.registerTypes = registerTypes;
+  const modules = parseModules(sections.get("MODULES"));
+  if (modules.length > 0) result.modules = modules;
+  const assets = assetPaths([...(sections.get("REGISTERS") ?? []), ...(sections.get("STACK") ?? [])]);
+  if (assets.length > 0) result.assetPaths = assets;
   if (suspectedRefs.length > 0) result.suspectedRefs = suspectedRefs;
   return result;
 }

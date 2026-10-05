@@ -124,7 +124,8 @@ test("BepInEx load problems: eight are listed and the rest counted", () => {
 });
 
 test("a repeating error is worth saying; a pair of them is not", () => {
-  const repeat = (count: number) => facts([], { repeats: [{ key: "k", type: "NullReferenceException", source: "MoreCompany", count }] });
+  const repeat = (count: number) =>
+    facts([], { repeats: [{ key: "k", type: "NullReferenceException", source: "MoreCompany", count, message: "NullReferenceException: boom" }] });
   const c = find("bepinex-repeats", { parsed: bepinexParsed, bepinex: repeat(57) });
   assert.match(c?.title ?? "", /57 times/);
   assert.match(c?.fix ?? "", /Disable MoreCompany/);
@@ -260,6 +261,16 @@ test("memory nearly full is a note that quotes the log's own figures", () => {
   assert.equal(c?.basis, "log");
   assert.match(c!.detail, /video memory 6\.9 GB of 7\.4 GB/);
   assert.match(c!.detail, /system memory 31 GB of 31\.9 GB/);
+});
+
+test("memory nearly full isn't put first when the game stopped inside a mod's code", () => {
+  // Crash Logger SSE v1.11, crash-2023-12-11-02-34-31.log: "GPU MEMORY: 9.42/10.39 GB", and the game stopped inside RaceMenu.
+  const stoppedInMod = parsedWith({ callStack: [{ index: 0, module: "skee64.dll+001EAB4" }, { index: 6, module: "OBody.dll+0001D32" }] });
+  const c = find("memory", { parsed: stoppedInMod, system: { gpus: [], vram: { used: 9.42, budget: 10.39 } } });
+  assert.match(c!.detail, /video memory 9\.4 GB of 10\.4 GB/);
+  assert.match(c!.detail, /stopped inside a mod's code, so start with that lead/);
+  assert.doesNotMatch(`${c!.detail} ${c!.fix}`, /matter more than any name|Rule it out first/);
+  assert.match(c!.fix ?? "", /^If the crash keeps turning up in different places/);
 });
 
 test("memory with room to spare says nothing", () => {

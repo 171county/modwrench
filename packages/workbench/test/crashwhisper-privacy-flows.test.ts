@@ -78,6 +78,14 @@ const CHANNELS: Channel[] = [
   },
   { id: "sse: a plugin's name", file: SSE, reaches: "packets", put: swap("[FE:001] ccBGSSSE001-Fish.esl", (p) => `[FE:001] ${p}.esl`) },
   { id: "sse: a script extender plugin's name", file: SSE, reaches: "packets", put: swap("SomeUnrelatedPlugin.dll v2.0.1", (p) => `SomeUnrelatedPlugin.dll v2.0.1\n\t${p}.dll v1.0`) },
+  {
+    id: "sse: the plugin of an object among the relevant objects",
+    file: SSE,
+    reaches: "packets",
+    put: swap('"Cloak Hook Marker" [0x00BD3F21] ("Cloak and Dagger.esp")', (p) => `"Cloak Hook Marker" [0x00BD3F21] ("${p}.esp")`),
+  },
+  { id: "sse: an object's name among the relevant objects", file: SSE, reaches: "answer", put: swap('"Cloak Hook Marker" [0x00BD3F21]', (p) => `"${p}" [0x00BD3F21]`) },
+  { id: "sse: the type of a register's value", file: SSE, reaches: "packets", put: swap("RAX 0x0000000000000000 (size_t)", (p) => `RAX 0x0000000000000000 (${p}*)`) },
 
   // BepInEx
   { id: "bepinex: the game's name", file: BEP, reaches: "answer", put: swap("Lethal Company (1/15/2024", (p) => `${p} (1/15/2024`) },
@@ -91,6 +99,7 @@ const CHANNELS: Channel[] = [
   { id: "bepinex: the exception's name", file: BEP, reaches: "answer", put: swap("IndexOutOfRangeException:", (p) => `${p}Exception:`) },
   { id: "bepinex: a method on the stack", file: BEP, reaches: "answer", put: swap("LethalConfig.UI.ConfigMenu.Refresh ()", (p) => `LethalConfig.UI.ConfigMenu.Refresh () (at ${p}:42)`) },
   { id: "bepinex: a plugin's name", file: BEP, reaches: "packets", put: swap("Loading [LethalConfig 1.4.2]", (p) => `Loading [${p} 1.4.2]`) },
+  { id: "bepinex: Unity's version", file: BEP, reaches: "packets", put: swap("Running under Unity v2022.3.9", (p) => `Running under Unity v2022.3.9${p}`) },
 
   // Buffout 4
   { id: "buffout: the logger's version line", file: BUF, reaches: "answer", put: swap("Buffout 4 v1.36.0", (p) => `Buffout 4 v1.36.0 ${p}`) },
@@ -102,6 +111,33 @@ const CHANNELS: Channel[] = [
   { id: "netscriptframework: the application line", file: NSF, reaches: "answer", put: swap("ApplicationName: SkyrimSE.exe", (p) => `ApplicationName: SkyrimSE.exe ${p}`) },
   { id: "netscriptframework: a function name on the call stack", file: NSF, reaches: "answer", put: swap("ThirdPersonState::Update_84F490+152", (p) => `ThirdPersonState::Update_84F490+152 ${p}`) },
   { id: "netscriptframework: a plugin's name", file: NSF, reaches: "packets", put: swap("[5B] RaceMenu.esp", (p) => `[5B] ${p}.esp`) },
+  {
+    id: "netscriptframework: an object's name among the relevant objects",
+    file: NSF,
+    reaches: "packets",
+    put: swap("NiCamera(Name: `WorldRoot Camera`)", (p) => `TESObjectCONT(Name: \`${p}\`, FormId: 0001A2B3, File: \`Skyrim.esm\`)`),
+  },
+  {
+    id: "netscriptframework: a module's name",
+    file: NSF,
+    reaches: "packets",
+    put: swap("  SmoothCam.dll:", (p) => `  ${p}.dll:                                    0x7FFB8E600000\n  SmoothCam.dll:`),
+  },
+  {
+    id: "netscriptframework: a game file named on the stack",
+    file: NSF,
+    reaches: "packets",
+    put: swap("  [SP+10]   0x0                (NULL)", (p) => `  [SP+10]   0x0                (NULL)\n  [SP+18]   0x1E7255C7710      (char*) "${p}\\textures\\x.dds"`),
+  },
+  {
+    id: "netscriptframework: a Papyrus script's name",
+    file: NSF,
+    reaches: "packets",
+    put: swap(
+      "  [SP+10]   0x0                (NULL)",
+      (p) => `  [SP+10]   0x0                (NULL)\n  [SP+18]   0x1E7255C7710      (BSScript::Internal::ScriptFunction*) -> (File: Some.psc, Type: ${p}, Name: OnUpdate)`
+    ),
+  },
 ];
 
 /** What a log might print on a line of its own words. Nothing here has a quote or a bracket, so it can go inside either. */
