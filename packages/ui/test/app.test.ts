@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Script, runInNewContext } from "node:vm";
+import { runInNewContext } from "node:vm";
 import {
   CRASH_WHISPERER_APP_URI,
   DOCTOR_APP_URI,
@@ -9,11 +9,13 @@ import {
   PATCH_DAY_APP_URI,
   appResourceMeta,
   appToolMeta,
+  esc,
   renderApp,
   renderCrashWhispererApp,
   renderDoctorApp,
   renderPatchDayApp,
 } from "../src/index.js";
+import { pageHygieneTests, scriptOf } from "./helpers/hygiene.js";
 
 // ─── MCP Apps pages ──────────────────────────────────────────────────────────
 // A page here is a promise the README and TRUST.md make out loud: it makes no
@@ -43,12 +45,6 @@ function withEnv<T>(value: string | undefined, fn: () => T): T {
   }
 }
 
-function scriptOf(html: string): string {
-  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]!);
-  assert.equal(scripts.length, 1, "expected exactly one inline script");
-  return scripts[0]!;
-}
-
 // ─── What the server attaches ────────────────────────────────────────────────
 
 test("a page is identified by the MCP Apps MIME type and a ui:// URI, and no two pages share one", () => {
@@ -72,11 +68,20 @@ test("the tool metadata points at the page under both spellings and lets the pag
   });
 });
 
-for (const value of ["off", "0", "false", "none", "OFF"]) {
+for (const value of ["off", "0", "false", "none", "OFF", " Off "]) {
   test(`MODWRENCH_UI=${JSON.stringify(value)} means no page is advertised`, () => {
     assert.equal(withEnv(value, () => appToolMeta(PATCH_DAY_APP_URI)), undefined);
   });
 }
+
+test("an unrelated MODWRENCH_UI value leaves pages on: only off, 0, false and none turn them off", () => {
+  for (const value of ["on", "1", "true", "", "yes", "maybe"]) {
+    assert.ok(
+      withEnv(value, () => appToolMeta(PATCH_DAY_APP_URI)),
+      `MODWRENCH_UI=${JSON.stringify(value)} turned pages off; only off/0/false/none should`
+    );
+  }
+});
 
 test("the page asks for the clipboard and nothing else, and widens no network rule", () => {
   const meta = appResourceMeta() as { ui: Record<string, unknown> };
@@ -86,6 +91,13 @@ test("the page asks for the clipboard and nothing else, and widens no network ru
 });
 
 // ─── The finished HTML ───────────────────────────────────────────────────────
+
+test("esc neutralizes HTML-significant characters", () => {
+  assert.equal(esc("<a & b>"), "&lt;a &amp; b&gt;");
+  assert.equal(esc('say "hi"'), "say &quot;hi&quot;");
+  assert.equal(esc("O'Brien"), "O&#39;Brien");
+  assert.equal(esc(undefined), "");
+});
 
 test("renderApp wraps a page in a complete document with its own policy", () => {
   const html = renderApp({ title: "T <&>", css: "p{}", body: '<div id="mw-root"></div>', script: "void 0;" });
@@ -103,91 +115,7 @@ const PAGES: Array<[string, () => string]> = [
   ["Doctor", renderDoctorApp],
 ];
 
-for (const [name, render] of PAGES) {
-  test(`the ${name} page's own Content-Security-Policy allows no network, no frames and no outside loads`, () => {
-    const html = render();
-    const csp = /http-equiv="Content-Security-Policy" content="([^"]*)"/.exec(html);
-    assert.ok(csp, "no policy meta tag");
-    const policy = csp[1]!.replace(/&#39;/g, "'");
-    for (const directive of ["default-src 'none'", "connect-src 'none'", "frame-src 'none'", "base-uri 'none'", "form-action 'none'"]) {
-      assert.ok(policy.includes(directive), `policy lacks ${directive}: ${policy}`);
-    }
-    assert.doesNotMatch(policy, /https?:|\*/, "the policy names a host or a wildcard");
-  });
-
-  test(`the ${name} page contains no URL, so it can load nothing and contact no one`, () => {
-    const html = render();
-    assert.doesNotMatch(html, /https?:\/\//i);
-    assert.doesNotMatch(html, /\/\/[a-z0-9.-]+\.[a-z]{2,}/i, "a protocol-relative URL");
-    assert.doesNotMatch(html, /url\s*\(/i, "CSS that loads");
-    assert.doesNotMatch(html, /@import/i);
-    // Attributes are checked on the markup alone: `data = ...` is ordinary JavaScript in the script.
-    const markup = html.replace(/<script>[\s\S]*?<\/script>/g, "").replace(/<style>[\s\S]*?<\/style>/g, "");
-    assert.ok(markup.includes('id="mw-root"'), "the markup scan lost the page body, so it would pass vacuously");
-    assert.doesNotMatch(markup, /\s(?:src|href|srcset|action|formaction|poster|data|ping|background)\s*=/i, "an attribute that loads or navigates");
-  });
-
-  test(`the ${name} page has no way to reach the network, keep state or run strings as code`, () => {
-    const html = render();
-    const banned: Array<[RegExp, string]> = [
-      [/\bfetch\s*\(/, "fetch"],
-      [/\bXMLHttpRequest\b/, "XMLHttpRequest"],
-      [/\bWebSocket\b/, "WebSocket"],
-      [/\bEventSource\b/, "EventSource"],
-      [/\bsendBeacon\b/, "sendBeacon"],
-      [/\bnew\s+Image\b/, "new Image"],
-      [/\bimportScripts\b/, "importScripts"],
-      [/\bimport\s*\(/, "dynamic import"],
-      [/\bServiceWorker\b|\bserviceWorker\b/, "service workers"],
-      [/\blocalStorage\b|\bsessionStorage\b|\bindexedDB\b|\bdocument\.cookie\b/, "browser storage"],
-      [/\beval\s*\(/, "eval"],
-      [/\bnew\s+Function\b|\bFunction\s*\(/, "Function constructor"],
-      [/setTimeout\s*\(\s*['"]/, "setTimeout with a string"],
-      [/setInterval\s*\(\s*['"]/, "setInterval with a string"],
-      [/\.innerHTML\b|\.outerHTML\b|\binsertAdjacentHTML\b|\bsetHTMLUnsafe\b|\bparseHTMLUnsafe\b|\bdocument\.write(?:ln)?\b|\bsrcdoc\b|\bDOMParser\b|\bcreateContextualFragment\b/, "a way to turn text into markup"],
-      [/\bwindow\.open\b|\blocation\s*[.=]|\bwindow\.top\b|\btop\.location\b/, "navigation"],
-      [/<(?:iframe|object|embed|link|base|form|frame|meta\s+http-equiv="refresh")\b/i, "an element that loads or navigates"],
-    ];
-    // The only place the policy meta tag may appear is the head, and it is checked on its own.
-    const withoutPolicy = html.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, "");
-    for (const [pattern, what] of banned) {
-      assert.doesNotMatch(withoutPolicy, pattern, `the page uses ${what}`);
-    }
-  });
-
-  test(`the ${name} page has no inline event handlers; every action is wired in script`, () => {
-    const html = render();
-    assert.doesNotMatch(html, /\son[a-z]+\s*=/i, "an inline handler attribute");
-    assert.doesNotMatch(html, /javascript:/i);
-  });
-
-  test(`the ${name} page script is valid JavaScript and holds no module syntax`, () => {
-    const script = scriptOf(render());
-    assert.doesNotThrow(() => new Script(script), "the page script does not parse");
-    assert.doesNotMatch(script, /^\s*(?:import|export)\s/m, "module syntax in an inline script");
-    assert.doesNotMatch(script, /\brequire\s*\(/);
-  });
-
-  test(`every piece of text from the person's machine goes in as text on the ${name} page, never as markup`, () => {
-    const script = scriptOf(render());
-    // The page builds elements and sets text through one helper, with one escape
-    // hatch for attributes. Both are checked: text goes through textContent and
-    // text nodes, and no attribute name comes from data.
-    assert.match(script, /node\.textContent\s*=/);
-    assert.match(script, /document\.createTextNode\(/);
-    // Attribute names handed to the element helper are string literals in this file, not data.
-    const attrKeys = [...script.matchAll(/\bh\(\s*'[a-z0-9]+'\s*,\s*\{([^}]*)\}/g)].flatMap((m) =>
-      [...m[1]!.matchAll(/(?:^|,)\s*(?:'([^']+)'|([A-Za-z_]+))\s*:/g)].map((k) => k[1] ?? k[2]!)
-    );
-    const allowed = new Set([
-      "class", "text", "role", "type", "title", "id", "readonly", "spellcheck", "tabindex",
-      "data-tone", "data-status", "data-basis", "data-severity", "data-strength", "data-kind", "data-scan",
-      "aria-label", "aria-hidden", "aria-selected", "aria-controls", "aria-live",
-    ]);
-    for (const key of attrKeys) assert.ok(allowed.has(key), `unexpected attribute name from the page's element helper: ${key}`);
-    assert.ok(attrKeys.length > 10, "the attribute scan found almost nothing, so it proves nothing");
-  });
-}
+for (const [name, render] of PAGES) pageHygieneTests(name, render);
 
 test("the Patch Day page looks up every value that becomes a class name or a data attribute in a fixed table first", () => {
   const script = scriptOf(renderPatchDayApp());
@@ -415,24 +343,6 @@ test("the Crash Whisperer page offers the four places a post can go", () => {
   assert.match(script, /\['forum', 'Forum'\], \['github', 'GitHub'\], \['discord', 'Discord'\], \['author', 'Mod author'\]/);
 });
 
-for (const [name, render] of PAGES) {
-  test(`the ${name} page keeps the host's colors when it sends them, and has its own for light and dark when it doesn't`, () => {
-    const html = render();
-    assert.match(html, /--bg:var\(--color-background-primary,var\(--fb-bg\)\)/);
-    assert.match(html, /@media \(prefers-color-scheme:dark\)/);
-    assert.match(html, /:root\[data-theme="light"\]/);
-    assert.match(html, /:root\[data-theme="dark"\]/);
-    assert.match(html, /prefers-reduced-motion:reduce/);
-    assert.match(html, /:focus-visible/);
-  });
-
-  test(`the ${name} page stays small and never takes the whole panel budget of the old panels`, () => {
-    const bytes = Buffer.byteLength(render(), "utf8");
-    assert.ok(bytes < 70_000, `the page is ${bytes} bytes`);
-    assert.ok(bytes > 10_000, `the page is ${bytes} bytes: suspiciously small`);
-  });
-}
-
 // ─── The protocol runtime, in a bare VM ──────────────────────────────────────
 
 type Message = Record<string, unknown> & { id?: number; method?: string; params?: Record<string, unknown>; result?: unknown; error?: { code: number; message: string } };
@@ -442,6 +352,7 @@ type Mw = {
   start(name: string, version: string, onSilent?: () => void): void;
   callTool(name: string, args?: Record<string, unknown>): Promise<unknown>;
   sendMessage(text: string): Promise<unknown>;
+  openLink(url: string): Promise<unknown>;
   on(kind: string, fn: (payload: unknown) => void): void;
   capabilities(): Record<string, unknown>;
   resized(): void;
@@ -654,6 +565,34 @@ test("a host that answers ui/message with isError didn't take it, so sendMessage
   const taken = mw.sendMessage("hello");
   fromHost({ jsonrpc: "2.0", id: posted.filter((m) => m.method === "ui/message")[1]!.id, result: {} });
   assert.deepEqual(await taken, {});
+});
+
+test("openLink asks the host to open exactly the address it was given, and nothing else rides along", async () => {
+  const { mw, posted, fromHost, answerInitialize } = boot();
+  mw.start("t", "1");
+  answerInitialize();
+  await tick();
+  const url = "https://www.nexusmods.com/skyrimspecialedition/mods/1";
+  const opened = mw.openLink(url);
+  const sent = posted.filter((m) => m.method === "ui/open-link");
+  assert.equal(sent.length, 1);
+  assert.deepEqual(sent[0]!.params, { url });
+  fromHost({ jsonrpc: "2.0", id: sent[0]!.id, result: {} });
+  assert.deepEqual(await opened, {});
+});
+
+test("a host that won't open the link, by error or by isError, makes openLink reject", async () => {
+  // MCP Apps: a refusal is a JSON-RPC error ("Link opening denied by user"); McpUiOpenLinkResult also allows isError.
+  const { mw, posted, fromHost, answerInitialize } = boot();
+  mw.start("t", "1");
+  answerInitialize();
+  await tick();
+  const denied = mw.openLink("https://mod.io/g/x/m/y");
+  fromHost({ jsonrpc: "2.0", id: posted.filter((m) => m.method === "ui/open-link")[0]!.id, error: { code: -32000, message: "Link opening denied by user" } });
+  await assert.rejects(denied, /denied by user/);
+  const refused = mw.openLink("https://mod.io/g/x/m/y");
+  fromHost({ jsonrpc: "2.0", id: posted.filter((m) => m.method === "ui/open-link")[1]!.id, result: { isError: true } });
+  await assert.rejects(refused, /did not open the link/);
 });
 
 test("a host that never answers is reported after the wait, and one that answers is not", async () => {

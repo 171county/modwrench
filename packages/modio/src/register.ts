@@ -16,7 +16,7 @@ import {
  * Used by both the standalone @modwrench/modio bin and the meta-server in
  * @modwrench/cli that bundles multiple platforms into one MCP entry.
  */
-import { renderShell, createUIResource, type ModCard } from "@modwrench/ui";
+import { MODS_PAGE, modsView, pageData, registerAppPage, type ModRow, type ModsView } from "@modwrench/ui";
 
 const APP = appIdentity(import.meta.url);
 
@@ -29,9 +29,9 @@ type ModioRow = {
   pageUrl?: string;
 };
 
-/** mod.io mod lists/search -> a themed mods ui:// resource. */
-function modioModsUI(query: string, rows: ModioRow[]) {
-  const mods: ModCard[] = rows.map((r) => ({
+/** mod.io mod lists/search -> the Mods page's data. */
+function modioModsView(query: string, rows: ModioRow[]): ModsView {
+  const mods: ModRow[] = rows.map((r) => ({
     name: r.name,
     author: r.author ?? "unknown",
     platform: "modio",
@@ -43,11 +43,7 @@ function modioModsUI(query: string, rows: ModioRow[]) {
     // it, so the assistant could not cite the author's page even when asked.
     pageUrl: r.pageUrl,
   }));
-  return createUIResource({
-    uri: "ui://modwrench/mods",
-    html: renderShell({ theme: "skyrim", view: "mods", mods: { query, mods } }),
-    meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
-  });
+  return modsView({ theme: "skyrim", query, mods });
 }
 
 export function registerModioTools(
@@ -198,6 +194,7 @@ export function registerModioTools(
   );
 
   // Tool 3: List mods for a game
+  const modsPage = registerAppPage(server, MODS_PAGE);
   server.registerTool(
     "modio_list_mods",
     {
@@ -231,6 +228,7 @@ export function registerModioTools(
         idempotentHint: true,
         openWorldHint: true,
       },
+      ...(modsPage ? { _meta: modsPage } : {}),
     },
     async ({ game_id, sort, limit, offset }) => {
       const list = await modioRequest<
@@ -275,8 +273,8 @@ export function registerModioTools(
               2
             )}`,
           },
-          modioModsUI("mod.io mods", summary),
         ],
+        ...pageData(server, modioModsView("mod.io mods", summary), modsPage !== undefined),
       };
     }
   );
@@ -349,6 +347,7 @@ export function registerModioTools(
         idempotentHint: true,
         openWorldHint: true,
       },
+      ...(modsPage ? { _meta: modsPage } : {}),
     },
     async ({ game_id, query, name_contains, sort, limit }) => {
       const list = await modioRequest<
@@ -389,8 +388,8 @@ export function registerModioTools(
               2
             )}`,
           },
-          modioModsUI("mod.io search", summary),
         ],
+        ...pageData(server, modioModsView("mod.io search", summary), modsPage !== undefined),
       };
     }
   );
