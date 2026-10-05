@@ -5,6 +5,7 @@ import {
   describeGame,
   explainException,
   extenderFromFrames,
+  faultFromInstruction,
   formatName,
   isOfficialPlugin,
   moduleBase,
@@ -267,4 +268,20 @@ test("extenderFromFrames and formatName", () => {
   assert.equal(formatName("buffout4"), "Buffout 4");
   assert.equal(formatName("bepinex"), "BepInEx");
   assert.equal(formatName("unknown"), "an unrecognised crash logger");
+});
+
+test("faultFromInstruction: the address an older Crash Logger SSE log doesn't write down is worked out from the instruction and registers", () => {
+  // Crash Logger SSE v1.11 (evildarkarchon/crash-logs): neither log has "Tried to read memory at".
+  const first = 'Unhandled exception "EXCEPTION_ACCESS_VIOLATION" at 0x7FF916FCDAE5 skee64.dll+001DAE5\tmov rcx, [r8+0x20]';
+  assert.deepEqual(faultFromInstruction(first, { R8: "0x10" }), { access: "read", address: "0x30", derived: true });
+  const second = 'Unhandled exception "EXCEPTION_ACCESS_VIOLATION" at 0x7FF91ADEEAB4 skee64.dll+001EAB4\tmov rbx, [rsi+rax*8+0x08]';
+  assert.deepEqual(faultFromInstruction(second, { RSI: "0x0", RAX: "0x2" }), { access: "read", address: "0x18", derived: true });
+  assert.equal(faultFromInstruction("x\tmov [rax+0x8], rcx", { RAX: "0x0" })?.access, "write");
+  // Nothing is guessed: an instruction that touches no memory, or a register the log doesn't give, says nothing.
+  assert.equal(faultFromInstruction("x\tlea rcx, [r8+0x20]", { R8: "0x10" }), undefined);
+  assert.equal(faultFromInstruction(second, { RSI: "0x0" }), undefined);
+  assert.equal(faultFromInstruction("x\trep stosb", { RDI: "0x0" }), undefined);
+  // And the plain words say how it was found.
+  const plain = explainException("EXCEPTION_ACCESS_VIOLATION", second, faultFromInstruction(second, { RSI: "0x0", RAX: "0x2" }))?.plain ?? "";
+  assert.match(plain, /read from address 0x18 \(worked out from the instruction and the registers in the log\), just past 0/);
 });

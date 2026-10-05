@@ -86,8 +86,17 @@ compares your other recent Crash Logger SSE and Buffout 4 crash logs to see whet
 name keeps coming up, and writes
 the post you'd put on a forum, GitHub or Discord, or send to the mod's author, with the
 personal details it recognises (your name, computer name, folders, addresses, keys) taken
-out. That is pattern matching, so it can miss something: read a post before you send it. A
-ranking is a lead, never a verdict, and it never calls anything safe. It reads Crash Logger
+out. That is pattern matching, so it can miss something: read a post before you send it.
+Besides the call stack, a post carries what the log names: the objects the logger lists and
+the plugins that changed them, the game files, Papyrus functions and object types named in
+the registers and stack, a NetScriptFramework log's DLL list, and BepInEx's, Unity's and
+each plugin's version. When the log has no plugin list, or the logger couldn't write one,
+the post says so, and where the logger couldn't write it the post leaves a blank for your
+load order. A ranking is a lead, never a verdict, and it never calls anything safe. It says
+what the log shows the game was working with (the objects it lists, game files, the kinds of
+object in the registers, Papyrus functions), and when the game stopped inside a library
+other mods need, such as RaceMenu or JContainers, it says not to remove it and points at the
+mod that may have called it, when the log shows one. It reads Crash Logger
 SSE, Buffout 4, NetScriptFramework and BepInEx logs; the setup check covers Skyrim Special
 Edition for now. Reading the log from your disk is the private way to use it: what it
 recognises comes out before anything reaches your AI. A log you paste into the chat, or a

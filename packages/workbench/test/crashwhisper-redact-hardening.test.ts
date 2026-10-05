@@ -364,6 +364,15 @@ test("an address in an email, a git address and a webhook is taken out as what i
   gone("reported by jane.doe(at)example.com.esl", ["jane.doe", "example.com"]);
 });
 
+test("a processor's clock speed, as the help posts write it with (at), is not an address; a spelled-out address still is", () => {
+  // From a real Buffout 4 log's SYSTEM SPECS (evildarkarchon/crash-logs, FO4/crash-16B95BE.log), with its "@" as the posts write it.
+  untouched("GenuineIntel Intel(R) Core(TM) i5-10600KF CPU (at) 4.10GHz | Nvidia GP104 (GeForce GTX 1070)");
+  untouched("Intel(R) Core(TM) i7-4790K CPU (at) 4.00GHz");
+  gone("contact jane (at) example (dot) com now", ["jane", "example"]);
+  gone("contact jane(at)mail2.example.co.uk now", ["jane", "mail2.example"]);
+  gone("contact jane [at] example.org now", ["jane", "example.org"]);
+});
+
 // ─── Paths ───────────────────────────────────────────────────────────────────
 
 test("a file: address, with spaces or percent-encoding, loses its folders", () => {

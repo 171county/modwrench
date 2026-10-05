@@ -278,9 +278,10 @@ const EMAIL_ENCODED = new RegExp(
   String.raw`(?<![\p{L}\p{N}._%+-])[\p{L}\p{N}._+-]+%40[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.${EMAIL_TLD}`,
   "giu"
 );
-// jane[at]example.com, jane (at) example (dot) com, jane at example dot com
+// jane[at]example.com, jane (at) example (dot) com, jane at example dot com. The last part is a top-level domain, letters
+// as in EMAIL: a processor's "CPU @ 4.10GHz", which the help posts write "CPU (at) 4.10GHz", is not an address.
 const EMAIL_SPELLED = new RegExp(
-  String.raw`(?<![\p{L}\p{N}._%+-])[\p{L}\p{N}._+-]{2,}[ \t]*(?:\[at\]|\(at\)|\{at\})[ \t]*[\p{L}\p{N}-]+(?:[ \t]*(?:\[dot\]|\(dot\)|\{dot\}|\.)[ \t]*[\p{L}\p{N}-]+)+` +
+  String.raw`(?<![\p{L}\p{N}._%+-])[\p{L}\p{N}._+-]{2,}[ \t]*(?:\[at\]|\(at\)|\{at\})[ \t]*[\p{L}\p{N}-]+(?:[ \t]*(?:\[dot\]|\(dot\)|\{dot\}|\.)[ \t]*[\p{L}\p{N}-]+)*[ \t]*(?:\[dot\]|\(dot\)|\{dot\}|\.)[ \t]*${EMAIL_TLD}` +
     String.raw`|(?<![\p{L}\p{N}._%+-])[\p{L}\p{N}._+-]{2,}[ \t]+at[ \t]+[\p{L}\p{N}-]{2,}[ \t]+dot[ \t]+\p{L}{2,}(?![\p{L}\p{N}])`,
   "giu"
 );
@@ -851,7 +852,7 @@ export function describeRedaction(report: Omit<RedactionReport, "skippedLines"> 
   let text =
     parts.length === 0
       ? "Nothing personal was recognised, so nothing was removed. That isn't a promise there is nothing: read it before you post it."
-      : `Removed ${parts.join(", ")}. Read it before you post it: names of mods and files are kept as written.`;
+      : `Removed ${parts.join(", ")}. Read it before you post it: names of mods and files are kept, except that a help post changes their brackets, backticks, at signs and runs of spaces.`;
   if (report.leftover > 0) {
     text += ` Your account or computer name still appears inside ${report.leftover === 1 ? "another word" : `${report.leftover} other words`} (a mod or file name, probably); check ${report.leftover === 1 ? "it" : "them"}.`;
   }
