@@ -53,8 +53,8 @@ export type BepInExFacts = {
   events: ErrorEvent[];
   /** All errors seen, which can be more than `events` holds. */
   errorCount: number;
-  /** Errors whose type and first mod are the same as another's, most repeated first. */
-  repeats: Array<{ key: string; type?: string; source: string; count: number }>;
+  /** Errors whose type and first mod are the same as another's, most repeated first, with the first one's message. */
+  repeats: Array<{ key: string; type?: string; source: string; count: number; message: string }>;
 };
 
 const MAX_EVENTS = 400;
@@ -96,7 +96,7 @@ function firstLine(text: string, max = 200): string {
 /** Facts from a BepInEx log that the crash parser doesn't carry. */
 export function scanBepInEx(text: string): BepInExFacts {
   const facts: BepInExFacts = { problems: [], events: [], errorCount: 0, repeats: [] };
-  const counts = new Map<string, { type?: string; source: string; count: number }>();
+  const counts = new Map<string, { type?: string; source: string; count: number; message: string }>();
 
   let current: ErrorEvent | null = null;
   let inTrace = false;
@@ -109,7 +109,7 @@ export function scanBepInEx(text: string): BepInExFacts {
     const key = `${current.type ?? current.message.slice(0, 60)}|${first || current.source}`;
     const held = counts.get(key);
     if (held) held.count++;
-    else counts.set(key, { ...(current.type ? { type: current.type } : {}), source: first || current.source, count: 1 });
+    else counts.set(key, { ...(current.type ? { type: current.type } : {}), source: first || current.source, count: 1, message: current.message });
     current = null;
     inTrace = false;
   };
@@ -180,6 +180,6 @@ export function scanBepInEx(text: string): BepInExFacts {
     .filter(([, v]) => v.count > 1)
     .sort((a, b) => b[1].count - a[1].count)
     .slice(0, 5)
-    .map(([key, v]) => ({ key, ...(v.type ? { type: v.type } : {}), source: v.source, count: v.count }));
+    .map(([key, v]) => ({ key, ...(v.type ? { type: v.type } : {}), source: v.source, count: v.count, message: v.message }));
   return facts;
 }

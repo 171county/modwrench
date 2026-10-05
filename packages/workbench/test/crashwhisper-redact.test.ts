@@ -289,7 +289,9 @@ test("the report counts each kind and never records what was removed", () => {
 test("describeRedaction says what went, in plain words, and doesn't promise a clean result", () => {
   const some = describeRedaction(run(String.raw`C:\Users\Jane Doe\a.dll C:\Users\Jane Doe\b.dll Jane`).report);
   assert.match(some, /Removed 1 user name, 2 folder paths\./);
-  assert.match(some, /names of mods and files are kept as written/);
+  // A help post shows "[Christine] Ida Elf Archer.esp" as "(Christine) Ida Elf Archer.esp", so names aren't kept as written there.
+  assert.match(some, /names of mods and files are kept, except that a help post changes their brackets, backticks, at signs and runs of spaces\./);
+  assert.doesNotMatch(some, /as written/);
   const none = describeRedaction(run("nothing to see here").report);
   assert.match(none, /Nothing personal was recognised/);
   assert.match(none, /isn't a promise/);

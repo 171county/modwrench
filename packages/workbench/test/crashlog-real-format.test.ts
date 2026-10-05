@@ -147,13 +147,12 @@ test("thread dumps and unrelated lines do not make frames", () => {
 test("Crash Logger SSE v1.20+: a quoted plugin name is read without its quotes and brackets", () => {
   const r = parse(fixture("crash-sse-v1-20-quoted.log"));
   assert.equal(r.detectedType, "crashlogger-sse");
+  // The same Snow Fox at three stack slots is one object. The player's name is left out.
   assert.deepEqual(
-    (r.suspectedRefs ?? []).map((ref) => [ref.value, ref.likelySource]),
+    (r.suspectedRefs ?? []).map((ref) => [ref.value, ref.likelySource, ref.kind, ref.name]),
     [
-      ["0x00000014", "Reduce Player Stat Offsets.esp"],
-      ["0x001059DD", "Skyrim.esm"],
-      ["0x001059DD", "Skyrim.esm"],
-      ["0x001059DD", "Skyrim.esm"],
+      ["0x00000014", "Reduce Player Stat Offsets.esp", "PlayerCharacter", undefined],
+      ["0x001059DD", "Skyrim.esm", "Character", "Snow Fox"],
     ]
   );
 });
@@ -181,6 +180,17 @@ test("Crash Logger SSE: the quoted rows of later versions and the older unquoted
       ["0x00012EB7", "Older Shape.esp"],
     ]
   );
+  // The kind and the in-game name before the id; the player's own name is left out.
+  assert.deepEqual(
+    (r.suspectedRefs ?? []).map((ref) => [ref.kind, ref.name]),
+    [
+      ["EffectSetting", "Tonitrus"],
+      ["BGSProjectile", undefined],
+      ["PlayerCharacter", undefined],
+      [undefined, "Iron Sword"],
+    ]
+  );
+  assert.doesNotMatch(JSON.stringify(r.suspectedRefs), /Hero/);
 });
 
 test("a 12-digit address is not mistaken for a FormID with its tail cut off", () => {

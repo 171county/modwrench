@@ -2,17 +2,22 @@ import { createHash } from "node:crypto";
 import { statSync } from "node:fs";
 import { detectCrashlogType } from "../crashlog/detect.js";
 import { parseCrashlog } from "../crashlog/index.js";
-import type { CrashlogParseResult, CrashlogType } from "../crashlog/types.js";
+import { PLAYER_FORM_IDS, type CrashlogParseResult, type CrashlogType } from "../crashlog/types.js";
 import { clean } from "../patchday/summary.js";
 import { scanBepInEx, type BepInExFacts } from "./bepinex-scan.js";
 import { runChecks } from "./checks.js";
 import { readInstallContext, type InstallContext } from "./context.js";
 import {
+  KIND_PHRASE,
   describeGame,
   explainException,
+  faultFromInstruction,
+  gameFiles,
+  isFlex,
   moduleBase,
   readCppException,
   readSystem,
+  strayAddress,
   type Fault,
   type GameFacts,
 } from "./explain.js";
@@ -20,10 +25,13 @@ import { CRASH_LOG_GAMES, findCrashLogs, readLogFile, type FoundLog } from "./fi
 import { buildPackets } from "./packet.js";
 import { leadKey, POSSIBLE_AT, rankWithKeys, toFrame, type RankOptions } from "./rank.js";
 import { cleaningDeadline, describeRedaction, redact, REDACTION_KINDS, type RedactOptions, type RedactionKind } from "./redact.js";
+import { PACKET_STEP } from "./summary.js";
 import { basisSentence, plural, safeName } from "./text.js";
 import type {
   Basis,
   Check,
+  ContextObject,
+  CrashContext,
   CrashWhisperReport,
   CrashWhisperResult,
   Frame,
@@ -104,16 +112,6 @@ function readPluginList(section: string | undefined): Array<{ name: string; vers
   return out;
 }
 
-function readModules(section: string | undefined): Set<string> {
-  const out = new Set<string>();
-  if (!section) return out;
-  for (const raw of section.split(/\r?\n/).slice(0, 4000)) {
-    const first = /^\s*(\S+)/.exec(raw)?.[1];
-    if (first) out.add(moduleBase(first.replace(/^.*[\\/]/, "")));
-  }
-  return out;
-}
-
 /** Names a crash logger flagged in its own "!!! WARNING: <name> DETECTED !!!" banner. */
 function readWarnings(text: string): string[] {
   const out: string[] = [];
@@ -178,16 +176,36 @@ const SITE_PHRASE: Record<Frame["kind"], string> = {
 
 const lowerFirst = (s: string): string => (s.length > 0 ? `${s[0]!.toLowerCase()}${s.slice(1)}` : s);
 
+/** A lead's name, with the mod a well-known DLL comes with: "skee64.dll (RaceMenu)". */
+const leadName = (lead: Lead, max = 80): string => `${clean(lead.name, max)}${lead.mod ? ` (${clean(lead.mod, 60)})` : ""}`;
+
+/** What to turn off or look up for a lead: its mod with the file, "RaceMenu (skee64.dll)", or the file alone. */
+const leadTarget = (lead: Lead): string => {
+  const file = clean(lead.files[0] ?? lead.name, 80);
+  return lead.mod ? `${clean(lead.mod, 60)} (${file})` : file;
+};
+
 function headlineFor(a: {
   bepinex: boolean;
   type: string | undefined;
   hasException: boolean;
   site: Frame | undefined;
+  nearest: Frame | undefined;
   leads: Lead[];
   frameCount: number;
   problems: number;
+  lastError: CrashlogParseResult["lastError"];
+  errors: number;
+  lastMessage: string | undefined;
 }): string {
-  const text = headlineCore(a);
+  let text = headlineCore(a);
+  // BepInEx's log runs for the whole session: entries after the last error mean the game went on past it.
+  const after = a.bepinex ? (a.lastError?.entriesAfter ?? 0) : 0;
+  if (after > 0) {
+    text += a.lastError?.exception
+      ? ` BepInEx wrote ${plural(after, "more entry", "more entries")} after it, so the game went on past this error.`
+      : ` BepInEx wrote ${plural(after, "more entry", "more entries")} after it, so the game went on past it, and this log doesn't show the game crashing.`;
+  }
   return a.problems > 0
     ? `${text} The checks below found ${a.problems === 1 ? "a problem" : `${a.problems} problems`} in your setup that ${a.problems === 1 ? "is" : "are"} worth fixing first.`
     : text;
@@ -198,19 +216,38 @@ function headlineCore(a: {
   type: string | undefined;
   hasException: boolean;
   site: Frame | undefined;
+  nearest: Frame | undefined;
   leads: Lead[];
   frameCount: number;
+  lastError: CrashlogParseResult["lastError"];
+  errors: number;
+  lastMessage: string | undefined;
 }): string {
-  const what = a.type ? clean(a.type, 80) : "an unhandled exception";
-  const crashed = a.bepinex ? `BepInEx logged ${what}` : `The game crashed with ${what}`;
+  const what = a.type ? clean(a.type, 80) : a.bepinex ? "an error" : "an unhandled exception";
+  // A BepInEx error that isn't an exception is a message some code logged, not something that stopped the game.
+  const message = a.lastMessage ? ` ("${clean(a.lastMessage, 100)}")` : "";
+  const crashed = !a.bepinex
+    ? `The game crashed with ${what}`
+    : a.lastError?.exception === false
+      ? `BepInEx logged ${plural(a.errors, "error", "errors")}, and the last one isn't an exception${message}`
+      : `BepInEx logged ${what}`;
   if (!a.hasException && a.frameCount === 0) {
     return a.bepinex
       ? "This BepInEx log has no errors in it, so it doesn't say why the game closed. Look at the checks below for what it does show."
       : "ModWrench read the log but couldn't find a crash in it. Look at the checks below for what it does show.";
   }
   const [first, second] = a.leads;
+  if (first?.strength === "strong" && first.shared) {
+    const caller = a.leads.find((l) => l.calls);
+    return (
+      `${crashed} inside ${leadName(first)}, a library other mods call. ` +
+      (caller
+        ? `The mod that called it matters too, and the best lead for it is ${leadName(caller)}, a ${caller.strength} lead.`
+        : "The call stack doesn't show another mod calling it.")
+    );
+  }
   if (first?.strength === "strong") {
-    return `${crashed}, and the strongest lead is ${clean(first.name, 80)}: ${lowerFirst(first.summary)}`;
+    return `${crashed}, and the strongest lead is ${leadName(first)}: ${lowerFirst(first.summary)}`;
   }
   if (first?.strength === "possible") {
     return second
@@ -219,6 +256,20 @@ function headlineCore(a: {
   }
   if (first) {
     return `${crashed}. Nothing in the log points firmly at any one mod; ${clean(first.name, 80)} is only a faint lead.`;
+  }
+  if (a.site?.address) {
+    const near = a.nearest;
+    return (
+      `${crashed} at ${strayAddress(clean(a.site.address, 24))}. ` +
+      (near ? `The first frame the log can place is ${clean(near.module, 60)} (${near.about ? clean(near.about, 120) : KIND_PHRASE[near.kind]}), frame ${near.index}. ` : "") +
+      "No mod code ModWrench can identify is on the call stack, so the log doesn't name a mod."
+    );
+  }
+  if (a.site?.copies) {
+    return `${crashed} in ${clean(a.site.module, 60)}, which may be Windows' own or a graphics mod's copy of it (the log lists ${a.site.copies}), with no mod code ModWrench can identify on the call stack, so the log doesn't name a mod.`;
+  }
+  if (a.site?.about) {
+    return `${crashed} in ${clean(a.site.module, 60)} (${clean(a.site.about, 120)}), with no mod code on the call stack, so the log doesn't name a mod.`;
   }
   if (a.site) {
     return `${crashed} in ${SITE_PHRASE[a.site.kind]}, with no mod code on the call stack, so the log doesn't name a mod.`;
@@ -232,32 +283,103 @@ function nextStepsFor(a: {
   game: GameFacts;
   install: InstallContext;
   bepinex: boolean;
+  site: Frame | undefined;
+  /** The mods BepInEx loaded, when its log lists them. */
+  mods: string[] | undefined;
+  errors: number;
+  nearest: Frame | undefined;
+  context: CrashContext | undefined;
+  /** How many plugins the log lists, when it lists them. */
+  pluginCount: number | undefined;
+  pluginList: CrashlogParseResult["pluginList"];
 }): string[] {
   const steps: string[] = [];
   const add = (step: string | undefined): void => {
     if (step && !steps.includes(step) && steps.length < 5) steps.push(step);
   };
   for (const check of a.checks.filter((c) => c.severity === "problem").slice(0, 2)) add(check.fix);
-  const top = a.leads[0];
-  if (top && top.strength !== "faint") {
-    const target = top.files[0] ?? top.name;
+  // PCGamingWiki's Fallout 4 page: the launcher's Options, Advanced, Weapon Debris switches NVIDIA FleX off.
+  if (a.site && isFlex(a.site.module)) {
     add(
-      `Turn off ${clean(target, 80)} (or move it out of its folder) and try to make the game crash the same way again. If the crash is gone, that was it; if it simply moves to another name, ${clean(target, 80)} was only a bystander.`
+      "The game stopped inside NVIDIA FleX, which Fallout 4 uses for its Weapon Debris effect on NVIDIA cards. Turn Weapon Debris off in Fallout 4's launcher (Options, then Advanced, then Weapon Debris: Off) and see whether the crash stops."
+    );
+  }
+  const top = a.leads[0];
+  const version = a.game.version ? `game version ${a.game.version}` : "your game version";
+  if (top && top.strength !== "faint" && top.shared) {
+    const library = leadTarget(top);
+    const mod = clean(top.mod ?? top.name, 60);
+    const caller = a.leads.find((l) => l.calls);
+    add(
+      `Don't remove ${library}: other mods need it and stop working without it. The game stopped inside it, but a crash inside a library like this can come from what the mod that called it asked of it, or from a version of it that doesn't match the game.`
     );
     add(
-      `Look at ${clean(top.name, 80)}'s mod page for a build made for ${a.game.version ? `game version ${a.game.version}` : "your game version"} and for other people reporting this crash.`
+      caller
+        ? `Look at ${leadTarget(caller)}, the best lead for the mod that called it, and at ${mod}: check both for updates made for ${version}, and that you have the ${mod} version it asks for.`
+        : `Check ${mod} for an update made for ${version}, and the mods that use it too: their pages say which ${mod} version they need.`
+    );
+  } else if (top && top.strength !== "faint") {
+    const target = clean(top.files[0] ?? top.name, 80);
+    // A game plugin is switched off in the load order, and a save that used it may not load cleanly without it.
+    const plugin = !a.bepinex && !top.files.some((f) => /\.dll$/i.test(f)) && /\.(?:esp|esm|esl)$/i.test(top.files[0] ?? "");
+    const after = "try to make the game crash the same way again";
+    add(
+      a.bepinex
+        ? `Turn off ${target} (or move it out of its folder) and play the same way again. If the error stops showing up in the log, that was it; if the same error comes from another name, ${target} was only a bystander.`
+        : top.mod
+          ? `Turn off ${clean(top.mod, 60)} in your mod manager (${target} comes with it) and ${after}. If the crash is gone, that was it; if it simply moves to another name, ${clean(top.mod, 60)} was only a bystander.`
+          : plugin
+            ? `Turn off ${target} in your load order and ${after}, on a new game or a copy of your save: taking a plugin out of a game in progress can break that save. If the crash is gone, that was it; if it simply moves to another name, ${target} was only a bystander.`
+            : `Turn off ${target} (or move it out of its folder) and ${after}. If the crash is gone, that was it; if it simply moves to another name, ${target} was only a bystander.`
+    );
+    add(
+      `Look at the mod page for ${clean(top.mod ?? top.name, 80)} for a build made for ${version} and for other people reporting this ${a.bepinex ? "error" : "crash"}.`
+    );
+    // A lead that is only possible leaves room for what else the log shows.
+    const files = top.strength === "possible" ? (a.context?.files ?? []) : [];
+    if (files.length > 0) {
+      add(
+        `The log also shows the game handling ${files.slice(0, 3).map((f) => clean(f, 120)).join(", ")}. Your mod manager can show which mod each comes from, and that mod is worth a look too.`
+      );
+    }
+  } else if (a.bepinex && a.errors > 0 && a.mods && a.mods.length > 0 && a.mods.length <= 2) {
+    add(
+      a.mods.length === 1
+        ? `Only one mod is loaded, ${clean(a.mods[0]!, 80)}: turn it off and see whether the errors stop.`
+        : "Only two mods are loaded: turn each off in turn and see whether the errors stop."
+    );
+  } else if (a.bepinex && a.errors > 0) {
+    add(
+      "No name stands out, so narrow it down by halves: turn off half of your mods and see whether the errors stop, then keep halving whichever half still has them. A mod manager with profiles makes this quick."
     );
   } else {
+    // No name stands out. Start from what the log does show, then what changed, and size the halving to the load order.
+    const files = a.context?.files ?? [];
+    const near = a.nearest;
+    if (files.length > 0) {
+      add(
+        `Start with what the log shows the game was handling: ${files.slice(0, 3).map((f) => clean(f, 120)).join(", ")}. Your mod manager can show which mod each comes from; try without that mod, or reinstall it.`
+      );
+    } else if (near) {
+      add(
+        `The first code the log can place is ${clean(near.module, 60)}${near.about ? ` (${clean(near.about, 120)})` : ""}, frame ${near.index}. It isn't a mod, so it isn't ranked as a lead, but it is where to start: check it is up to date, and name it when you ask for help.`
+      );
+    }
+    add("Think back to what changed just before the crashes began (a mod installed, updated or removed, or a game update) and undo that first.");
+    const rounds = a.pluginCount && a.pluginCount > 1 ? Math.ceil(Math.log2(a.pluginCount)) : 0;
     add(
-      "No name stands out, so narrow it down by halves: turn off half of your mods and see whether it still crashes, then keep halving whichever half does. A mod manager with profiles makes this quick."
+      "If that doesn't find it, narrow it down by halves: turn off half of your mods and see whether it still crashes, then keep halving whichever half does." +
+        (rounds > 0 ? ` With ${a.pluginCount} plugins that is about ${rounds} rounds, so start with the mods you added or changed most recently.` : "") +
+        " A mod manager with profiles makes this quick."
     );
+  }
+  if (a.pluginList === "failed") {
+    add("The logger couldn't write your plugin list into this log, so add your load order (your mod manager shows it) when you ask for help.");
   }
   if (a.install.checked && a.checks.some((c) => c.id === "game-updated")) {
     add("The game was updated after this crash, so run Patch Day to see which plugins don't match the version you have now.");
   }
-  add(
-    "To ask for help, ask for a help packet for the place you will post (a forum, a GitHub issue, Discord, or the mod's author). ModWrench takes out the personal details it recognises (your user name, folders, addresses, keys), and you can read it before you post."
-  );
+  add(PACKET_STEP);
   return steps;
 }
 
@@ -278,7 +400,7 @@ function limitsFor(a: {
   const limits = [
     "A crash log records where the game stopped, not why. A lead is a name the log points at, ranked by ModWrench's own scoring; the top lead can still be innocent, and the real cause can be something that isn't on the list.",
     "Reading the log and your install happens on this computer, and ModWrench stores and sends nothing. What this answer says goes to the AI model you are talking to, and so does a help packet if you ask for one. Before anything reads the log, ModWrench takes out the personal details it recognises: your user name and computer name, folders, addresses and keys.",
-    "Removal covers what ModWrench recognises, not everything. Mod and file names are kept as the log wrote them, and a packet includes your hardware (system, processor, graphics card, memory) when the log has it, because memory crashes are common. Read a packet before you post it.",
+    "Removal covers what ModWrench recognises, not everything. Mod and file names are kept as the log wrote them, except that a help post shows square brackets as round ones, angle brackets and backticks as look-alikes, the at sign as (at) and a run of spaces as one. A packet includes your hardware (system, processor, graphics card, memory) when the log has it, because memory crashes are common. Read a packet before you post it.",
     "The log file on your disk is left exactly as it is, with everything in it. To share a crash, post a help packet; don't attach or paste the file itself.",
   ];
   if (a.source === "newest" && a.looked) {
@@ -329,6 +451,8 @@ function tidyLead(lead: Lead): Lead {
     ...lead,
     name: clean(lead.name, 80),
     files: lead.files.map((f) => clean(f, 80)),
+    ...(lead.mod ? { mod: clean(lead.mod, 60) } : {}),
+    ...(lead.calls ? { calls: clean(lead.calls, 80) } : {}),
     summary: clean(lead.summary, 300),
     evidence: lead.evidence.map((e) => ({ ...e, text: clean(e.text, 420) })),
   };
@@ -349,7 +473,50 @@ function tidyFrame(frame: Frame): Frame {
     module: clean(frame.module, 80),
     ...(frame.offset ? { offset: clean(frame.offset, 16) } : {}),
     ...(frame.function ? { function: clean(frame.function, 120) } : {}),
+    ...(frame.about ? { about: clean(frame.about, 120) } : {}),
+    ...(frame.address ? { address: clean(frame.address, 24) } : {}),
   };
+}
+
+const MAX_CONTEXT = 6;
+
+/** Register types that say nothing about what the game was doing: numbers, untyped pointers and strings. */
+const PLAIN_TYPE = /^(?:void|char|wchar_t|size_t|u?int(?:8|16|32|64)?(?:_t)?|[ui](?:8|16|32|64)|bool|float|double)$/i;
+
+/** What the log shows the game was working with: the objects, the kinds of object in the registers, files and Papyrus functions. */
+function contextFor(parsed: CrashlogParseResult): CrashContext | undefined {
+  const objects: ContextObject[] = (parsed.suspectedRefs ?? [])
+    .filter((r) => r.origin !== undefined)
+    .slice(0, 8)
+    .map((r) => {
+      const player = PLAYER_FORM_IDS.has(r.value);
+      return {
+        formId: clean(r.value, 12),
+        ...(r.kind ? { kind: clean(r.kind, 40) } : {}),
+        ...(r.name && !player ? { name: clean(r.name, 60) } : {}),
+        plugins: (r.plugins ?? (r.likelySource ? [r.likelySource] : [])).map((p) => clean(p, 80)),
+        ...(r.origin ? { origin: r.origin } : {}),
+        ...(player ? { player: true as const } : {}),
+      };
+    });
+  const byType = new Map<string, string[]>();
+  for (const [register, raw] of Object.entries(parsed.registerTypes ?? {})) {
+    const type = raw.replace(/[\s*]+$/, "");
+    if (!type || PLAIN_TYPE.test(type) || type.length > 60 || /[<>`'(]/.test(type)) continue;
+    byType.set(type, [...(byType.get(type) ?? []), register]);
+  }
+  const types = [...byType].slice(0, MAX_CONTEXT).map(([type, registers]) => ({ type: clean(type, 60), registers: registers.map((r) => clean(r, 8)) }));
+  const files = gameFiles(parsed.assetPaths ?? [])
+    .slice(0, MAX_CONTEXT)
+    .map((f) => clean(f, 120));
+  const scripts = (parsed.papyrus ?? []).slice(0, MAX_CONTEXT).map((p) => clean(`${p.script}.${p.function}${p.native ? " (native)" : ""}`, 100));
+  const context: CrashContext = {
+    ...(objects.length > 0 ? { objects } : {}),
+    ...(types.length > 0 ? { types } : {}),
+    ...(files.length > 0 ? { files } : {}),
+    ...(scripts.length > 0 ? { scripts } : {}),
+  };
+  return Object.keys(context).length > 0 ? context : undefined;
 }
 
 function minute(ms: number): string {
@@ -466,8 +633,9 @@ export function whisper(options: WhisperOptions = {}): CrashWhisperResult {
   const system: SystemFacts | undefined = readSystem(parsed.rawSections["SYSTEM SPECS"]);
   const extenders = readPluginList(parsed.rawSections["SKSE PLUGINS"] ?? parsed.rawSections["F4SE PLUGINS"]);
   const logPlugins = new Map(extenders.filter((e) => e.version).map((e) => [e.name.toLowerCase(), e.version!] as const));
-  const modules = readModules(parsed.rawSections["MODULES"]);
+  const modules = new Set((parsed.modules ?? []).map((m) => moduleBase(m.name)));
   const warnings = readWarnings(clear);
+  const context = contextFor(parsed);
 
   // 4. The player's install, where it can be read.
   const wantInstall = options.checkInstall !== false;
@@ -514,19 +682,49 @@ export function whisper(options: WhisperOptions = {}): CrashWhisperResult {
 
   // 7. Where it stopped, and the frames worth showing.
   const plugins = bepinex ? parsed.loadedPlugins : undefined;
-  const allFrames = parsed.callStack.map((f, i) => toFrame(f, i, plugins));
+  // A graphics library the module list names more than once may be a graphics mod's copy standing in for Windows' own,
+  // and a frame doesn't say which copy it is in.
+  const listed = new Map<string, number>();
+  for (const m of parsed.modules ?? []) listed.set(moduleBase(m.name), (listed.get(moduleBase(m.name)) ?? 0) + 1);
+  const allFrames = parsed.callStack.map((f, i): Frame => {
+    const frame = toFrame(f, i, plugins);
+    const copies = frame.kind === "graphics" ? (listed.get(moduleBase(frame.module)) ?? 0) : 0;
+    return copies > 1 ? { ...frame, kind: "unknown", copies } : frame;
+  });
   const leadKeys = new Set(ranked.flatMap((r) => r.keys));
   const picked = new Map<number, Frame>();
-  allFrames.slice(0, 12).forEach((f) => picked.set(f.index, f));
+  const placed = (f: Frame): boolean => f.module !== "" && f.module !== "(unknown)";
+  // The frames for a help post's 14 rows. A post folds a run of frames in no module into one row, so the run counts once
+  // and the named frames after it still fit.
+  let rows = 0;
+  for (const [i, f] of allFrames.entries()) {
+    if (placed(f) || i === 0 || placed(allFrames[i - 1]!)) {
+      if (rows === 14) break;
+      rows++;
+    }
+    picked.set(f.index, f);
+  }
   for (const frame of allFrames) {
     if (frame.kind === "mod" && leadKeys.has(leadKey(frame.module)) && !picked.has(frame.index)) picked.set(frame.index, frame);
   }
   const frames = [...picked.values()].sort((a, b) => a.index - b.index).map(tidyFrame);
-  const site = allFrames[0] ? tidyFrame(allFrames[0]) : undefined;
+  // Stopped at an address in no module: say the address, and the first frame the log can place.
+  const top = allFrames[0];
+  const stray = top && !bepinex && !placed(top) ? parsed.exception.address : undefined;
+  const site = top ? tidyFrame(stray ? { ...top, address: stray } : top) : undefined;
+  const near = stray ? allFrames.slice(1).find((f) => !f.scan && placed(f)) : undefined;
+  const nearest = near ? tidyFrame(near) : undefined;
 
   // 8. What the exception means.
   const type = parsed.exception.type ?? (cpp?.type ? "C++ exception" : undefined);
-  const explained = explainException(parsed.exception.type, parsed.exception.description, parsed.exception.fault);
+  // Older Crash Logger SSE logs don't write down the address an access violation touched; the instruction and the
+  // registers say it. Only an empty-pointer address is kept: that is the one the plain words have something to say about.
+  const derived =
+    !parsed.exception.fault && /ACCESS_VIOLATION/i.test(parsed.exception.type ?? "")
+      ? faultFromInstruction(parsed.exception.description, parsed.registers)
+      : undefined;
+  const touched = parsed.exception.fault ?? (derived && BigInt(derived.address) < 0x10000n ? derived : undefined);
+  const explained = explainException(parsed.exception.type, parsed.exception.description, touched);
   let plain = explained?.plain;
   if (plain && cpp && /C\+\+|E06D7363/i.test(`${parsed.exception.type ?? ""} ${parsed.exception.description ?? ""}`)) {
     const thrown = [cpp.type ? clean(cpp.type, 80) : undefined, cpp.info ? `"${clean(cpp.info, 140)}"` : undefined].filter(Boolean).join(" ");
@@ -561,7 +759,7 @@ export function whisper(options: WhisperOptions = {}): CrashWhisperResult {
 
   // 10. The help packets.
   const time = parsed.timestamp?.slice(0, 16);
-  const fault = faultWords(parsed.exception.fault);
+  const fault = faultWords(touched);
   const { packets, extra } = buildPackets(
     {
       game,
@@ -572,6 +770,7 @@ export function whisper(options: WhisperOptions = {}): CrashWhisperResult {
       ...(plain ? { exceptionPlain: plain } : {}),
       ...(fault ? { fault } : {}),
       ...(site ? { site } : {}),
+      ...(nearest ? { nearest } : {}),
       frames,
       frameCount: allFrames.length,
       leads,
@@ -580,6 +779,8 @@ export function whisper(options: WhisperOptions = {}): CrashWhisperResult {
       plugins: parsed.loadedPlugins,
       extenders,
       ...(install.checked ? { scriptExtender: install.scriptExtender ?? null } : {}),
+      ...(facts?.unity ? { unity: facts.unity } : {}),
+      log: parsed,
       hideNames: options.hideNames === true,
     },
     redactOptions
@@ -623,9 +824,13 @@ export function whisper(options: WhisperOptions = {}): CrashWhisperResult {
       type,
       hasException: Boolean(type || parsed.exception.description),
       site,
+      nearest,
       leads,
       frameCount: allFrames.length,
       problems: tidyChecks.filter((c) => c.severity === "problem").length,
+      lastError: parsed.lastError,
+      errors: facts?.errorCount ?? 0,
+      lastMessage: bepinex ? parsed.exception.description?.replace(/^(?:Fatal|Error):[^:]*:\s*/, "").split(/\r?\n/, 1)[0] : undefined,
     }),
     confidence: { evidence, summary: `${base} ${counts}`, basis },
     crash: {
@@ -638,8 +843,11 @@ export function whisper(options: WhisperOptions = {}): CrashWhisperResult {
       ...(parsed.loggerVersion ? { logger: clean(parsed.loggerVersion, 100) } : {}),
       ...(exception ? { exception } : {}),
       ...(site ? { site } : {}),
+      ...(nearest ? { nearest } : {}),
       frames,
+      ...(context ? { context } : {}),
       pluginCount: parsed.loadedPlugins.length,
+      ...(parsed.pluginList ? { pluginList: parsed.pluginList } : {}),
       ...(parsed.timestamp ? { time: parsed.timestamp.slice(0, 16) } : {}),
       ...(written ? { written } : {}),
       ...(fileName ? { fileName: safeName(redact(fileName, redactOptions).text, 80) } : {}),
@@ -669,7 +877,20 @@ export function whisper(options: WhisperOptions = {}): CrashWhisperResult {
       ...(chosen ? { looked: chosen } : {}),
       skipped,
     }),
-    nextSteps: nextStepsFor({ leads, checks: tidyChecks, game, install, bepinex }),
+    nextSteps: nextStepsFor({
+      leads,
+      checks: tidyChecks,
+      game,
+      install,
+      bepinex,
+      site,
+      mods: bepinex && parsed.pluginList === "listed" ? parsed.loadedPlugins.map((p) => p.name) : undefined,
+      errors: facts?.errorCount ?? 0,
+      nearest,
+      context,
+      pluginCount: parsed.pluginList === "listed" ? parsed.loadedPlugins.length : undefined,
+      pluginList: parsed.pluginList,
+    }),
   };
   return report;
 }

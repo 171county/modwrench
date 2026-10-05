@@ -1,8 +1,15 @@
 import type {
   CallStackFrame,
   CrashlogParseResult,
+  LoadedModule,
   LoadedPlugin,
+  PapyrusFunction,
+  SuspectedRef,
 } from "./types.js";
+import { PLAYER_FORM_IDS } from "./types.js";
+import { assetPaths } from "./assets.js";
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 // NetScriptFramework (Skyrim SE 1.5.97) writes its crash log the way its own source
 // (meh321/NetScriptFramework, Framework/CrashLog.cs) lays it out: one line saying where
@@ -58,6 +65,64 @@ function readGroups(lines: string[]): { fields: Record<string, string>; groups: 
   return { fields, groups };
 }
 
+// "Possible relevant objects" rows, as real logs write them:
+//   [  11]    TESNPC(Name: `Prisoner`, FormId: 00000007, File: `Skyrim Unbound.esp <- ccbgssse018-shadowrend.esl <- Skyrim.esm`)
+//   [ 404]    TESObjectREFR(FormId: D8841320, File: `Skyrim Unbound.esp`, BaseForm: TESObjectCONT(Name: `Large Sack`, ...))
+//   [ 238]    BSTriShape(Name: `IronShieldHeavy:0`)
+// File lists every plugin that has the record, the last one to change it first. An object it holds (BaseForm, Owner)
+// is written after the object's own fields and has its own row; a reference keeps its BaseForm's id, since the two are
+// one thing in the game. A row with no FormId is not a game form.
+// The number in brackets is not how relevant the object is but how far from the registers it was found
+// (Framework/CrashLog.cs): an object in a register is at 0 or 1, one in the stack slot [SP+8*i] at i+2, and an object
+// another holds at that one's distance. The list is every object found in the registers and the stack, sorted by that
+// number alone, so NetScriptFramework makes no guess about which one matters: a row is a register or a stack object.
+
+function readObjects(rows: string[]): SuspectedRef[] {
+  const refs: SuspectedRef[] = [];
+  for (const raw of rows) {
+    const row = /^\s*\[\s*(\d+)\]\s+([A-Za-z_][\w:<>]*)\((.*)\)\s*$/.exec(raw);
+    if (!row?.[1] || !row[2] || row[3] === undefined) continue;
+    const own = row[3].split(/,\s*(?:BaseForm|Owner):/)[0] ?? "";
+    const id = /\bFormId:\s*([0-9A-Fa-f]{8})\b/.exec(own)?.[1];
+    if (!id) continue;
+    const origin = Number.parseInt(row[1], 10) <= 1 ? "register" : "stack";
+    const ref: SuspectedRef = { type: "formid", value: `0x${id.toUpperCase()}`, origin, kind: row[2] };
+    const name = /\bName:\s*`([^`]*)`/.exec(own)?.[1];
+    if (name && !PLAYER_FORM_IDS.has(ref.value)) ref.name = name;
+    const files = (/\bFile:\s*`([^`]*)`/.exec(own)?.[1] ?? "").split("<-").map((f) => f.trim()).filter(Boolean);
+    if (files[0]) {
+      ref.likelySource = files[0];
+      ref.plugins = files.reverse();
+    }
+    const base = /\bFormId:\s*([0-9A-Fa-f]{8})\b/.exec(row[3].split(/,\s*BaseForm:/)[1] ?? "")?.[1];
+    if (base) ref.base = `0x${base.toUpperCase()}`;
+    refs.push(ref);
+  }
+  return refs;
+}
+
+// A Papyrus function in the Registers and Stack groups, as real logs write it:
+//   (BSScript::Internal::ScriptFunction*) -> (File: JValue.psc, Type: JValue, Name: GotoState)
+//   (BSScript::Internal::CodeTasklet**) -> (Function: BSScript::Internal::ScriptFunction(File: ..., Type: metaSkillMenuScript, Name: load_data))
+//   (BSScript::NativeFunction2<Actor, bool, SpellItem*, bool>**) -> (File: <native>, Type: Actor, Name: AddSpell)
+// Type is the script, Name the function. The File is sometimes garbled, so it isn't kept; "<native>" means native code.
+
+function readPapyrus(lines: string[]): PapyrusFunction[] {
+  const out: PapyrusFunction[] = [];
+  const seen = new Set<string>();
+  for (const line of lines) {
+    for (const m of line.matchAll(/\(File: ([^,()]*), Type: ([^,()\s]+), Name: ([^,()\s]+)\)/g)) {
+      if (!m[2] || !m[3]) continue;
+      const key = `${m[2]}.${m[3]}`.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ script: m[2], function: m[3], ...(m[1]?.trim() === "<native>" ? { native: true as const } : {}) });
+      if (out.length === 8) return out;
+    }
+  }
+  return out;
+}
+
 function parseBraced(lines: string[]): CrashlogParseResult {
   const { fields, groups } = readGroups(lines);
   const group = (name: RegExp) => groups.find((g) => name.test(g.name))?.lines ?? [];
@@ -71,15 +136,30 @@ function parseBraced(lines: string[]): CrashlogParseResult {
     exception.description = info;
   }
 
-  const callStack: CallStackFrame[] = [];
+  const rows: Array<{ frame: CallStackFrame; value: bigint }> = [];
   for (const raw of group(/^Probable callstack\b/i)) {
-    const m = /^\s*\[(\d+)\]\s+0x[0-9A-Fa-f]+(?:\s+\((.+?)\+([0-9A-Fa-f]+)\))?(?:\s+(\S.*?))?\s*$/.exec(raw);
-    if (!m?.[1]) continue;
-    const frame: CallStackFrame = { index: Number.parseInt(m[1], 10), module: m[2] ?? "(unknown)" };
-    if (m[3]) frame.offset = m[3];
-    if (m[4]) frame.function = m[4];
-    callStack.push(frame);
+    const m = /^\s*\[(\d+)\]\s+(0x[0-9A-Fa-f]+)(?:\s+\((.+?)\+([0-9A-Fa-f]+)\))?(?:\s+(\S.*?))?\s*$/.exec(raw);
+    if (!m?.[1] || !m[2]) continue;
+    const frame: CallStackFrame = { index: Number.parseInt(m[1], 10), module: m[3] ?? "(unknown)" };
+    if (m[4]) frame.offset = m[4];
+    if (m[5]) frame.function = m[5];
+    rows.push({ frame, value: BigInt(m[2]) });
   }
+  // When it can't unwind the stack, NetScriptFramework lists the stack's raw slots instead: frames 1, 2, ... are then
+  // the values at [SP+0], [SP+8], ... (seen in real logs). On x64 Windows every call leaves the callee at least 32 bytes
+  // of stack (Microsoft's x64 calling convention), so two return addresses never sit in neighbouring slots: frames 1
+  // and 2 matching the first two slots means the list is stack memory, and its frames are marked "scan".
+  // Windows maps no user-mode memory below 0x10000 or above 0x7FFFFFFFFFFF (Microsoft, "Virtual address spaces"), so
+  // a value outside that can't be where code returns to: such a frame is dropped, except frame 0, where it stopped.
+  const slots = group(/^Stack$/).map((raw) => /^\s*\[SP\+[0-9A-Fa-f]+\]\s+(0x[0-9A-Fa-f]+)/.exec(raw)?.[1]);
+  const scanned =
+    rows.length > 2 && slots[0] !== undefined && slots[1] !== undefined && rows[1]?.value === BigInt(slots[0]) && rows[2]?.value === BigInt(slots[1]);
+  const callStack: CallStackFrame[] = [];
+  rows.forEach(({ frame, value }, position) => {
+    if (position > 0 && (value < 0x10000n || value > 0x7fffffffffffn)) return;
+    if (position > 0 && scanned) frame.source = "scan";
+    callStack.push(frame);
+  });
 
   const loadedPlugins: LoadedPlugin[] = [];
   for (const raw of group(/^Game plugins\b/i)) {
@@ -90,10 +170,41 @@ function parseBraced(lines: string[]): CrashlogParseResult {
   const rawSections: Record<string, string> = {};
   for (const g of groups) rawSections[g.name.replace(/\s*\(\d+\)$/, "")] = g.lines.join("\n").trim();
 
-  const result: CrashlogParseResult = { detectedType: "netscriptframework", exception, callStack, loadedPlugins, rawSections };
+  const result: CrashlogParseResult = {
+    detectedType: "netscriptframework",
+    exception,
+    callStack,
+    loadedPlugins,
+    // Without a "Game plugins" group the log has no plugin list; "Plugins (N)" is the framework's own .NET plugins.
+    pluginList: loadedPlugins.length > 0 ? "listed" : "absent",
+    rawSections,
+  };
   const app = fields["ApplicationName"];
   const version = fields["ApplicationVersion"];
   if (app && version) result.gameVersion = `${app} v${version}`;
+  const framework = fields["FrameworkName"];
+  const frameworkVersion = fields["FrameworkVersion"];
+  if (framework && frameworkVersion) result.loggerVersion = `${framework} v${frameworkVersion}`;
+  // "Time: 26 Jan 2024 23:40:39.174", the player's local time, as every real log writes it. Other month names aren't guessed at.
+  const time = /^(\d{1,2}) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{4}) (\d{2}:\d{2}:\d{2})/.exec(fields["Time"] ?? "");
+  if (time?.[1] && time[2] && time[3] && time[4]) {
+    const month = String(MONTHS.indexOf(time[2]) + 1).padStart(2, "0");
+    result.timestamp = `${time[3]}-${month}-${time[1].padStart(2, "0")} ${time[4]}`;
+  }
+  // "SkyrimSE.exe:      0x7FF747E50000": the name, a colon, and the address it was loaded at.
+  const modules: LoadedModule[] = [];
+  for (const raw of group(/^Modules$/)) {
+    const row = /^\s*(.+?):\s+(0x[0-9A-Fa-f]+)\s*$/.exec(raw);
+    if (row?.[1] && row[2]) modules.push({ name: row[1], base: row[2] });
+  }
+  if (modules.length > 0) result.modules = modules;
+  const memory = [...group(/^Registers$/), ...group(/^Stack$/)];
+  const assets = assetPaths(memory);
+  if (assets.length > 0) result.assetPaths = assets;
+  const papyrus = readPapyrus(memory);
+  if (papyrus.length > 0) result.papyrus = papyrus;
+  const suspectedRefs = readObjects(group(/^Possible relevant objects\b/i));
+  if (suspectedRefs.length > 0) result.suspectedRefs = suspectedRefs;
   return result;
 }
 
@@ -202,6 +313,7 @@ export function parseNetScriptFramework(text: string): CrashlogParseResult {
     exception,
     callStack,
     loadedPlugins,
+    pluginList: loadedPlugins.length > 0 ? "listed" : "absent",
     rawSections,
   };
   const version = fields["Version"];

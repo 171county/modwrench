@@ -6,7 +6,7 @@
 // conflict database, so the model reasons over facts instead of vibes. Pure:
 // the conflict check is injected, so it unit-tests without a filesystem or net.
 
-import type { CrashlogParseResult } from "./types.js";
+import { PLAYER_FORM_IDS, type CrashlogParseResult, type SuspectedRef } from "./types.js";
 import type { KnownConflict } from "../conflicts/types.js";
 
 export type CrashSuspect = {
@@ -50,22 +50,35 @@ export async function correlateCrash(opts: {
   const suspects: CrashSuspect[] = [];
   const seen = new Set<string>();
 
-  // 1. Suspected refs the parser already flagged (highest signal).
-  for (const ref of opts.parsed.suspectedRefs ?? []) {
+  // 1. Suspected refs the parser already flagged (highest signal): objects the logger lists as involved. An object it
+  // only printed beside a register or found in stack memory may be one the game had finished with, and the player's
+  // own character is in use the whole time anyone plays, so those say less than the call stack and come after it (2b).
+  const refs = opts.parsed.suspectedRefs ?? [];
+  const weak = (ref: SuspectedRef): string | undefined =>
+    PLAYER_FORM_IDS.has(ref.value)
+      ? "the player's character"
+      : ref.origin === "register"
+        ? "beside a register"
+        : ref.origin === "stack"
+          ? "in stack memory"
+          : undefined;
+  const addRef = (ref: SuspectedRef): void => {
     const src = ref.likelySource?.trim();
-    if (!src) continue;
+    if (!src) return;
     const key = src.toLowerCase();
-    if (seen.has(key)) continue;
+    if (seen.has(key)) return;
     seen.add(key);
     const lp = byLower.get(key);
+    const where = weak(ref);
     suspects.push({
       name: src,
       from: "suspected-ref",
-      detail: `${ref.type}: ${ref.value}`,
+      detail: `${ref.type}: ${ref.value}${where ? ` (${where})` : ""}`,
       inLoadedPlugins: lp !== undefined,
       ...(lp?.loadIndex !== undefined ? { loadIndex: lp.loadIndex } : {}),
     });
-  }
+  };
+  for (const ref of refs) if (!weak(ref)) addRef(ref);
 
   // 2. Non-core modules on the call stack.
   for (const frame of opts.parsed.callStack ?? []) {
@@ -84,6 +97,9 @@ export async function correlateCrash(opts: {
       ...(lp?.loadIndex !== undefined ? { loadIndex: lp.loadIndex } : {}),
     });
   }
+
+  // 2b. The objects that say less.
+  for (const ref of refs) if (weak(ref)) addRef(ref);
 
   // 3. Optional known-conflict cross-check over the loaded plugins.
   const notes: string[] = [];

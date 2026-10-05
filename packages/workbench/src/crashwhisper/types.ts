@@ -52,6 +52,12 @@ export type Lead = {
   };
   /** How many of the other recent crash logs name it as a lead too. */
   recurrence?: { logs: number; of: number };
+  /** The mod a well-known DLL comes with, as players know it: "RaceMenu" for skee64.dll. */
+  mod?: string;
+  /** A library other mods call: the crash can come from what a caller asked of it, and removing it breaks the mods that need it. */
+  shared?: true;
+  /** The shared library the game stopped inside, when this lead is the mod that called it. */
+  calls?: string;
   /** The ranking score. Kept for tests and for ordering; not shown to the player. */
   score: number;
 };
@@ -105,6 +111,38 @@ export type Frame = {
   kind: ModuleKind;
   /** Found by scanning stack memory rather than unwinding it: weaker evidence, because stack memory also holds leftovers. */
   scan?: true;
+  /** What a well-known module that isn't a mod is: "Mod Organizer 2's virtual file system". */
+  about?: string;
+  /** How many modules of this name the log lists, when more than one: a graphics mod may have put its own copy in place of Windows'. */
+  copies?: number;
+  /** The address it stopped at, on a site that is in no module the log lists. */
+  address?: string;
+};
+
+/** An object the log shows the game working with. */
+export type ContextObject = {
+  formId: string;
+  /** The kind of object as the logger names it: "Armor", "TESNPC". */
+  kind?: string;
+  /** Its in-game name. Never the player's own character's, which the player chose. */
+  name?: string;
+  /** The plugins that touch it, in load order: the first added it, the last changed it last. */
+  plugins: string[];
+  /** "objects": the logger's own list. "register", "stack": printed beside a register or found in stack memory, which is weaker. */
+  origin?: "objects" | "register" | "stack";
+  /** The player's own character. */
+  player?: true;
+};
+
+/** What the log shows the game was working with when it crashed, as the log wrote it. Each part is left out when the log has none. */
+export type CrashContext = {
+  objects?: ContextObject[];
+  /** The kinds of object the registers point at ("hknpStreamContactSolver"), with the registers that hold them. */
+  types?: Array<{ type: string; registers: string[] }>;
+  /** Game files named in the registers and stack: "textures\terrain\tamriel\skyrim.dds". */
+  files?: string[];
+  /** Papyrus functions in the registers and stack: "metaSkillMenuScript.load_data", "Actor.AddSpell (native)". */
+  scripts?: string[];
 };
 
 export type CrashWhisperReport = {
@@ -125,8 +163,14 @@ export type CrashWhisperReport = {
     exception?: { type?: string; plain: string };
     /** Where it stopped: the top of the call stack. */
     site?: Frame;
+    /** When the site is in no module the log lists: the first frame under it that is in one. */
+    nearest?: Frame;
     frames: Frame[];
+    /** What the log shows the game was working with, when it shows anything. */
+    context?: CrashContext;
     pluginCount: number;
+    /** Whether the log has the plugin list: "listed" (pluginCount is all of it), "absent", or "failed" (the logger began it and wrote an error). */
+    pluginList?: "listed" | "absent" | "failed";
     /** When the crash happened, as the log itself states it (the player's local time), to the minute. */
     time?: string;
     /** When the log file was last written, to the minute, when it was read from disk. */
