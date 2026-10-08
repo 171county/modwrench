@@ -160,6 +160,10 @@ const SECRET_SHAPES: RegExp[] = [
   /https?:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9/_-]{20,}/gi,
   /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g,
   /\bAIza[0-9A-Za-z_-]{35}\b/g,
+  // A Thunderstore service-account token: "tss_", 30 random letters and digits, and a 6-character checksum
+  // (Thunderstore's own token code builds it this way). Nexus Mods documents no shape for its API keys,
+  // so those are caught by their label or as long mixed tokens, as before.
+  /\btss_[A-Za-z0-9]{36}\b/g,
   // A Telegram bot token: a numeric bot id, a colon and about 35 characters.
   /(?<![\w:])\d{8,10}:[A-Za-z0-9_-]{34,40}\b/g,
   // A JWT: three base64url runs, the first starting "eyJ" (a JSON object). Anchoring on that keeps long .NET names out.
@@ -436,7 +440,7 @@ const VAR_ANY = new RegExp(String.raw`${VAR_START}${VAR_ROOT}${SEP}(?=\S)[^\r\n]
 // Each is a superset of what the rules it guards need to match, and only decides whether a line is worth running them on.
 
 const SHAPE_HINT =
-  /gh[pousr]_|github_pat_|glpat-|npm_|sk-|[sr]k_|whsec_|xox|hooks\.slack|AKIA|ASIA|AIza|\d:[A-Za-z0-9_-]{34}|eyJ|\.[A-Za-z0-9_-]{6}\.|bearer|webhooks/i;
+  /gh[pousr]_|github_pat_|glpat-|npm_|sk-|[sr]k_|whsec_|xox|hooks\.slack|AKIA|ASIA|AIza|tss_|\d:[A-Za-z0-9_-]{34}|eyJ|\.[A-Za-z0-9_-]{6}\.|bearer|webhooks/i;
 const SECRET_HINT = /token|secret|key|pass|pwd|pw|credential|bearer|cookie|authorization|connection|webhook|dsn/i;
 const QUERY_HINT = /[?&;][A-Za-z_-]+=/;
 const HEX_HINT = /[0-9A-Fa-f]{32}/;

@@ -203,6 +203,17 @@ test("keys, tokens and passwords in the usual shapes", () => {
   }
 });
 
+test("a Thunderstore service-account token goes by its shape, with no label; a look-alike of another length stays", () => {
+  // "tss_", 30 letters and digits, and a 6-character checksum: how Thunderstore builds one.
+  const token = join("tss", "_", "aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1", "xY3zA5");
+  const { text, report } = run(`[Info   :Uploader] publishing with ${token} now`);
+  assert.equal(text, "[Info   :Uploader] publishing with REDACTED-SECRET now");
+  assert.equal(report.byKind.secret, 1);
+  for (const near of [join("tss", "_", "short1"), join("tss", "_", "aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1", "xY3zA5", "Q")]) {
+    assert.equal(run(`value ${near} here`).text, `value ${near} here`, near);
+  }
+});
+
 test("assignments whose key says it is secret, and authorization headers", () => {
   const value = join("EXAMPLE", "EXAMPLE", "EXAMPLE");
   assert.equal(run(`api_key=${value} x`).text, "api_key=REDACTED-SECRET x");
