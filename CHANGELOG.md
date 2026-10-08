@@ -228,10 +228,8 @@ This document is currently maintained by hand. When [release-please](https://git
   support MCP Apps now shows the text answer only. `MODWRENCH_UI=off` now
   means no pages and no structured data (unless `MODWRENCH_STRUCTURED=always`)
   rather than a stub of about 130 bytes in place of each panel.
-  `@modwrench/remote` starts a fresh server for every request, so it never
-  learns that a client can draw pages: its Thunderstore tools point at their
-  pages but send the data only with `MODWRENCH_STRUCTURED=always` (to every
-  client), and without it a page there shows only the text answer. The pages
+  `@modwrench/remote` keeps a session per client, so it decides the same way
+  (see the entry below on remote sessions). The pages
   keep the four game skins, make no network requests and keep nothing; see
   [TRUST.md](TRUST.md#the-other-pages). The README's two pictures are
   retaken from the new pages. Like the three newer pages, they were checked in a
@@ -420,6 +418,20 @@ This document is currently maintained by hand. When [release-please](https://git
   On Linux and the Steam Deck it also looked for r2modman's Flatpak under an id
   that doesn't exist (`com.kalindudc.r2modmanPlus`); it now uses r2modman's own,
   `io.github.ebkr.r2modman`, as environment detection already did.
+- **`@modwrench/remote` sends page data to clients that draw pages.** It used
+  to start a fresh server for every request, so the one answering a tool call
+  never saw the client's `initialize` and sent a page's data to no one unless
+  `MODWRENCH_STRUCTURED=always`. It now keeps a session per client (the
+  protocol's `Mcp-Session-Id`), in memory only: closed when the client sends
+  `DELETE /mcp`, after 24 hours unused, or when a 101st session opens and it
+  is the least recently used. As with the stdio server, a client that declares
+  MCP Apps support gets the Thunderstore pages' data and every other client gets
+  the text alone. A request without a session ID that isn't `initialize` gets
+  400 (an empty header counts as none), and an unknown session ID 404, as the
+  transport specification says; a client that doesn't send the session header
+  back, which worked before, now gets that 400, and a client whose session was
+  closed gets "Session not found" until it reconnects. The 100-session limit is
+  shared by everyone who can reach the server.
 
 ## [0.2.4] — 2026-09-15
 

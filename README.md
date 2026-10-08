@@ -44,12 +44,11 @@ long one. If you want it anyway, for a script or an agent that reads it, set
 nothing; [TRUST.md](TRUST.md#the-patch-day-page) and
 [the other pages](TRUST.md#the-other-pages) say what they can and can't do.
 
-The optional HTTP server, `@modwrench/remote`, is the exception. It starts a fresh server for
-every request, so it never learns that a client can draw pages. Its Thunderstore mod lists and
-dependency tools still point at their pages, but by default no client is sent the data, so in a
-client that draws pages the page shows only the text answer. A deployment that wants drawn
-pages sets `MODWRENCH_STRUCTURED=always`, which sends the data to every client of that
-deployment.
+The optional HTTP server, `@modwrench/remote`, decides the same way. It keeps a session for
+each client (in memory only; nothing is written, and a session left unused for 24 hours is
+closed), so the server answering a tool call is the one that saw whether the client draws
+pages, and its Thunderstore mod lists and dependency tools send a page's data only to clients
+that do. A client whose session was closed gets "Session not found" until it reconnects.
 
 **The Doctors** (`mw_doctor`, or `/mw-doctor`) answer "is my setup ready?", and they are the
 boring half of modding support: a lot of "my mods keep breaking" threads end with a cause that
