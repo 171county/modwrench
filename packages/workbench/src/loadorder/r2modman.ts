@@ -22,11 +22,13 @@ function r2modmanRootCandidates(): string[] {
     default:
       return [
         join(home, ".config", "r2modmanPlus-local"),
+        // r2modman's Flatpak (its own manifest is flatpak/io.github.ebkr.r2modman.yaml),
+        // the same id detect/manager.ts uses.
         join(
           home,
           ".var",
           "app",
-          "com.kalindudc.r2modmanPlus",
+          "io.github.ebkr.r2modman",
           "config",
           "r2modmanPlus-local"
         ),
@@ -42,26 +44,24 @@ export function findR2modmanRoot(): string | null {
 }
 
 // r2modman's mods.yml is a YAML sequence of objects, one per installed mod.
-// We type only the fields we care about; the file can carry more (Files,
-// Icon, etc.) and we ignore them.
+// r2modman writes it with js-yaml straight from its ManifestV2 objects
+// (ProfileModList.saveModList), so the keys are that class's camelCase field
+// names; name is the Thunderstore id ("Author-ModName") and displayName the
+// mod's own name. We type only the fields we care about; the file carries more
+// (description, dependencies, icon, etc.) and we ignore them.
 type R2ManifestEntry = {
-  ManifestVersion?: number;
-  AuthorName?: string;
-  Name?: string;
-  DisplayName?: string;
-  Description?: string;
-  Version?: string | { Major?: number; Minor?: number; Patch?: number };
-  Url?: string;
-  Enabled?: boolean;
-  DependencyString?: string;
+  name?: string;
+  authorName?: string;
+  displayName?: string;
+  versionNumber?: { major?: number; minor?: number; patch?: number };
+  enabled?: boolean;
 };
 
 function formatVersion(
-  v: R2ManifestEntry["Version"]
+  v: R2ManifestEntry["versionNumber"]
 ): string | undefined {
-  if (typeof v === "string") return v;
   if (v && typeof v === "object") {
-    const parts = [v.Major ?? 0, v.Minor ?? 0, v.Patch ?? 0];
+    const parts = [v.major ?? 0, v.minor ?? 0, v.patch ?? 0];
     return parts.join(".");
   }
   return undefined;
@@ -111,23 +111,21 @@ export function readR2modmanLoadOrder(
   }
 
   const mods: LoadOrderMod[] = entries.map((e, i) => {
-    const author = e.AuthorName;
-    const displayName = e.DisplayName ?? e.Name ?? "(unnamed)";
-    // Thunderstore's canonical mod id is "Author-ModName". Reconstruct it
-    // from the manifest fields when possible — this is what downstream tools
-    // need to resolve attribution.
-    const sourceModId =
-      author && e.Name ? `${author}-${e.Name}` : e.Name ?? undefined;
+    const author = e.authorName;
     const mod: LoadOrderMod = {
-      name: displayName,
-      enabled: e.Enabled ?? true,
+      name: e.displayName ?? e.name ?? "(unnamed)",
+      // r2modman reads a mod without enabled: true as switched off
+      // (ManifestV2.fromJsObject), so this does too.
+      enabled: e.enabled === true,
       loadOrderIndex: i,
       sourcePlatform: "thunderstore",
     };
-    const version = formatVersion(e.Version);
+    const version = formatVersion(e.versionNumber);
     if (version) mod.version = version;
     if (author) mod.author = author;
-    if (sourceModId) mod.sourceModId = sourceModId;
+    // name is already Thunderstore's canonical "Author-ModName" id, which is
+    // what downstream tools need to resolve attribution.
+    if (e.name) mod.sourceModId = e.name;
     return mod;
   });
 
