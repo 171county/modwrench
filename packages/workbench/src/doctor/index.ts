@@ -12,6 +12,7 @@ import { discoverMo2, type Mo2Facts } from "./mo2facts.js";
 import { judgeOverwrite, scanOverwrite } from "./overwrite.js";
 import { checkPlugins } from "./setup-plugins.js";
 import { discoverSteam, type SteamFacts } from "./steam.js";
+import { VORTEX_GAME_IDS, checkVortex, type VortexCheck } from "./vortex.js";
 import {
   SEVERITY,
   platformName,
@@ -51,7 +52,7 @@ function fail(error: string, hint?: string): DoctorError {
 }
 
 /** What ModWrench can't see from here, for this game on this system. */
-function notChecked(platform: DoctorPlatform, def: GameDef, ranSetup: boolean, ranDeck: boolean, mo2: Mo2Facts): NotChecked[] {
+function notChecked(platform: DoctorPlatform, def: GameDef, ranSetup: boolean, ranDeck: boolean, mo2: Mo2Facts, vortex: VortexCheck | undefined): NotChecked[] {
   const out: NotChecked[] = [];
   if (platform === "windows" && ranSetup) {
     out.push(
@@ -65,10 +66,14 @@ function notChecked(platform: DoctorPlatform, def: GameDef, ranSetup: boolean, r
       },
       { what: "Whether nxm:// links open your mod manager", why: "Windows keeps that in the registry." }
     );
-    if (def.family === "bethesda") {
+    // Vortex's deployment record names the staging folder while it has mods deployed; without one, it is in Vortex's database.
+    if (def.family === "bethesda" && vortex?.recorded !== true) {
       out.push({
         what: "Vortex's staging folder, and whether it is on the same drive as the game",
-        why: "Vortex keeps that in a database ModWrench can't read yet.",
+        why:
+          VORTEX_GAME_IDS[def.gameId] !== undefined
+            ? "Vortex names it in the game's Data folder (vortex.deployment.json) only while it has mods deployed, and that record wasn't there. Otherwise it is in Vortex's own database, which ModWrench doesn't open."
+            : "Vortex keeps that in a database ModWrench can't read yet.",
       });
     }
   }
@@ -202,6 +207,14 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
     }
   }
 
+  // Vortex's staging folder, from its deployment record in the Data folder (Windows, where Vortex runs).
+  const vortexId = VORTEX_GAME_IDS[def.gameId];
+  let vortex: VortexCheck | undefined;
+  if (ranSetup && platform === "windows" && gameDir !== null && vortexId !== undefined) {
+    const dir = gameDir;
+    vortex = step("Vortex's staging folder", () => checkVortex(dir, vortexId));
+  }
+
   let looked: DoctorReport["looked"]["plugins"];
   /** What wasn't read or wasn't read all the way, in words. Anything here keeps the verdict off "clear". */
   const skipped: string[] = [];
@@ -209,12 +222,13 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
 
   if (ranSetup) {
     // Where it lives and how much room is left.
-    step("Where the game and Mod Organizer 2 live", () => {
+    step("Where the game and its mod folders live", () => {
       const places: Place[] = [];
       if (gameDir !== null) places.push({ what: "game", path: gameDir });
       if (mo2.instance !== undefined) places.push({ what: "mo2", path: mo2.instance });
       // The mods folder is its own place only when it isn't inside the instance: people with a big list keep it elsewhere.
       if (mo2.modsDir && (mo2.instance === undefined || !isInside(mo2.modsDir, mo2.instance))) places.push({ what: "mo2-mods", path: mo2.modsDir });
+      if (vortex?.staging) places.push({ what: "vortex-staging", path: vortex.staging });
       const location = judgeLocation(places, platform);
       if (location !== null) findings.push(location);
     });
@@ -223,9 +237,15 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
       const rooms: Room[] = [];
       if (gameDir !== null) rooms.push({ label: "the game's drive", path: gameDir });
       if (mo2.modsDir) rooms.push({ label: "MO2's mods drive", path: mo2.modsDir });
+      if (vortex?.staging) rooms.push({ label: "Vortex's staging drive", path: vortex.staging });
       const room = judgeRoom(rooms);
       if (room !== null) findings.push(room);
     });
+
+    if (vortex !== undefined) {
+      findings.push(...vortex.findings);
+      skipped.push(...vortex.skipped);
+    }
 
     if (def.gameId === SKYRIM_SE && gameDir !== null) {
       const dir = gameDir;
@@ -351,7 +371,7 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
     headline,
     counts,
     findings: ordered,
-    notChecked: [...stopped, ...notChecked(platform, def, ranSetup, ranDeck, mo2)],
+    notChecked: [...stopped, ...notChecked(platform, def, ranSetup, ranDeck, mo2, vortex)],
     nextSteps,
     limits,
     looked: {
@@ -364,6 +384,7 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
         ...(mo2.used ? { modFolders: enabledFolders } : {}),
       },
       ...(looked !== undefined ? { plugins: looked } : {}),
+      ...(vortex !== undefined ? { vortex: { record: vortex.recorded, ...(vortex.method !== null ? { method: vortex.method } : {}) } } : {}),
     },
   };
 }

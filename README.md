@@ -53,8 +53,9 @@ that do. A client whose session was closed gets "Session not found" until it rec
 
 **The Doctors** (`mw_doctor`, or `/mw-doctor`) answer "is my setup ready?", and they are the
 boring half of modding support: a lot of "my mods keep breaking" threads end with a cause that
-isn't a mod. The Setup Doctor looks at where the game and Mod Organizer 2 live (Program Files,
-OneDrive and the other folders Windows protects or syncs), how much room is left on the drive,
+isn't a mod. The Setup Doctor looks at where the game, Mod Organizer 2 and Vortex's staging folder
+live (Program Files, OneDrive and the other folders Windows protects or syncs), whether Vortex's
+staging folder is on the game's drive as its hard links need, how much room is left on the drive,
 and, for Skyrim Special Edition, the plugin list: plugins whose master is missing, switched off
 or loaded too late, the limit of 254 full and 4,096 light plugins, entries for plugins that are
 gone, Mod Organizer 2 and the game's own list disagreeing, clutter in MO2's Overwrite folder, and

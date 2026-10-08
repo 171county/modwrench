@@ -231,6 +231,19 @@ This document is currently maintained by hand. When [release-please](https://git
   crashed and that Crash Whisperer can. The help-packet step now always keeps its
   place at the end of Crash Whisperer's steps.
 
+- **The Doctors check Vortex's staging folder.** Vortex deploys mods to Skyrim
+  Special Edition and Fallout 4 with hard links, which work only within one drive, and keeps
+  where its staging folder is in its own database. While it has mods deployed it
+  also writes a deployment record into the game's `Data` folder, and on Windows the
+  Setup Doctor now reads the start of it (the game, the method and the staging
+  folder, never the file list) and checks the staging folder: on the game's drive
+  when Vortex uses hard links (a documented rule from Vortex's wiki), not under
+  Program Files, OneDrive or a user folder (Vortex's own error message says OneDrive
+  can't deal with hard links), and with room on its drive. A record that names a
+  folder that isn't there, or one on another computer, which isn't opened, says so.
+  Without a record, the report still lists the staging folder as something it
+  couldn't check, and says why.
+
 - **`/mw-critique` and `mw_critique`: feedback for the maintainers, posted by
   you.** Tell your AI client what went wrong, what you'd like or what you think,
   and it drafts a GitHub issue with what a maintainer needs to reproduce it filled

@@ -436,6 +436,28 @@ test("the all-clear says only what was checked: the game isn't checked for user 
     judgeLocation([at("game", "D:\\SteamLibrary\\steamapps\\common\\Skyrim Special Edition"), at("mo2", "D:\\Modding\\MO2"), at("mo2-mods", "E:\\mods")], "windows")?.detail,
     "The game isn't under Program Files or a OneDrive folder, and Mod Organizer 2 isn't under Program Files, a OneDrive folder or one of your user folders."
   );
+  // Vortex's staging folder is named when it was looked at, alone or with MO2.
+  assert.equal(
+    judgeLocation([at("game", "D:\\Games\\Skyrim"), at("vortex-staging", "D:\\Vortex Mods\\skyrimse")], "windows")?.detail,
+    "The game isn't under Program Files or a OneDrive folder, and Vortex's staging folder isn't under Program Files, a OneDrive folder or one of your user folders."
+  );
+  assert.equal(
+    judgeLocation([at("mo2", "D:\\Modding\\MO2"), at("vortex-staging", "D:\\Vortex Mods\\skyrimse")], "windows")?.detail,
+    "Mod Organizer 2 and Vortex's staging folder aren't under Program Files, a OneDrive folder or one of your user folders."
+  );
+});
+
+test("Vortex's staging folder in OneDrive cites Vortex's own words about hard links, and says where to move it", () => {
+  const f = judgeLocation([at("game", "D:\\Games\\Skyrim"), at("vortex-staging", "C:\\Users\\Sam\\OneDrive\\Vortex Mods\\skyrimse")], "windows");
+  assert.ok(f);
+  assert.equal(f.status, "warn");
+  assert.deepEqual(f.items, ["Vortex's staging folder: a OneDrive folder"]);
+  assert.match(f.detail, /Vortex's own error message for this case says OneDrive can't deal with hard links, which is how Vortex deploys mods to this game\./);
+  assert.match(f.fix ?? "", /For Vortex's staging folder, choose a new one in Vortex's Settings, under Mods, and Vortex moves the mods there\./);
+  // The default staging folder, under AppData, is in none of the folders Windows protects or syncs.
+  assert.equal(judgeLocation([at("vortex-staging", "C:\\Users\\Sam\\AppData\\Roaming\\Vortex\\skyrimse\\mods")], "windows")?.status, "ok");
+  // MO2 alone gets no Vortex words.
+  assert.doesNotMatch(judgeLocation([at("mo2", "C:\\Users\\Sam\\OneDrive\\MO2")], "windows")?.fix ?? "", /Vortex/);
 });
 
 test("the game itself is only flagged for Program Files and OneDrive, since the user folders are about where mods live", () => {
