@@ -218,6 +218,19 @@ This document is currently maintained by hand. When [release-please](https://git
   hostile plugin and mod names. None of it has been run inside a real MCP client, on
   Windows or macOS, or against a real game folder.
 
+- **Crash Whisperer and the Doctors point at each other.** When no name stands out
+  in a crash log from a game the Doctors' plugin checks cover, one of Crash
+  Whisperer's next steps is to run the Doctors (`/mw-doctor`), which check the setup
+  problems a crash log may not name: a master that is missing, switched off or
+  loaded late, a load order past the plugin limit, two crash loggers at once. A log
+  whose list of loaded modules shows more than one crash logger gets a note (a
+  documented rule when Crash Logger SSE is one of them, ModWrench's guess for any
+  other pair). The Doctors, for their part, say that Crash Whisperer (`/mw-crash`)
+  reads the log when a crash logger it reads is installed, and every report for a
+  game whose logs Crash Whisperer reads ends by saying files can't show why a game
+  crashed and that Crash Whisperer can. The help-packet step now always keeps its
+  place at the end of Crash Whisperer's steps.
+
 ### Changed
 - **The older panels are MCP Apps pages now, and text-only clients no longer
   get HTML.** Fourteen tools put an MCP-UI panel, about 28 KB of HTML, into

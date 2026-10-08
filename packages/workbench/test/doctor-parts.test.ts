@@ -581,6 +581,8 @@ test("no crash logger is a note that says how loggers are recognised", () => {
   assert.ok(f);
   assert.deepEqual([f.id, f.status, f.basis], ["setup.crash-logger", "note", "install"]);
   assert.match(f.detail, /usual file names/);
+  assert.match(f.detail, /so after a crash there may be no log for Crash Whisperer \(\/mw-crash\) to read\./);
+  assert.match(f.fix ?? "", /and one Crash Whisperer reads/);
   assert.match(f.source ?? "", /nexusmods\.com\/skyrimspecialedition\/mods\/59818/);
 });
 
@@ -589,6 +591,17 @@ test("one crash logger is fine and is named", () => {
   assert.equal(rest.length, 0);
   assert.equal(f?.status, "ok");
   assert.equal(f?.title, "One crash logger: Crash Logger SSE");
+  assert.equal(f?.detail, "Only one crash logger was found. After a crash, Crash Whisperer (/mw-crash) reads its log.");
+});
+
+test("the one logger is pointed at Crash Whisperer only when Crash Whisperer reads its logs and it can log on this game", () => {
+  const only = (o: Parameters<typeof index>[0], game: [number, number, number, number] | null) =>
+    judgeCrashLoggers(index(o), game).find((f) => f.id === "setup.crash-logger")?.detail ?? "";
+  // Trainwreck's logs are a format Crash Whisperer doesn't read.
+  assert.equal(only({ dlls: ["trainwreck.dll"] }, [1, 6, 1170, 0]), "Only one crash logger was found.");
+  // .NET Script Framework logs on 1.5.97 and not on 1.6, where the Doctors warn instead.
+  assert.match(only({ netScript: true }, [1, 5, 97, 0]), /Crash Whisperer \(\/mw-crash\) reads its log\./);
+  assert.equal(only({ netScript: true }, [1, 6, 1170, 0]), "Only one crash logger was found.");
 });
 
 test("two crash loggers with Crash Logger SSE among them cite its own page; two without it are only a guess", () => {

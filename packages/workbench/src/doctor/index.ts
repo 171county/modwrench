@@ -1,4 +1,5 @@
 import { isAbsolute, relative, resolve, sep } from "node:path";
+import { CRASH_LOG_GAMES } from "../crashwhisper/find.js";
 import { KNOWN_GAMES, findGameById, type GameDef } from "../detect/games.js";
 import { detectOs, detectSteamDeck } from "../detect/os.js";
 import { readFileVersion } from "../patchday/pe.js";
@@ -318,6 +319,12 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
     "Everything here is read from files. Nothing runs the game, so a clear report isn't a promise that it starts.",
     'Each finding says what it rests on: "your files" were read directly, a "documented rule" applies a rule from another tool\'s own documentation (the source is named), and "ModWrench\'s guess" is a rule of thumb.',
   ];
+  // Why it crashed is Crash Whisperer's question, for the games whose logs it reads.
+  if (CRASH_LOG_GAMES.includes(def.gameId)) {
+    limits.push(
+      `Files can't show why a game crashed. After a crash, Crash Whisperer (/mw-crash) reads ${def.family === "bethesda" ? "the newest crash log" : "BepInEx's log"} and says what it points at.`
+    );
+  }
   if (mo2.used) limits.push("Mod Organizer 2's virtual file system exists only while MO2 runs, so the plugin checks read MO2's profile and mod folders on disk instead.");
   if (pluginsChecked && !mo2.used) {
     limits.push(

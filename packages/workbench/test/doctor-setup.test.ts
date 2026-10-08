@@ -890,6 +890,8 @@ test("a game with no plugin checks gets the location and room checks, and says w
   assert.ok(!r.notChecked.some((n) => /Plugin limits/.test(n.what)));
   assert.ok(r.notChecked.some((n) => /Smart App Control/.test(n.what)), "the Windows-only things it can't see");
   assert.ok(!r.notChecked.some((n) => /Vortex's staging folder/.test(n.what)), "Vortex is for the Bethesda games");
+  // Crash Whisperer reads BepInEx's log for this game, and the report says so in those words.
+  assert.ok(r.limits.some((l) => /After a crash, Crash Whisperer \(\/mw-crash\) reads BepInEx's log and says what it points at\./.test(l)));
 });
 
 test("another Bethesda game says its plugin checks aren't built yet, rather than running Skyrim's rules on it", () => {
@@ -904,7 +906,10 @@ test("another Bethesda game says its plugin checks aren't built yet, rather than
 test("a MelonLoader game says its Proton override isn't checked yet", () => {
   const w = install();
   makeSteam(w.steam, { game: { appId: "823500", dir: "BONEWORKS", name: "BONEWORKS" } });
-  assert.ok(run({ gameId: "boneworks" }).notChecked.some((n) => /MelonLoader/.test(n.what)));
+  const r = run({ gameId: "boneworks" });
+  assert.ok(r.notChecked.some((n) => /MelonLoader/.test(n.what)));
+  // Crash Whisperer doesn't read this game's logs, so the report doesn't send anyone there.
+  assert.ok(!r.limits.some((l) => /Crash Whisperer/.test(l)));
 });
 
 test("a game the Doctors don't know is an error that lists the ones they do", () => {
@@ -1178,6 +1183,11 @@ test("the limits of the report always include the read-only promise and how to r
   assert.match(r.limits[0] ?? "", /Everything here is read from files\. Nothing runs the game/);
   assert.ok(r.limits.some((l) => /"your files" were read directly/.test(l)));
   assert.ok(r.limits.some((l) => /Plugins are read by their header only, never loaded/.test(l)));
+  // Why it crashed is Crash Whisperer's question, and the report says where to ask it.
+  assert.ok(
+    r.limits.includes("Files can't show why a game crashed. After a crash, Crash Whisperer (/mw-crash) reads the newest crash log and says what it points at."),
+    r.limits.join("\n")
+  );
 });
 
 test("a clear report says it isn't a promise, and the Windows things it can't see are listed", () => {

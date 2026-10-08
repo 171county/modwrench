@@ -64,7 +64,8 @@ BepInEx's `winhttp` launch override, which app opens `nxm://` links, whether a l
 NTFS, FAT32 or exFAT drive, and folder names that differ only by capital letters. Every finding says
 what it rests on (your files, a documented rule with its source named, or ModWrench's own
 guess), and the report lists what it can't see: antivirus, the pagefile, what MO2's virtual file
-system shows the game while it runs. It is read-only and local: no network, no program started,
+system shows the game while it runs. Why a game crashed is Crash Whisperer's question, and the
+report says so. It is read-only and local: no network, no program started,
 nothing written, no folder path in the answer. A clear report means the checks that can run
 from files passed. It does not mean the game starts, and it says so. It was built from the tools'
 own documentation and tested on constructed installs; it has not been run against a real one.
@@ -89,7 +90,8 @@ load order. A ranking is a lead, never a verdict, and it never calls anything sa
 what the log shows the game was working with (the objects it lists, game files, the kinds of
 object in the registers, Papyrus functions), and when the game stopped inside a library
 other mods need, such as RaceMenu or JContainers, it says not to remove it and points at the
-mod that may have called it, when the log shows one. It reads Crash Logger
+mod that may have called it, when the log shows one. When no name stands out, it suggests the
+Doctors, which check the setup problems a crash log may not name. It reads Crash Logger
 SSE, Buffout 4, NetScriptFramework and BepInEx logs; the setup check covers Skyrim Special
 Edition for now. Reading the log from your disk is the private way to use it: what it
 recognises comes out before anything reaches your AI. A log you paste into the chat, or a
