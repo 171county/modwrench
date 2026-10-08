@@ -231,6 +231,18 @@ This document is currently maintained by hand. When [release-please](https://git
   crashed and that Crash Whisperer can. The help-packet step now always keeps its
   place at the end of Crash Whisperer's steps.
 
+- **`/mw-critique` and `mw_critique`: feedback for the maintainers, posted by
+  you.** Tell your AI client what went wrong, what you'd like or what you think,
+  and it drafts a GitHub issue with what a maintainer needs to reproduce it filled
+  in: ModWrench's version, the connectors that are on, the AI client as it named
+  itself, the operating system and Node's version. The personal details it
+  recognises in your words are taken out first, as in Crash Whisperer's help
+  posts. **It sends nothing:** ModWrench makes no network request, and the answer
+  ends with a link that opens the repository's new feedback form on GitHub with
+  the draft filled in, which posts only when you press its button.
+  [TRUST.md](TRUST.md#feedback-what-mw-critique-reads-and-sends) lists what goes
+  in.
+
 ### Changed
 - **The older panels are MCP Apps pages now, and text-only clients no longer
   get HTML.** Fourteen tools put an MCP-UI panel, about 28 KB of HTML, into
@@ -324,7 +336,7 @@ This document is currently maintained by hand. When [release-please](https://git
   quoted plugin name in relevant-object rows (`("Skyrim.esm")`), which had made
   the game's own master a lead. BepInEx 5: a failed load (`Error loading [X] :
   message`).
-- The Workbench now has 9 tools (52 in total), and there are 7 slash commands.
+- The Workbench now has 9 tools (53 in total, with `mw_critique`), and there are 8 slash commands.
   `/modwrench` mentions the update check, `/mw-crash` now asks for Crash
   Whisperer, and `/mw-doctor` asks for the Doctors.
 - The release workflows stop, publishing nothing, when the repository is private.

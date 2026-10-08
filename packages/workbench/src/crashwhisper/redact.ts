@@ -847,12 +847,17 @@ const NOUN: Record<RedactionKind, [string, string]> = {
   id: ["account ID", "account IDs"],
 };
 
-/** One plain sentence on what was removed, for the answer and the page. */
-export function describeRedaction(report: Omit<RedactionReport, "skippedLines"> & { skippedLines?: number }): string {
-  const parts = REDACTION_KINDS.filter((kind) => report.byKind[kind] > 0).map((kind) => {
-    const n = report.byKind[kind];
+/** What was removed, counted by kind in plain words: ["2 folder paths", "1 email address"]. Never what it was. */
+export function removedParts(byKind: Record<RedactionKind, number>): string[] {
+  return REDACTION_KINDS.filter((kind) => byKind[kind] > 0).map((kind) => {
+    const n = byKind[kind];
     return `${n} ${NOUN[kind][n === 1 ? 0 : 1]}`;
   });
+}
+
+/** One plain sentence on what was removed, for the answer and the page. */
+export function describeRedaction(report: Omit<RedactionReport, "skippedLines"> & { skippedLines?: number }): string {
+  const parts = removedParts(report.byKind);
   let text =
     parts.length === 0
       ? "Nothing personal was recognised, so nothing was removed. That isn't a promise there is nothing: read it before you post it."

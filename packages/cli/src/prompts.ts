@@ -149,6 +149,19 @@ export function buildDoctorPrompt(game?: string): PromptResult {
   );
 }
 
+/** `/mw-critique [about]` — feedback for the maintainers, drafted here and posted by you. */
+export function buildCritiquePrompt(about?: string): PromptResult {
+  const said = about?.trim();
+  const ask =
+    "I want to give the ModWrench maintainers some feedback. Help me turn it into a GitHub issue. " +
+    "If it isn't clear yet, ask me at most two short questions: what happened and what I expected (or what I wish " +
+    "ModWrench did), and for a bug, how to make it happen again. Then call `mw_critique` with the kind (bug, idea " +
+    "or other), a short title and my words. Keep my words mine; don't add file paths, log contents, my name or " +
+    "anything personal unless I ask (for a crash log, Crash Whisperer's help post is the place). Show me the draft " +
+    "and the link it returns, and say plainly that nothing is posted until I open the link and press Create.";
+  return user(said ? `${ask}\n\nWhat I want to say:\n${said}` : ask);
+}
+
 // ─── Prompt catalog + registration ───────────────────────────────────────────
 
 /** Canonical prompt names, in menu order. Kept in sync with registerPrompts. */
@@ -160,6 +173,7 @@ export const PROMPT_NAMES = [
   "mw-order",
   "mw-patch",
   "mw-doctor",
+  "mw-critique",
 ] as const;
 
 export const PROMPT_COUNT = PROMPT_NAMES.length;
@@ -250,6 +264,18 @@ export function registerPrompts(server: McpServer): { promptCount: number } {
         ),
     },
     ({ game }) => buildDoctorPrompt(game)
+  );
+
+  server.prompt(
+    "mw-critique",
+    "Tell the ModWrench maintainers what worked, what didn't, or what you wish it did. Drafts a GitHub issue with your setup filled in (ModWrench's version, your AI client, your system), for you to read and post yourself. Nothing is sent.",
+    {
+      about: z
+        .string()
+        .optional()
+        .describe("What you'd like to say, in your own words. Leave it empty and you'll be asked."),
+    },
+    ({ about }) => buildCritiquePrompt(about)
   );
 
   return { promptCount: PROMPT_COUNT };

@@ -14,7 +14,7 @@ Where a claim needed a caveat to stay true, the caveat is here instead of being 
 - **One write action, and only on your say-so.** ModWrench can endorse a mod on Nexus — crediting its author — when you ask it to. It asks first, every time, and shows you exactly what it will do before it does anything. Nothing else writes: no votes, no ratings, no comments, no subscriptions, no uploads. Details below.
 - **Never generate mod content.** ModWrench reads and explains. It produces no assets, no code, no voices, no text intended to ship inside anyone's mod.
 - **Never rate, rank, or score a mod itself.** It will tell you what a mod is and what it does, and it will not review someone's work back at them. It does pass through a platform's *own* published figures — Nexus trending, mod.io popular, Thunderstore top-rated — because those are the platform's numbers, not ModWrench's opinion.
-- **Never send anything to the maintainer.** There is no analytics SDK, no crash reporting, no telemetry, no phone-home. No network destination in this codebase belongs to us.
+- **Never send anything to the maintainer.** There is no analytics SDK, no crash reporting, no telemetry, no phone-home. No network destination in this codebase belongs to us. `/mw-critique` drafts feedback for you to post yourself, and sends nothing either (see [Feedback](#feedback-what-mw-critique-reads-and-sends)).
 - **Never store your data.** Nothing is written to disk. There is no database and no cache of your data — the only thing held in memory is LOOT's public masterlist, and it dies with the process.
 - **Never ask for a password.** ModWrench never sees or handles your platform password.
 - **Filter adult-tagged Nexus content by default**, unless you explicitly enable it yourself. Every Nexus response passes through the filter, which drops what the adult flag marks. The filter reads that flag off the record, so where a response carries no flag it cannot judge it — see [the limits of the adult filter](#the-limits-of-the-adult-filter) below, which says exactly which tools fail closed and which do not. This is the one promise on this page with a real edge, and it is spelled out rather than rounded up.
@@ -313,6 +313,17 @@ In a client that supports MCP Apps, `mw_parse_crashlog` and `mw_diagnose_crash` 
 
 What has not been checked: these five pages were exercised in a real browser against a stand-in for an MCP Apps host, and their message handling is tested against a fake host. They have not been run inside Claude, Cursor, VS Code, ChatGPT or any other real client.
 
+## Feedback: what /mw-critique reads and sends
+
+`/mw-critique` and its tool, `mw_critique`, turn what you want to tell the maintainers into a GitHub issue for you to post. **It sends nothing.** ModWrench makes no network request for it: the answer is text your AI client shows you, ending in a link. The link opens GitHub's form for the repository's feedback template in your browser, with the draft filled in through the query parameters GitHub documents for issue forms. GitHub gets the draft only if you open the link and press the form's button, from your browser and as you, the way any issue is posted.
+
+What goes into the draft:
+
+- **Your words, as your AI client passed them,** after the cleaning Crash Whisperer's help posts get: the account and computer names, folder paths, network and email addresses, keys and account IDs it recognises are taken out, and the answer says how many of each, never what they were. The limits listed for [Crash Whisperer](#crash-whisperer-what-it-opens) apply here too. One matters more here than in a log: a folder path with a space in it takes the rest of its line with it, because the cleaning can't tell where such a path ends, so a sentence that goes on after a path loses its end.
+- **Your setup, from what ModWrench knows without asking:** its own version, the connectors that are on, the name and version your AI client gave when it connected, the operating system (Windows, macOS or Linux, and on Linux whether `/etc/os-release` says this is a Steam Deck), the processor architecture, Node's version, and whether `MODWRENCH_UI` and `MODWRENCH_STRUCTURED` change the pages. No folder, account name, computer name or file of yours goes in. The one file it opens is `/etc/os-release`, on Linux.
+
+Read the draft before you post it: an issue is public.
+
 ## What leaves your machine — read this one
 
 This is the part most tools would leave out.
@@ -432,7 +443,7 @@ cat packages/core/src/auth.ts
 
 | Host | Why it appears | Contacted? |
 |---|---|---|
-| `github.com` | inside the User-Agent string (`core/src/index.ts:140`), in the CLI's help text, and as the wikis and issue the Doctors name as sources (r2modman, Proton, Flathub, Mod Organizer 2, a Steam runtime issue) | no |
+| `github.com` | inside the User-Agent string (`core/src/index.ts:140`), in the CLI's help text, as the wikis and issues the Doctors name as sources (r2modman, Proton, Flathub, Mod Organizer 2, a Steam runtime issue), and as the feedback form `/mw-critique`'s link opens in your browser | no |
 | `help.nexusmods.com` | a link in an error message pointing at Nexus's API policy | no |
 | `mod.io` | links telling you where to get your API key, and the address of a mod's page in a result | no |
 | `www.nexusmods.com` | the same two kinds of link, and the crash loggers' pages the Doctors name as sources | no |

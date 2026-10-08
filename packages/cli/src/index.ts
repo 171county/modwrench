@@ -13,6 +13,7 @@ import { registerWorkbenchTools } from "@modwrench/workbench/register";
 import { MetaCatalog, type PlatformDef } from "./catalog.js";
 import { registerPrompts } from "./prompts.js";
 import { registerDeckTool } from "./deck.js";
+import { registerCritiqueTool } from "./critique.js";
 
 // ─── Subcommand dispatch ─────────────────────────────────────────────────────
 // Must run before the MCP boot block below. Two routes today:
@@ -255,9 +256,14 @@ server.registerTool(
 // See deck.ts.
 registerDeckTool(server, catalog);
 
+// ─── mw_critique — feedback for the maintainers ─────────────────────────────
+// Drafts a GitHub issue with the user's words and their setup, for them to read and
+// post themselves. No network request. See critique.ts.
+registerCritiqueTool(server, catalog, PKG_VERSION);
+
 // ─── Prompts — the "/" summons ───────────────────────────────────────────────
 // Typed entry points hosts surface as slash-commands: /modwrench, /mw-find,
-// /mw-crash, /mw-conflicts, /mw-order. Registered unconditionally — they steer
+// /mw-crash, /mw-conflicts, /mw-order, /mw-patch, /mw-doctor, /mw-critique. Registered unconditionally — they steer
 // the model to the right tool and don't depend on which platforms activated.
 // See prompts.ts.
 const { promptCount } = registerPrompts(server);
@@ -284,7 +290,7 @@ async function main() {
     })),
     skipped: failedAtBoot.map((p) => p.platformId),
     total_tools:
-      activeAtBoot.reduce((sum, p) => sum + p.toolCount, 0) + 2, // +2 for mw_activate_platform and mw_deck
+      activeAtBoot.reduce((sum, p) => sum + p.toolCount, 0) + 3, // +3 for mw_activate_platform, mw_deck and mw_critique
     prompts: promptCount,
     catalog_dynamic: true,
   });
