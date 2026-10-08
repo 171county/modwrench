@@ -61,7 +61,7 @@ gone, Mod Organizer 2 and the game's own list disagreeing, clutter in MO2's Over
 crash loggers (none, or two that fight). The Deck Doctor, on Linux and the Steam Deck, looks at
 which Steam holds the game (regular or Flatpak), whether Proton has made the game's prefix,
 BepInEx's `winhttp` launch override, which app opens `nxm://` links, whether a library sits on an
-NTFS or exFAT drive, and folder names that differ only by capital letters. Every finding says
+NTFS, FAT32 or exFAT drive, and folder names that differ only by capital letters. Every finding says
 what it rests on (your files, a documented rule with its source named, or ModWrench's own
 guess), and the report lists what it can't see: antivirus, the pagefile, what MO2's virtual file
 system shows the game while it runs. It is read-only and local: no network, no program started,

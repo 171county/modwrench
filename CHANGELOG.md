@@ -168,7 +168,7 @@ This document is currently maintained by hand. When [release-please](https://git
   Steam Deck, looks at which Steam holds the game (regular or Flatpak), whether
   Proton has made the game's prefix, whether Proton is told to load BepInEx's
   `winhttp` (in the launch options or the prefix's `user.reg`), which app opens
-  `nxm://` links, whether a Steam library sits on an NTFS or exFAT drive, and
+  `nxm://` links, whether a Steam library sits on an NTFS, FAT32 or exFAT drive, and
   folder names that differ only by capital letters.
 
   Every finding says what it rests on, the same way Patch Day and Crash Whisperer
@@ -204,10 +204,12 @@ This document is currently maintained by hand. When [release-please](https://git
 
   **It has not been run against a real install.** The rules come from the pages each
   finding names and were read and summarised by AI models, so a rule can be stated
-  more strongly or more weakly than its page does, and a few facts are inferences
-  that TRUST.md lists: the file names Crash Logger SSE and Trainwreck install under,
-  whether an exFAT drive can hold a Proton prefix, and whether a file the game loads
-  without listing it could be read as a switched-off master. Where its sources
+  more strongly or more weakly than its page does, and a few facts don't come from
+  documentation, which TRUST.md lists: the file names Crash Logger SSE and Trainwreck
+  install under (from their build files, and seen in crash logs players posted),
+  whether an exFAT drive can hold a Proton prefix (FAT32 has Valve's answer; exFAT
+  is ModWrench's inference), and whether a file the game loads without listing it
+  could be read as a switched-off master. Where its sources
   disagree (when a missing master crashes the game, on launch or during play) it says
   "likely" and not when. Tested on constructed installs, including a stand-in Steam,
   Mod Organizer 2 and Proton prefix, with 264 tests in six files and the Doctors'
