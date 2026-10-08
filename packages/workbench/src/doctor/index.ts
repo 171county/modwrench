@@ -386,7 +386,7 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
         ...(mo2.used ? { modFolders: enabledFolders } : {}),
       },
       ...(looked !== undefined ? { plugins: looked } : {}),
-      ...(vortex !== undefined ? { vortex: { record: vortex.recorded, ...(vortex.method !== null ? { method: vortex.method } : {}) } } : {}),
+      ...(vortex !== undefined ? { vortex: { record: vortex.recorded, ...(vortex.deployMethod !== null ? { deployMethod: vortex.deployMethod } : {}) } } : {}),
     },
   };
 }

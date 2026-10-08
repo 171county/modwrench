@@ -37,7 +37,7 @@ const METHOD_WORDS: Record<string, string> = {
 export type VortexRecord =
   | { state: "none" }
   | { state: "unreadable" }
-  | { state: "read"; gameId: string | null; method: string | null; staging: string | null };
+  | { state: "read"; gameId: string | null; deployMethod: string | null; staging: string | null };
 
 /** A string field before the file list, as JSON would read it, or null. */
 function field(text: string, key: string): string | null {
@@ -65,7 +65,7 @@ export function readVortexRecord(gameDir: string): VortexRecord {
   const top = cut >= 0 ? head.slice(0, cut) : head;
   // A method is Vortex's id for it ("hardlink_activator"); anything else in that field is someone else's text and isn't repeated.
   const method = field(top, "deploymentMethod");
-  return { state: "read", gameId: field(top, "gameId"), method: method !== null && METHOD_ID.test(method) ? method : null, staging: field(top, "stagingPath") };
+  return { state: "read", gameId: field(top, "gameId"), deployMethod: method !== null && METHOD_ID.test(method) ? method : null, staging: field(top, "stagingPath") };
 }
 
 /** What Vortex's method ids look like. */
@@ -85,14 +85,14 @@ export type VortexCheck = {
   staging: string | null;
   /** The record was read and named a staging folder, whether or not it could be checked. */
   recorded: boolean;
-  method: string | null;
+  deployMethod: string | null;
   /** What couldn't be read, in words, for the report's limits. */
   skipped: string[];
 };
 
 /** Read Vortex's record for this game and judge its staging folder. `drive` is how a folder's drive is told; tests hand in their own. */
 export function checkVortex(gameDir: string, vortexGameId: string, drive: (path: string) => number | null = driveOf): VortexCheck {
-  const none: VortexCheck = { findings: [], staging: null, recorded: false, method: null, skipped: [] };
+  const none: VortexCheck = { findings: [], staging: null, recorded: false, deployMethod: null, skipped: [] };
   const record = readVortexRecord(gameDir);
   if (record.state === "none") return none;
   if (record.state === "unreadable") {
@@ -113,12 +113,12 @@ export function checkVortex(gameDir: string, vortexGameId: string, drive: (path:
   }
   // A record for another game, or one with no game in it, isn't this game's: Vortex names the game it deployed.
   if (record.gameId !== vortexGameId) return none;
-  const method = record.method;
+  const method = record.deployMethod;
   if (record.staging === null) {
     return {
       ...none,
       recorded: false,
-      method,
+      deployMethod: method,
       findings: [
         {
           id: "setup.vortex-staging",
@@ -136,7 +136,7 @@ export function checkVortex(gameDir: string, vortexGameId: string, drive: (path:
     return {
       ...none,
       recorded: true,
-      method,
+      deployMethod: method,
       findings: [
         {
           id: "setup.vortex-staging",
@@ -153,7 +153,7 @@ export function checkVortex(gameDir: string, vortexGameId: string, drive: (path:
     return {
       ...none,
       recorded: true,
-      method,
+      deployMethod: method,
       findings: [
         {
           id: "setup.vortex-staging",
@@ -174,7 +174,7 @@ export function checkVortex(gameDir: string, vortexGameId: string, drive: (path:
   const dataDrive = data === null ? null : drive(data);
   const sameDrive = stagingDrive !== null && dataDrive !== null ? stagingDrive === dataDrive : null;
   const words = method === null ? null : (METHOD_WORDS[method] ?? null);
-  const found = { staging, recorded: true, method, skipped: [] as string[] };
+  const found = { staging, recorded: true, deployMethod: method, skipped: [] as string[] };
 
   if (method !== "hardlink_activator") {
     return {
