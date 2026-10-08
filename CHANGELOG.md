@@ -10,6 +10,18 @@ This document is currently maintained by hand. When [release-please](https://git
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-10-08
+
+The workbench learns to answer three questions on its own: "is it safe to
+update?" (Patch Day), "why did my game crash?" (Crash Whisperer) and "is my
+setup ready?" (the Doctors), each with a page for clients that support MCP
+Apps, and Patch Day and the Doctors read Fallout 4 as well as Skyrim. The older
+panels move from MCP-UI to MCP Apps pages, so a client that can't draw a page
+gets the text answer and nothing else. Feedback for the maintainers now has a
+command of its own, which drafts an issue for you to post and sends nothing. None
+of this has been run inside a real MCP client or against a real game install
+yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
+
 ### Added
 - **Patch Day: `mw_patch_day` and the `/mw-patch` slash command — "is it safe to
   update?"** Before or right after a Skyrim Special Edition / Anniversary Edition
