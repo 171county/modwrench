@@ -282,6 +282,15 @@ test("MODWRENCH_STRUCTURED: always sends the list to any client, never sends it 
   }
 });
 
+test("MODWRENCH_STRUCTURED=never: no page is offered at all, since without its data it could only repeat the text", async () => {
+  for (const tool of TOOLS) {
+    const server = new AppsMockServer(DRAWS_PAGES);
+    assertTextOnly(await run(tool, server, { MODWRENCH_STRUCTURED: "never" }), tool, "never");
+    assert.equal(server.resources.size, 0, tool);
+    assert.equal(server.tools.get(tool)!.config._meta, undefined, tool);
+  }
+});
+
 test("a server that can't register the page still gets every tool, answering in text with no page to point at", async () => {
   const toolsOnly = (): AppsMockServer => {
     const server = new AppsMockServer(DRAWS_PAGES);

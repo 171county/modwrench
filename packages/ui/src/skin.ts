@@ -123,7 +123,7 @@ export function skinFrame(label: string, inner: string): string {
   </main>
   <footer class="mw-foot">
     ${taglines}
-    <span>Read-only. This answer goes to the AI you're talking to; this page sends nothing anywhere and keeps nothing.</span>
+    <span>Read-only. This answer goes to the AI you're talking to; this page makes no network request and keeps nothing.</span>
   </footer>
 </div>
 `;

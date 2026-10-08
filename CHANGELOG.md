@@ -229,7 +229,9 @@ This document is currently maintained by hand. When [release-please](https://git
   means no pages and no structured data (unless `MODWRENCH_STRUCTURED=always`)
   rather than a stub of about 130 bytes in place of each panel.
   `@modwrench/remote` keeps a session per client, so it decides the same way
-  (see the entry below on remote sessions). The pages
+  (see the entry below on remote sessions). With `MODWRENCH_STRUCTURED=never`
+  no tool points at a page at all, since without its data a page could only
+  repeat the text answer. The pages
   keep the four game skins, make no network requests and keep nothing; see
   [TRUST.md](TRUST.md#the-other-pages). The README's two pictures are
   retaken from the new pages. Like the three newer pages, they were checked in a
@@ -250,7 +252,10 @@ This document is currently maintained by hand. When [release-please](https://git
   the same text answer as before and no HTML. `ui://modwrench/order` is
   retired. The page shows a mod's author when the manager knows it
   (r2modman), shows an entry whose enable state isn't known (Vortex) as `?`
-  rather than ON, shows Vortex's warning, says when a resolved dependency tree
+  rather than ON and, when no state is known, says so instead of counting none
+  as enabled, shows Vortex's warning, shows a Mod Organizer 2 profile's mod
+  folders when it lists no plugins (rather than an empty load order under a
+  count of enabled mods), says when a resolved dependency tree
   couldn't resolve every reference or stopped at its depth or size limit, and
   shows why a load order couldn't be read (that case had no panel before). It
   never receives the folder the load order was read from.

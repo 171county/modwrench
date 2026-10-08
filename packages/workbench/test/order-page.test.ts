@@ -154,6 +154,28 @@ test("a client that draws pages: the tool points at the Dependencies page and se
   });
 });
 
+test("a Mod Organizer 2 profile with no plugins sends its mod folders to the page, so it isn't drawn as an empty load order", async () => {
+  const folderOnly = join(root, "MO2-folders");
+  mkdirSync(join(folderOnly, "profiles", "Default"), { recursive: true });
+  writeFileSync(join(folderOnly, "ModOrganizer.ini"), "[General]\ngameName=Skyrim Special Edition\nselected_profile=Default\n");
+  writeFileSync(join(folderOnly, "profiles", "Default", "modlist.txt"), "+Textures A\n+Textures B\n-Old Mod\n");
+  await withEnv({ MODWRENCH_UI: undefined, MODWRENCH_STRUCTURED: undefined }, async () => {
+    const args = { gameId: "skyrimspecialedition", modManager: "mo2", instancePath: folderOnly };
+    const result = await registered(DRAWS_PAGES).call(TOOL, args);
+    const data = result.structuredContent as { rows?: string; enabledCount: number; totalCount: number; loadOrder: Array<{ name: string; enabled: boolean | null }> };
+    assert.equal(data.rows, "folders");
+    assert.equal(data.totalCount, 3);
+    assert.equal(data.enabledCount, 2);
+    assert.deepEqual(
+      data.loadOrder.map((r) => [r.name, r.enabled]).sort(),
+      [["Old Mod", false], ["Textures A", true], ["Textures B", true]]
+    );
+    // The text answer is the one it always was, and no folder path goes to the page.
+    assert.deepEqual(result.content, (await registered(PLAIN).call(TOOL, args)).content);
+    assert.ok(!JSON.stringify(data).includes(JSON.stringify(root).slice(1, -1)));
+  });
+});
+
 test("an r2modman load order keeps each mod's author and platform on the page", async () => {
   // r2modman's folder, wherever this platform keeps it, under a home of our own.
   const home = join(root, "home");

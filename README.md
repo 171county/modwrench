@@ -38,7 +38,8 @@ a stand-in for an MCP Apps host; no page has been tried in a real client yet.
 structured data goes only to clients that say they can draw pages, because some clients hand
 the model the structured data *instead of* the text, which would turn a ten-line answer into a
 long one. If you want it anyway, for a script or an agent that reads it, set
-`MODWRENCH_STRUCTURED=always`; `MODWRENCH_STRUCTURED=never` sends it to nobody.
+`MODWRENCH_STRUCTURED=always`; `MODWRENCH_STRUCTURED=never` sends it to nobody, and then no
+tool points at a page, since without its data a page could only repeat the text answer.
 `MODWRENCH_UI=off` switches every page off, and with them the structured data, unless
 `MODWRENCH_STRUCTURED=always` asks for it. The pages make no network requests and keep
 nothing; [TRUST.md](TRUST.md#the-patch-day-page) and
