@@ -326,10 +326,17 @@ function nextStepsFor(a: {
   pluginList: CrashlogParseResult["pluginList"];
   havok: HavokHint | undefined;
 }): string[] {
-  // Up to five steps, then the help-packet step, which always has a place at the end.
+  // Up to five steps, then the help-packet step, which always has a place at the end. A game updated since the
+  // crash keeps a place too, for the step that sends it to Patch Day: that is a fact about this install, where the
+  // general steps (the Doctors, the halving) are only worth trying.
+  const patchDay =
+    a.install.checked && a.checks.some((c) => c.id === "game-updated")
+      ? "The game was updated after this crash, so run Patch Day to see which plugins don't match the version you have now."
+      : undefined;
+  const room = patchDay ? 4 : 5;
   const steps: string[] = [];
   const add = (step: string | undefined): void => {
-    if (step && !steps.includes(step) && steps.length < 5) steps.push(step);
+    if (step && !steps.includes(step) && steps.length < room) steps.push(step);
   };
   for (const check of a.checks.filter((c) => c.severity === "problem").slice(0, 2)) add(check.fix);
   // PCGamingWiki's Fallout 4 page: the launcher's Options, Advanced, Weapon Debris switches NVIDIA FleX off.
@@ -414,9 +421,7 @@ function nextStepsFor(a: {
   if (a.pluginList === "failed") {
     add("The logger couldn't write your plugin list into this log, so add your load order (your mod manager shows it) when you ask for help.");
   }
-  if (a.install.checked && a.checks.some((c) => c.id === "game-updated")) {
-    add("The game was updated after this crash, so run Patch Day to see which plugins don't match the version you have now.");
-  }
+  if (patchDay) steps.push(patchDay);
   steps.push(PACKET_STEP);
   return steps;
 }

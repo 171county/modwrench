@@ -1,11 +1,13 @@
 import { test, before, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { runDoctor } from "../src/doctor/index.js";
 import { summarizeDoctor } from "../src/doctor/summary.js";
 import type { DoctorFinding, DoctorOptions, DoctorReport } from "../src/doctor/types.js";
+import { PLUGIN_GAMES } from "../src/doctor/games.js";
 import { FALLOUT4_BASE_PLUGINS } from "../src/doctor/plugins.js";
+import { limitFinding } from "../src/doctor/setup-plugins.js";
 import { listText, putRel, tes4 } from "./helpers/doctor-world.js";
 import { buildPe } from "./helpers/pe-builder.js";
 import { createSandbox } from "./helpers/world.js";
@@ -73,6 +75,41 @@ test("a healthy Fallout 4: its eight base plugins and Fallout4.ccc load without 
   assert.ok(r.limits.some((l) => /Plugins are read by their header only/.test(l)));
 });
 
+test("Fallout 4's full limit is libloadorder's: 255 with no light plugin switched on, 254 with one, which takes 0xFE", () => {
+  const fo4 = PLUGIN_GAMES.fallout4!;
+  assert.equal(limitFinding(255, 0, 8, fo4).status, "warn");
+  assert.equal(limitFinding(256, 0, 8, fo4).status, "problem");
+  assert.equal(limitFinding(255, 1, 8, fo4).status, "problem");
+  assert.equal(limitFinding(254, 1, 8, fo4).status, "warn");
+  assert.equal(limitFinding(240, 0, 8, fo4).status, "ok");
+  assert.equal(limitFinding(241, 0, 8, fo4).status, "warn");
+  const over = limitFinding(255, 1, 8, fo4);
+  assert.match(over.detail, /^255 of 254 full plugins and 1 of 4096 light plugins are switched on/);
+  assert.match(over.detail, /Fallout 4 can load 254 full plugins and 4096 light ones, or 255 full plugins when no light plugin is switched on; a light plugin is one flagged ESL or named \.esl\./);
+  assert.match(limitFinding(10, 0, 8, fo4).detail, /^10 of 255 full plugins and 0 of 4096 light plugins/);
+  assert.match(over.source ?? "", /libloadorder\/blob\/743e8c9[0-9a-f]*\/src\/load_order\/mutable\.rs$/);
+  // Skyrim's stays DynDOLOD's flat 254.
+  assert.equal(limitFinding(255, 0, 5).status, "problem");
+  assert.doesNotMatch(limitFinding(255, 0, 5).detail, /when no light plugin/);
+});
+
+test("with a header unread, Fallout 4's count is a floor, and the note names both full limits", () => {
+  const w = fallout4();
+  putRel(w.data, "Cut.esp", tes4({ masters: ["Fallout4.esm"] }).subarray(0, 10));
+  pluginsTxt(w, ["*Cut.esp"]);
+  const f = must(run(w), "setup.plugin-limit");
+  assert.equal(f.title, "Plugin count not fully checked");
+  assert.match(f.detail, /can't say whether the list is within Fallout 4's limits of 254 full plugins \(255 when no light plugin is switched on\) and 4096 light ones\./);
+  // Past the higher limit, the count is over whatever the unread header says.
+  const many = fallout4();
+  for (let i = 0; i < 248; i++) putRel(many.data, `M${i}.esp`, tes4({ masters: ["Fallout4.esm"], version: 1.0 }));
+  putRel(many.data, "Cut.esp", tes4({ masters: ["Fallout4.esm"] }).subarray(0, 10));
+  pluginsTxt(many, [...Array.from({ length: 248 }, (_, i) => `*M${i}.esp`), "*Cut.esp"]);
+  const over = must(run(many), "setup.plugin-limit");
+  assert.deepEqual([over.status, over.title], ["problem", "Over Fallout 4's plugin limit"]);
+  assert.match(over.detail, /^256 of 255 full plugins/);
+});
+
 test("a Fallout 4 plugin whose master isn't installed is a problem, as it is for Skyrim", () => {
   const w = fallout4();
   putRel(w.data, "Patch.esp", tes4({ masters: ["Fallout4.esm", "Missing.esm"], version: 1.0 }));
@@ -90,6 +127,30 @@ test("the Microsoft Store and Epic copies keep plugins.txt in their own folders,
     pluginsTxt(w, ["*Mine.esp"], folder);
     const r = run(w);
     assert.equal(r.looked.plugins?.listed, 1, `${marker}: read from ${folder}`);
+  }
+});
+
+test("the Microsoft Store copy reads its DLC from the folders beside the game, as libloadorder does, and no other copy does", () => {
+  for (const store of [true, false]) {
+    const w = fallout4();
+    if (store) writeFileSync(join(w.game, "appxmanifest.xml"), "");
+    // Not in Data: each DLC has a folder of its own, two levels above the game folder, with the plugin in Content\Data.
+    const above = dirname(dirname(w.game));
+    for (const [dlc, name] of [["Fallout 4- Far Harbor (PC)", "DLCCoast.esm"], ["Fallout 4- Automatron (PC)", "DLCRobot.esm"]] as const) {
+      rmSync(join(w.data, name));
+      putRel(above, `${dlc}/Content/Data/${name}`, tes4({ master: true, version: 1.0 }));
+    }
+    putRel(w.data, "Coast Patch.esp", tes4({ masters: ["Fallout4.esm", "DLCCoast.esm"], version: 1.0 }));
+    pluginsTxt(w, ["*Coast Patch.esp"], store ? "Fallout4 MS" : "Fallout4");
+    const r = run(w);
+    if (store) {
+      assert.equal(must(r, "setup.masters").status, "ok");
+      // The eight base plugins, two of them from the DLC folders, and the patch.
+      assert.match(must(r, "setup.plugin-limit").detail, /^9 of \d+ full plugins/);
+    } else {
+      assert.deepEqual(must(r, "setup.masters-missing").items, ["Coast Patch.esp needs DLCCoast.esm"]);
+      assert.match(must(r, "setup.plugin-limit").detail, /^7 of \d+ full plugins/);
+    }
   }
 });
 

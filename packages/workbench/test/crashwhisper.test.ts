@@ -1297,6 +1297,41 @@ test("one crash logger is no finding, and a pair without Crash Logger SSE is Mod
   assert.match(check.detail, /No page says exactly this for this pair, so it is ModWrench's guess\./);
 });
 
+test("a game updated since the crash keeps its Patch Day step when the other steps fill the list", () => {
+  // The same five-step crash as below, on 1.5.97, with the game now on 1.6.1170.
+  installWith(null);
+  const index = (i: number): string => (i < 100 ? i.toString(16).toUpperCase().padStart(2, "0") : `FE ${(i - 100).toString(16).toUpperCase().padStart(3, "0")}`);
+  const rows = Array.from({ length: 300 }, (_, i) => `  [${index(i)}] Plugin ${i}.esp`);
+  const r = run(
+    lines(
+      ...NSF_HEAD("0x7FF71ED8D780 (SkyrimSE.exe+A0D780)", "12 Mar 2024 14:00:52.000"),
+      "Probable callstack",
+      "{",
+      "  [0]   0x7FF71ED8D780     (SkyrimSE.exe+A0D780)          hkbClipGenerator::unk_A0D770+10",
+      "}",
+      "",
+      "Stack",
+      "{",
+      '  [SP+198]  0x2DA0E173ED8      (char*) "meshes\\actors\\character\\behaviors\\0_master.hkx"',
+      "}",
+      "",
+      "Game plugins (300)",
+      "{",
+      ...rows,
+      "}"
+    ),
+    { checkInstall: true }
+  );
+  assert.equal(r.install.checked, true);
+  assert.ok(r.checks.some((c) => c.id === "game-updated"));
+  assert.equal(r.nextSteps.length, 6, r.nextSteps.join("\n"));
+  assert.match(r.nextSteps[4]!, /^The game was updated after this crash, so run Patch Day/);
+  assert.equal(r.nextSteps[5], PACKET_STEP);
+  // It took the place of the last general step, the halving.
+  assert.ok(!r.nextSteps.some((s) => /narrow it down by halves/.test(s)));
+  assert.ok(r.nextSteps.includes(DOCTOR_STEP));
+});
+
 test("the Doctors step is only for a crash no name stands out in, on a game their plugin checks cover", () => {
   // A strong lead: turn it off first, no Doctors.
   assert.ok(!run(SSE).nextSteps.includes(DOCTOR_STEP));

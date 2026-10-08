@@ -119,19 +119,22 @@ export function buildOrderPrompt(): PromptResult {
   );
 }
 
-/** `/mw-patch [version]` — is it safe to update? */
-export function buildPatchPrompt(version?: string): PromptResult {
+/** `/mw-patch [version] [game]` — is it safe to update? */
+export function buildPatchPrompt(version?: string, game?: string): PromptResult {
   const v = version?.trim();
+  const g = game?.trim();
   const target = v
     ? ` Check against game version ${v}: pass targetVersion ${JSON.stringify(v)} so it judges that version, not the installed one.`
     : "";
+  const forGame = g ? ` Pass gameId ${JSON.stringify(g)}.` : "";
   return user(
     "Is it safe to update my game? Run `mw_patch_day` and lead with the verdict " +
       "(go / check / wait) in one line. Then list only what's broken or unclear — " +
       "the plugin, why, and whether the reason is the script extender's own rule or inferred — and " +
       "what I'd have to do about each. Don't call it safe: a go only means the " +
       "file checks passed." +
-      target
+      target +
+      forGame
   );
 }
 
@@ -248,8 +251,14 @@ export function registerPrompts(server: McpServer): { promptCount: number } {
         .describe(
           "A game version to check before you update, like 1.7.104 for Skyrim or 1.11.240 for Fallout 4. Leave it empty to check what's installed now."
         ),
+      game: z
+        .string()
+        .optional()
+        .describe(
+          "skyrimspecialedition or fallout4. Leave it empty to check the one ModWrench finds installed (Skyrim Special Edition first, if both are)."
+        ),
     },
-    ({ version }) => buildPatchPrompt(version)
+    ({ version, game }) => buildPatchPrompt(version, game)
   );
 
   server.prompt(

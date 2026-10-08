@@ -1,4 +1,5 @@
 import { arch as osArch } from "node:os";
+import { performance } from "node:perf_hooks";
 import { REDACTION_KINDS, redact, removedParts, type RedactionKind, type RedactOptions } from "./crashwhisper/redact.js";
 import { detectSteamDeck } from "./detect/os.js";
 
@@ -33,6 +34,7 @@ const MAX_TITLE = 120;
 const MAX_TEXT = 4000;
 const MAX_STEPS = 12;
 const MAX_STEP = 300;
+/** The time the cleaning gets for the whole draft, every piece together. */
 const CLEANING_MS = 3000;
 
 export type FeedbackKind = "bug" | "idea" | "other";
@@ -77,26 +79,46 @@ export type FeedbackDraft = {
   leftover: number;
   /** The player's text was longer than an issue draft takes, and was cut. */
   cut: boolean;
+  /** The cleaning ran out of time, so some of the player's words were left out rather than shown uncleaned. */
+  unfinished: boolean;
   /** GitHub's feedback form, filled in. Opening it sends nothing. */
   url: string;
   /** False when the draft is too long for a link: the link then fills in the title and setup only. */
   linkHasText: boolean;
 };
 
-/** One line, no control characters, at most `max` characters. */
-function oneLine(text: string, max: number): string {
-  const flat = text.replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩]+/g, " ").replace(/\s+/g, " ").trim();
-  return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}…` : flat;
+/** Characters that print nothing or flip the direction of text: control characters, zero-width ones and bidi controls. */
+const INVISIBLE = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g;
+
+/** One line: line breaks and invisible characters become spaces, runs of spaces one. */
+function oneLine(text: string): string {
+  return text.replace(/[\r\n\t]/g, " ").replace(INVISIBLE, " ").replace(/\s+/g, " ").trim();
 }
 
-/** Keeps line breaks, drops other control characters and the ones that flip text direction. */
-function paragraphs(text: string, max: number): { text: string; cut: boolean } {
-  const tidy = text
-    .replace(/\r\n?/g, "\n")
-    .replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩]/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  return tidy.length > max ? { text: `${tidy.slice(0, max - 1).trimEnd()}…`, cut: true } : { text: tidy, cut: false };
+/** Line breaks kept (at most one blank line in a row), invisible characters dropped. */
+function paragraphs(text: string): string {
+  return text.replace(/\r\n?/g, "\n").replace(INVISIBLE, "").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/** At most `max` characters, with an ellipsis when cut. */
+function shorten(text: string, max: number): { text: string; cut: boolean } {
+  return text.length > max ? { text: `${text.slice(0, max - 1).trimEnd()}…`, cut: true } : { text, cut: false };
+}
+
+/**
+ * What the cleaning reads at most of any one piece, far more than a draft keeps. Past it, the text stops at the end
+ * of the last whole line, so no line is split here; one long line is cut by the cleaning itself, which backs off
+ * to a space or past a run of letters and digits rather than split a word. The cut to the draft's own lengths
+ * comes after the cleaning, so it can't split a name or a key the cleaning would have recognised whole.
+ */
+const READ_AT_MOST = 64 * 1024;
+
+/** At most READ_AT_MOST characters, ending at a line break when the text goes on past it. */
+function readable(text: string): { text: string; cut: boolean } {
+  if (text.length <= READ_AT_MOST) return { text, cut: false };
+  const head = text.slice(0, READ_AT_MOST);
+  const lineEnd = head.lastIndexOf("\n");
+  return { text: lineEnd > 0 ? head.slice(0, lineEnd) : head, cut: true };
 }
 
 function systemName(platform: NodeJS.Platform, steamDeck: boolean): string {
@@ -106,9 +128,18 @@ function systemName(platform: NodeJS.Platform, steamDeck: boolean): string {
   return platform;
 }
 
-function clientWords(client: FeedbackInput["client"]): string {
-  const name = typeof client?.name === "string" ? oneLine(client.name, 60) : "";
-  const version = typeof client?.version === "string" ? oneLine(client.version, 30) : "";
+function clientWords(client: FeedbackInput["client"], clean: (text: string) => { text: string; timedOut: boolean }): string {
+  // The client chose these words; they are cleaned like the player's, in case one holds a name or a folder.
+  // Undefined: there was something, but no time left to clean it.
+  const word = (value: unknown, max: number): string | undefined => {
+    const raw = typeof value === "string" ? oneLine(value.slice(0, 1024)) : "";
+    if (raw === "") return "";
+    const cleaned = clean(raw);
+    return cleaned.timedOut ? undefined : shorten(cleaned.text, max).text;
+  };
+  const name = word(client?.name, 60);
+  const version = word(client?.version, 30) ?? "";
+  if (name === undefined) return "left out, as the cleaning ran out of time";
   if (name === "") return "not reported by the client";
   return `${name}${version ? ` ${version}` : ""}, as it named itself`;
 }
@@ -122,34 +153,48 @@ function link(title: string, fields: Record<string, string>): string {
 /** The draft and its link. Pure apart from reading which system this is (and, on Linux, whether it is a Steam Deck). */
 export function draftFeedback(input: FeedbackInput): FeedbackDraft {
   const kind = input.kind ?? "bug";
-  const options: RedactOptions = { budgetMs: CLEANING_MS, ...input.redactOptions };
+  // One allowance for every piece, so a long draft can't take a few seconds per step.
+  const options: RedactOptions = { deadline: performance.now() + CLEANING_MS, ...input.redactOptions };
   const removedByKind = Object.fromEntries(REDACTION_KINDS.map((k) => [k, 0])) as Record<RedactionKind, number>;
   let leftover = 0;
-  const clean = (text: string): string => {
-    if (text === "") return "";
+  let skipped = 0;
+  // A line the cleaning cut short for its length (6,000 characters) lost its end, as a draft's own cut does.
+  let longLines = 0;
+  const cleanPiece = (text: string): { text: string; timedOut: boolean } => {
+    if (text === "") return { text: "", timedOut: false };
     const out = redact(text, options);
     for (const k of REDACTION_KINDS) removedByKind[k] += out.report.byKind[k];
     leftover += out.report.leftover;
-    return out.text;
+    longLines += out.report.cutLines;
+    // Lines the cleaning had no time for are left out, never passed on uncleaned.
+    skipped += out.report.skippedLines;
+    return { text: out.text, timedOut: out.report.skippedLines > 0 };
   };
+  const clean = (text: string): string => cleanPiece(text).text;
 
-  const body = paragraphs(input.feedback ?? "", MAX_TEXT);
-  const feedback = clean(body.text);
-  const stepsIn = (input.steps ?? []).map((s) => oneLine(s, MAX_STEP)).filter((s) => s !== "");
-  const steps = stepsIn.slice(0, MAX_STEPS).map(clean);
-  // A title that already starts with a tag gets this one instead, not two.
-  const given = oneLine(input.title ?? "", MAX_TITLE).replace(/^\[(?:bug|idea|feedback|feature)\]\s*/i, "");
-  const fromText = oneLine(feedback.split("\n")[0] ?? "", 80);
-  const title = `${PREFIX[kind]} ${clean(given) || fromText || "ModWrench feedback"}`;
+  // Clean first, then cut: a cut that landed inside a key or a name would leave a piece no rule recognises.
+  // The short pieces go first, so a long text that uses up the time loses only its own end.
+  const client = clientWords(input.client, cleanPiece);
+  // A title that already starts with a tag gets this one instead, not two. A title and a step are one line each,
+  // which the cleaning cuts short itself past 6,000 characters.
+  const given = shorten(clean(oneLine((input.title ?? "").slice(0, READ_AT_MOST)).replace(/^\[(?:bug|idea|feedback|feature)\]\s*/i, "")), MAX_TITLE).text;
+  const stepsIn = (input.steps ?? []).map((s) => oneLine(s.slice(0, READ_AT_MOST))).filter((s) => s !== "");
+  const stepsCut = stepsIn.slice(0, MAX_STEPS).map((s) => shorten(clean(s), MAX_STEP));
+  const steps = stepsCut.map((s) => s.text).filter((s) => s !== "");
+  const read = readable(input.feedback ?? "");
+  const body = shorten(clean(paragraphs(read.text)), MAX_TEXT);
+  const feedback = body.text;
+  const fromText = shorten(oneLine(feedback.split("\n")[0] ?? ""), 80).text;
+  const title = `${PREFIX[kind]} ${given || fromText || "ModWrench feedback"}`;
 
   const platform = input.platform ?? process.platform;
   const steamDeck = input.steamDeck ?? (platform === "linux" ? detectSteamDeck() : false);
   const setup = [
-    `ModWrench ${oneLine(input.version, 30)}${input.connectors.length > 0 ? `, connectors on: ${input.connectors.map((c) => oneLine(c, 30)).join(", ")}` : ""}`,
-    `AI client: ${clientWords(input.client)}`,
-    `System: ${systemName(platform, steamDeck)}, ${oneLine(input.arch ?? osArch(), 16)}`,
-    `Node.js ${oneLine(input.node ?? process.version, 20)}`,
-    `Pages ${input.pages.on ? "on" : "off (MODWRENCH_UI=off)"}, structured data ${oneLine(input.pages.structured, 10)}`,
+    `ModWrench ${shorten(oneLine(input.version), 30).text}${input.connectors.length > 0 ? `, connectors on: ${input.connectors.map((c) => shorten(oneLine(c), 30).text).join(", ")}` : ""}`,
+    `AI client: ${client}`,
+    `System: ${systemName(platform, steamDeck)}, ${shorten(oneLine(input.arch ?? osArch()), 16).text}`,
+    `Node.js ${shorten(oneLine(input.node ?? process.version), 20).text}`,
+    `Pages ${input.pages.on ? "on" : "off (MODWRENCH_UI=off)"}, structured data ${shorten(oneLine(input.pages.structured), 10).text}`,
   ];
 
   const numbered = steps.map((s, i) => `${i + 1}. ${s}`).join("\n");
@@ -165,7 +210,8 @@ export function draftFeedback(input: FeedbackInput): FeedbackDraft {
     setup,
     removed: removedParts(removedByKind),
     leftover,
-    cut: body.cut || stepsIn.length > MAX_STEPS,
+    cut: read.cut || body.cut || longLines > 0 || stepsIn.length > MAX_STEPS || stepsCut.some((s) => s.cut),
+    unfinished: skipped > 0,
     url,
     linkHasText,
   };
@@ -176,13 +222,14 @@ export function summarizeFeedback(d: FeedbackDraft): string {
   const out: string[] = [
     "Feedback draft for ModWrench. Nothing has been sent: ModWrench made no network request, and GitHub gets this only if you open the link below and press its Create button.",
     d.removed.length > 0
-      ? `Taken out of your words: ${d.removed.join(", ")}. Read it before you post it.`
-      : "Nothing personal was recognised in your words. That isn't a promise there is nothing: read it before you post it.",
+      ? `Taken out of the draft: ${d.removed.join(", ")}. Read it before you post it.`
+      : "Nothing personal was recognised in the draft. That isn't a promise there is nothing: read it before you post it.",
   ];
   if (d.leftover > 0) {
     out.push(`Your account or computer name is still inside ${d.leftover === 1 ? "another word" : `${d.leftover} other words`}; check ${d.leftover === 1 ? "it" : "them"}.`);
   }
   if (d.cut) out.push("It was longer than a draft takes, so the end was cut; add it on GitHub if it matters.");
+  if (d.unfinished) out.push("Cleaning it took too long, so some of your words were left out rather than shown uncleaned; add them on GitHub if they matter, and check them first.");
   out.push("", `Title: ${d.title}`);
   if (d.feedback !== "") out.push("", "What you'd like to say:", d.feedback);
   if (d.steps.length > 0) out.push("", "How to make it happen again:", ...d.steps.map((s, i) => `${i + 1}. ${s}`));

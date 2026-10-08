@@ -50,8 +50,11 @@ function fail(error: string, hint?: string): DoctorError {
   return { ok: false, error, ...(hint ? { hint } : {}), supportedGames: DOCTOR_GAMES };
 }
 
+/** What came of looking for Vortex's deployment record: its state, or why it wasn't looked at. */
+type VortexState = VortexCheck["record"] | "no-game" | "stopped";
+
 /** What ModWrench can't see from here, for this game on this system. */
-function notChecked(platform: DoctorPlatform, def: GameDef, ranSetup: boolean, ranDeck: boolean, mo2: Mo2Facts, vortex: VortexCheck | undefined): NotChecked[] {
+function notChecked(platform: DoctorPlatform, def: GameDef, ranSetup: boolean, ranDeck: boolean, mo2: Mo2Facts, vortex: VortexState): NotChecked[] {
   const out: NotChecked[] = [];
   if (platform === "windows" && ranSetup) {
     out.push(
@@ -66,13 +69,20 @@ function notChecked(platform: DoctorPlatform, def: GameDef, ranSetup: boolean, r
       { what: "Whether nxm:// links open your mod manager", why: "Windows keeps that in the registry." }
     );
     // Vortex's deployment record names the staging folder while it has mods deployed; without one, it is in Vortex's database.
-    if (def.family === "bethesda" && vortex?.recorded !== true) {
+    if (def.family === "bethesda" && vortex !== "named") {
+      const database = "Otherwise it is in Vortex's own database, which ModWrench doesn't open.";
+      const names = "Vortex names it in the game's Data folder (vortex.deployment.json) while it has mods deployed";
+      const WHY: Record<Exclude<VortexState, "named">, string> = {
+        none: `Vortex names it in the game's Data folder (vortex.deployment.json) only while it has mods deployed, and that record wasn't there. ${database}`,
+        unreadable: `${names}, and that record is there but couldn't be opened. ${database}`,
+        "other-game": `The deployment record in the game's Data folder (vortex.deployment.json) doesn't name this game, so it wasn't used. ${database}`,
+        "no-staging": `Vortex's deployment record in the game's Data folder doesn't name it (older versions of Vortex didn't write it). ${database}`,
+        "no-game": `${names}, but the game's folder wasn't found, so that record wasn't looked for. ${database}`,
+        stopped: `${names}, but the check stopped before it read that record. ${database}`,
+      };
       out.push({
         what: "Vortex's staging folder, and whether it is on the same drive as the game",
-        why:
-          VORTEX_GAME_IDS[def.gameId] !== undefined
-            ? "Vortex names it in the game's Data folder (vortex.deployment.json) only while it has mods deployed, and that record wasn't there. Otherwise it is in Vortex's own database, which ModWrench doesn't open."
-            : "Vortex keeps that in a database ModWrench can't read yet.",
+        why: VORTEX_GAME_IDS[def.gameId] === undefined ? "Vortex keeps that in a database ModWrench can't read yet." : WHY[vortex],
       });
     }
   }
@@ -373,7 +383,7 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
     headline,
     counts,
     findings: ordered,
-    notChecked: [...stopped, ...notChecked(platform, def, ranSetup, ranDeck, mo2, vortex)],
+    notChecked: [...stopped, ...notChecked(platform, def, ranSetup, ranDeck, mo2, vortex?.record ?? (gameDir === null ? "no-game" : "stopped"))],
     nextSteps,
     limits,
     looked: {

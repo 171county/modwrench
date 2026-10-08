@@ -57,7 +57,8 @@ isn't a mod. The Setup Doctor looks at where the game, Mod Organizer 2 and Vorte
 live (Program Files, OneDrive and the other folders Windows protects or syncs), whether Vortex's
 staging folder is on the game's drive as its hard links need, how much room is left on the drive,
 and, for Skyrim Special Edition and Fallout 4, the plugin list: plugins whose master is missing, switched off
-or loaded too late, the limit of 254 full and 4,096 light plugins, entries for plugins that are
+or loaded too late, the limit of 254 full and 4,096 light plugins (255 full in a Fallout 4 list
+with no light plugin on), entries for plugins that are
 gone, Mod Organizer 2 and the game's own list disagreeing, clutter in MO2's Overwrite folder, and
 crash loggers (none, or two that fight). The Deck Doctor, on Linux and the Steam Deck, looks at
 which Steam holds the game (regular or Flatpak), whether Proton has made the game's prefix,
