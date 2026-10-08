@@ -166,8 +166,9 @@ test("an r2modman load order keeps each mod's author and platform on the page", 
   mkdirSync(join(r2, "LethalCompany", "profiles", "Default"), { recursive: true });
   writeFileSync(
     join(r2, "LethalCompany", "profiles", "Default", "mods.yml"),
-    "- AuthorName: BepInEx\n  Name: BepInExPack\n  DisplayName: BepInExPack\n  Version: { Major: 5, Minor: 4, Patch: 2100 }\n  Enabled: true\n" +
-      "- AuthorName: \"Evil<img src=x>\"\n  Name: Mod\n  Enabled: false\n"
+    // As r2modman writes mods.yml: camelCase keys, the Thunderstore id in name, the version under versionNumber.
+    "- name: BepInEx-BepInExPack\n  authorName: BepInEx\n  displayName: BepInExPack\n  versionNumber: { major: 5, minor: 4, patch: 2100 }\n  enabled: true\n" +
+      "- name: Evil-Mod\n  authorName: \"Evil<img src=x>\"\n  displayName: Mod\n  enabled: false\n"
   );
   await withEnv({ APPDATA: join(home, "AppData", "Roaming"), HOME: home, MODWRENCH_UI: undefined, MODWRENCH_STRUCTURED: undefined }, async () => {
     const result = await registered(DRAWS_PAGES).call(TOOL, { gameId: "lethalcompany", modManager: "r2modman" });

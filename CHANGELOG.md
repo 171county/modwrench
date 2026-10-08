@@ -408,6 +408,18 @@ This document is currently maintained by hand. When [release-please](https://git
   its registers but no game objects no longer says it "lists no objects the game
   was working with": the answer and the posts now say the log names no object
   from a mod's plugin.
+- **`mw_read_load_order` reads r2modman profiles again.** It looked for
+  PascalCase keys (`AuthorName`, `Name`, `Version`, `Enabled`) that r2modman
+  never writes to `mods.yml`; r2modman writes its own camelCase field names
+  (`authorName`, `displayName`, `versionNumber`, `enabled`). Every mod came back
+  as "(unnamed)", switched on, with no version or author. Mods now carry their
+  name, author, version and Thunderstore id (r2modman's `name`, already
+  `Author-ModName`), and a mod is switched on only when r2modman says so. The
+  `icon` path some r2modman versions write, which holds the player's user name,
+  is still never read. Checked against a public 87-mod Lethal Company profile.
+  On Linux and the Steam Deck it also looked for r2modman's Flatpak under an id
+  that doesn't exist (`com.kalindudc.r2modmanPlus`); it now uses r2modman's own,
+  `io.github.ebkr.r2modman`, as environment detection already did.
 
 ## [0.2.4] — 2026-09-15
 
