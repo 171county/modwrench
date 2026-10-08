@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { clean } from "../patchday/summary.js";
-import { Budget, readDir, resolveCI } from "./fsutil.js";
+import { Budget, isDir, readDir, resolveCI } from "./fsutil.js";
 import { PLUGIN_GAMES, type PluginGame } from "./games.js";
 import type { Mo2Facts } from "./mo2facts.js";
 import {
@@ -28,8 +28,18 @@ import type { DoctorFinding, DoctorPlatform, DoctorReport } from "./types.js";
 // plugins.txt and the Data folder. It opens each plugin only far enough to read its
 // header. It writes nothing.
 
+/** The full-plugin limit while a light plugin is switched on, which is every game's here; see PluginGame.fullLimit. */
 export const FULL_LIMIT = 254;
 export const LIGHT_LIMIT = 4096;
+
+/** The limits in words: "254 full and 4096 light limits", or for a game whose full limit depends on light plugins, both. */
+function limitWords(game: PluginGame): string {
+  const withLight = game.fullLimit(true);
+  const without = game.fullLimit(false);
+  return withLight === without
+    ? `${game.short}'s ${withLight} full and ${LIGHT_LIMIT} light limits`
+    : `${game.short}'s limits of ${withLight} full plugins (${without} when no light plugin is switched on) and ${LIGHT_LIMIT} light ones`;
+}
 
 const SKYRIM = PLUGIN_GAMES.skyrimspecialedition!;
 const LOAD_ORDER_SOURCE = "https://loot.readthedocs.io/en/latest/app/sorting.html";
@@ -86,6 +96,15 @@ export function buildIndex(gameDir: string, mo2: Mo2Facts, budget: Budget, game:
   const data = resolveCI(gameDir, "Data");
   if (data === null) skip("the game folder has no Data folder");
   else unreadable += addRoot(data, "game folder", index, game.xse);
+  // The Microsoft Store's Fallout 4 keeps its DLC beside the game. Added last-wins, so the first-listed folder that
+  // holds a plugin is the one that counts, over Data's copy, as libloadorder picks it. A folder that isn't there is
+  // DLC that isn't installed.
+  const above = dirname(dirname(gameDir));
+  const extras = game.extraData?.((file) => resolveCI(gameDir, file) !== null) ?? [];
+  for (const parts of [...extras].reverse()) {
+    const dir = resolveCI(above, ...parts);
+    if (dir !== null && isDir(dir)) unreadable += addRoot(dir, `store:${parts[0]}`, index, game.xse);
+  }
   if (mo2.used) {
     if (mo2.modsDir === null || mo2.modsDir === undefined) {
       skip("MO2's mods folder wasn't found");
@@ -168,10 +187,15 @@ const PROBLEM_WORDS: Record<HeaderProblemKind, string> = {
 const nm = (value: string): string => clean(value, 70);
 
 export function limitFinding(full: number, light: number, implicit: number, game: PluginGame = SKYRIM): DoctorFinding {
-  const counts = `${full} of ${FULL_LIMIT} full plugins and ${light} of ${LIGHT_LIMIT} light plugins are switched on, counting the ${implicit} game and Creation Club files that load without being listed.`;
-  const rule = `${game.short} can load ${FULL_LIMIT} full plugins and ${LIGHT_LIMIT} light ones; a light plugin is one flagged ESL or named .esl.`;
+  const fullMax = game.fullLimit(light > 0);
+  const counts = `${full} of ${fullMax} full plugins and ${light} of ${LIGHT_LIMIT} light plugins are switched on, counting the ${implicit} game and Creation Club files that load without being listed.`;
+  const without = game.fullLimit(false);
+  const rule =
+    `${game.short} can load ${game.fullLimit(true)} full plugins and ${LIGHT_LIMIT} light ones` +
+    (without !== game.fullLimit(true) ? `, or ${without} full plugins when no light plugin is switched on` : "") +
+    "; a light plugin is one flagged ESL or named .esl.";
   const LIMIT_SOURCE = game.limitSource;
-  if (full > FULL_LIMIT || light > LIGHT_LIMIT) {
+  if (full > fullMax || light > LIGHT_LIMIT) {
     return {
       id: "setup.plugin-limit",
       area: "setup",
@@ -183,7 +207,7 @@ export function limitFinding(full: number, light: number, implicit: number, game
       source: LIMIT_SOURCE,
     };
   }
-  if (full >= FULL_LIMIT - 14 || light >= LIGHT_LIMIT - 96) {
+  if (full >= fullMax - 14 || light >= LIGHT_LIMIT - 96) {
     return {
       id: "setup.plugin-limit",
       area: "setup",
@@ -460,9 +484,10 @@ export function checkPlugins(input: PluginCheckInput): PluginCheck {
   const located = rows.filter((r) => r.found).length;
   // A plugin whose header couldn't be opened or read to its end may be full or light; one that isn't a plugin at all is neither.
   const unknown = rows.filter((r) => r.problem === "unreadable" || r.problem === "truncated" || r.problem === "too-large").length;
-  if ((unread > 0 || unknown > 0 || !index.complete) && full <= FULL_LIMIT && light <= LIGHT_LIMIT) {
+  if ((unread > 0 || unknown > 0 || !index.complete) && full <= game.fullLimit(light > 0) && light <= LIGHT_LIMIT) {
     // Whether a plugin is light is in its header. With some headers or folders unread the counts are only a floor,
-    // and "within the limits" would claim more than was looked at. Over the limit already is still certain.
+    // and "within the limits" would claim more than was looked at. Over the limit already is still certain: past the
+    // higher full limit, or past the lower one with a light plugin already counted.
     const gaps: string[] = [];
     if (unread > 0) {
       gaps.push(
@@ -481,7 +506,7 @@ export function checkPlugins(input: PluginCheckInput): PluginCheck {
       title: "Plugin count not fully checked",
       detail:
         `${gapText.charAt(0).toUpperCase()}${gapText.slice(1)}, ` +
-        `and whether a plugin is full or light is in its header, so it can't say whether the list is within ${game.short}'s ${FULL_LIMIT} full and ${LIGHT_LIMIT} light limits.` +
+        `and whether a plugin is full or light is in its header, so it can't say whether the list is within ${limitWords(game)}.` +
         (looked.read === 0
           ? ""
           : ` ${looked.read === 1 ? "The 1 it did open comes" : `The ${looked.read} it did open come`} to ${full} full and ${light} light, so the real totals are at least that.`),

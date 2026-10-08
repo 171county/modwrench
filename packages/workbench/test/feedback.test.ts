@@ -131,7 +131,7 @@ test("the answer: nothing sent, what was taken out, the draft in full, and the l
   const d = draftFeedback({ ...BASE, kind: "idea", title: "Fallout 4 for Patch Day", feedback: "Please add it." });
   const text = summarizeFeedback(d);
   assert.match(text, /^Feedback draft for ModWrench\. Nothing has been sent: ModWrench made no network request, and GitHub gets this only if you open the link below and press its Create button\.$/m);
-  assert.match(text, /^Nothing personal was recognised in your words\. That isn't a promise there is nothing: read it before you post it\.$/m);
+  assert.match(text, /^Nothing personal was recognised in the draft\. That isn't a promise there is nothing: read it before you post it\.$/m);
   assert.match(text, /^Title: \[idea\] Fallout 4 for Patch Day$/m);
   assert.match(text, /^What you'd like to say:\nPlease add it\.$/m);
   assert.doesNotMatch(text, /How to make it happen again/, "no steps were given");
@@ -144,4 +144,67 @@ test("a folder path with spaces takes the rest of its line with it, as in a cras
   // Windows folder names can have spaces, so the cleaning can't tell where such a path ends before the line does.
   const d = draftFeedback({ ...BASE, feedback: "Profile at C:\\Users\\Jane Doe\\Documents\\My Games shows nothing" });
   assert.equal(d.feedback, "Profile at REDACTED-PATH");
+});
+
+test("cleaning comes before cutting, so a key or a name across a cut is removed whole, not left in part", () => {
+  // "tss_", 30 letters and digits and a 6-character checksum: a cut inside one would leave a piece too short to recognise.
+  const token = `tss_${"a1B2c3D4e5".repeat(3)}x9Y8z7`;
+  // The title keeps 120 characters: the token starts at 101.
+  const title = draftFeedback({ ...BASE, title: `${"t".repeat(100)} ${token} and more` }).title;
+  assert.doesNotMatch(title, /tss_/);
+  assert.match(title, / REDACTED-SECRET an…$/, "the token was removed whole, then the title was cut");
+  // The text keeps 4,000: the computer name starts at 3,996.
+  const d = draftFeedback({ ...BASE, feedback: `${"w".repeat(3995)} JANE-PC was the machine` });
+  assert.doesNotMatch(d.feedback, /JANE/);
+  assert.equal(d.cut, true);
+  assert.ok(d.removed.some((r) => /computer name/.test(r)), d.removed.join(", "));
+  // A step keeps 300: the folder starts at 290.
+  const step = draftFeedback({ ...BASE, steps: [`${"s".repeat(289)} C:\\Users\\Jane Doe\\Desktop\\mods.txt`] }).steps[0]!;
+  assert.doesNotMatch(step, /Users|Jane/);
+  assert.equal(step.length, 300);
+});
+
+test("the client's name and version are cleaned like the player's words", () => {
+  const d = draftFeedback({ ...BASE, client: { name: "JANE-PC agent", version: "C:\\Users\\Jane Doe\\bin" } });
+  assert.doesNotMatch(d.setup[1]!, /JANE|Jane|Users/);
+  assert.equal(d.setup[1], "AI client: REDACTED-MACHINE agent REDACTED-PATH, as it named itself");
+  assert.ok(d.removed.length > 0, "what was taken out is counted");
+});
+
+test("when the cleaning runs out of time, what it didn't reach is left out, and the answer says so", () => {
+  const d = draftFeedback({
+    ...BASE,
+    title: "Crash on JANE-PC",
+    feedback: "Profile at C:\\Users\\Jane Doe",
+    steps: ["Open JANE-PC"],
+    redactOptions: { ...BASE.redactOptions, deadline: 0 },
+  });
+  assert.equal(d.unfinished, true);
+  assert.equal(d.title, "[bug] ModWrench feedback");
+  assert.equal(d.feedback, "");
+  assert.deepEqual(d.steps, []);
+  assert.equal(d.setup[1], "AI client: left out, as the cleaning ran out of time");
+  assert.doesNotMatch(JSON.stringify(d), /JANE|Jane/);
+  assert.match(summarizeFeedback(d), /Cleaning it took too long, so some of your words were left out rather than shown uncleaned/);
+  assert.equal(draftFeedback({ ...BASE, feedback: "Fine." }).unfinished, false);
+});
+
+test("past 64 KB the text stops at a line's end, so a key across that point isn't left in part, and the draft says it was cut", () => {
+  // Eleven long folder paths, each of which the cleaning shrinks to a few characters, then a key across character 65,536.
+  const path = `C:\\Users\\Someone\\${"a".repeat(5880)}`;
+  let text = `${Array.from({ length: 11 }, () => path).join("\n")}\n`;
+  text += `${"x".repeat(65_536 - text.length - 10)} ghp_${"A1b2C3d4E5".repeat(4)} and the rest`;
+  const d = draftFeedback({ ...BASE, feedback: text });
+  assert.ok(d.feedback.length < 4000, "short enough that the draft's own cut didn't remove it");
+  assert.doesNotMatch(d.feedback, /ghp_|A1b2/);
+  assert.equal(d.cut, true);
+  // One line too long for the cleaning, which cuts it itself, is a cut too.
+  assert.equal(draftFeedback({ ...BASE, feedback: `C:\\Users\\Someone\\${"b".repeat(6500)} and then more words` }).cut, true);
+});
+
+test("a client name the cleaning empties isn't taken for one it had no time for", () => {
+  // U+2060 WORD JOINER: no line break or space, but the cleaning drops it.
+  const d = draftFeedback({ ...BASE, client: { name: "\u2060\u2060", version: "1" } });
+  assert.equal(d.unfinished, false);
+  assert.equal(d.setup[1], "AI client: not reported by the client");
 });

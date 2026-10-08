@@ -74,7 +74,7 @@ type LogDialect = {
   skippedTail: string;
   /** Builds of it that write no "(handle N)" after a status. */
   handleOptional: boolean;
-  /** A failed load can carry more after its error number: "(Error 126: failed to load x.dll)". */
+  /** A failed load can carry more after its error number: "(Error 126: failed to load x.dll)", which F4SE adds for a missing dependency. */
   errorSuffix: boolean;
 };
 
@@ -125,7 +125,10 @@ type PatchDayGame = {
 };
 
 export type PatchDayOptions = {
-  /** Default: the first supported game found on this machine. */
+  /**
+   * Default: the game whose executable is in gamePath, or else the first supported game installed in a Steam
+   * library (Skyrim Special Edition before Fallout 4); the answer then names any other one it found there.
+   */
   gameId?: string;
   /** Install folder, for a copy ModWrench can't find (GOG, a custom Steam library). */
   gamePath?: string;
@@ -414,7 +417,8 @@ function tails(d: LogDialect): { status: RegExp; line: RegExp; failed: RegExp; s
   return {
     status: new RegExp(`^(${status})(?: (-?\\d+))?${handle}$`),
     line: new RegExp(` [0-9A-F]{8}\\) (${status})(?: (-?\\d+))?${handle}$`),
-    failed: d.errorSuffix ? / \(Error (-?\d+)(?:: [^)]*)?\)$/ : / \(Error (-?\d+)\)$/,
+    // What follows the number can hold brackets of its own ("failed to load Helper (x64).dll"): the line's last one closes it.
+    failed: d.errorSuffix ? / \(Error (-?\d+)(?:: .*)?\)$/ : / \(Error (-?\d+)\)$/,
     skipped: new RegExp(` \\(|${escapeRe(d.skippedTail)}$`),
   };
 }
@@ -548,6 +552,10 @@ const SUPPORTED: PatchDayGame[] = [
 ];
 
 export const PATCH_DAY_GAMES: string[] = SUPPORTED.map((g) => g.gameId);
+
+/** Every game and executable Patch Day reads, in words: "Skyrim Special Edition or Fallout 4". */
+const ANY_GAME = SUPPORTED.map((g) => g.name).join(" or ");
+const ANY_EXE = SUPPORTED.map((g) => g.exe).join(" or ");
 
 const hex8 = (n: number): string => n.toString(16).toUpperCase().padStart(8, "0");
 
@@ -734,16 +742,22 @@ export function inspectPatchDay(options: PatchDayOptions = {}): { result: PatchD
 }
 
 function runPatchDay(options: PatchDayOptions, found?: (install: PatchDayInstall) => void): PatchDayResult {
-  const gameId = options.gameId ?? PATCH_DAY_GAMES[0]!;
-  const game = SUPPORTED.find((g) => g.gameId === gameId);
-  const def: GameDef | undefined = findGameById(gameId);
-  if (!game || !def) {
-    return fail(
-      `Patch Day can't check "${gameId}" yet.`,
-      "It reads Skyrim Special Edition and Anniversary Edition with SKSE, and Fallout 4 with F4SE."
-    );
+  // Which game: the one asked for; else the one whose executable is in gamePath; else the first one installed in a
+  // Steam library, and the answer then names any other one it found there.
+  const asked = options.gameId;
+  let chosen: PatchDayGame | undefined;
+  if (asked !== undefined) {
+    chosen = SUPPORTED.find((g) => g.gameId === asked && findGameById(g.gameId) !== undefined);
+    if (!chosen) {
+      return fail(
+        `Patch Day can't check "${asked}" yet.`,
+        "It reads Skyrim Special Edition and Anniversary Edition with SKSE, and Fallout 4 with F4SE."
+      );
+    }
+  } else if (options.gamePath) {
+    const dir = resolve(options.gamePath);
+    chosen = SUPPORTED.find((g) => pathExists(join(dir, g.exe)));
   }
-  const x = game.extender;
 
   let targetPacked: number | null = null;
   if (options.targetVersion !== undefined) {
@@ -751,7 +765,9 @@ function runPatchDay(options: PatchDayOptions, found?: (install: PatchDayInstall
     if (targetPacked === null) {
       return fail(
         `"${options.targetVersion}" isn't a game version.`,
-        `Give it like ${game.example} — the number Steam or the ${x.name} site shows for the new patch.`
+        chosen
+          ? `Give it like ${chosen.example} — the number Steam or the ${chosen.extender.name} site shows for the new patch.`
+          : `Give it like ${SUPPORTED.map((g) => `${g.example} for ${g.name}`).join(" or ")} — the number Steam or the script extender's site shows for the new patch.`
       );
     }
   }
@@ -760,18 +776,31 @@ function runPatchDay(options: PatchDayOptions, found?: (install: PatchDayInstall
   const steamRoot = findSteamRoot();
   const libraries = steamRoot ? findSteamLibraries(steamRoot) : [];
   let gameDir: string;
+  let alsoInstalled: PatchDayGame[] = [];
   if (options.gamePath) {
     gameDir = resolve(options.gamePath);
+    if (!chosen) {
+      return fail(`Neither ${SUPPORTED.map((g) => g.exe).join(" nor ")} is in that folder.`, `gamePath should be the folder that holds ${ANY_EXE}.`);
+    }
   } else {
-    const app = findInstalledApp(libraries, def.steamAppId);
-    if (!app) {
+    const installed = (chosen ? [chosen] : SUPPORTED).flatMap((g) => {
+      const app = findInstalledApp(libraries, findGameById(g.gameId)!.steamAppId);
+      return app ? [{ game: g, dir: app.installDir }] : [];
+    });
+    const first = installed[0];
+    if (!first) {
       return fail(
-        `Couldn't find ${game.name} in any Steam library.`,
-        "If it's a GOG copy or sits somewhere unusual, pass gamePath (the folder that holds " + game.exe + ")."
+        `Couldn't find ${chosen ? chosen.name : ANY_GAME} in any Steam library.`,
+        `If it's a GOG copy or sits somewhere unusual, pass gamePath (the folder that holds ${chosen ? chosen.exe : ANY_EXE}).`
       );
     }
-    gameDir = app.installDir;
+    chosen = first.game;
+    gameDir = first.dir;
+    alsoInstalled = installed.slice(1).map((i) => i.game);
   }
+  const game: PatchDayGame = chosen;
+  const def: GameDef = findGameById(game.gameId)!;
+  const x = game.extender;
   const exePath = join(gameDir, game.exe);
   if (!pathExists(exePath)) {
     return fail(`${game.exe} isn't in that folder.`, "gamePath should be the folder that holds " + game.exe + ".");
@@ -1032,7 +1061,13 @@ function runPatchDay(options: PatchDayOptions, found?: (install: PatchDayInstall
     sources: { gameFolderPlugins: gameFolderFiles.filter((f) => f.file.toLowerCase().endsWith(".dll")).length, mo2 },
     log,
     limits: limitsFor(source, runtimeText, x),
-    nextSteps: nextStepsFor({ game, runtimeText, whatIf, skseInstalled, dllPresent, expectedDll, alName, alPresent: alEntry !== undefined, pluginsNeedingAddressLibrary, counts, steam, log: logUsable ? log : null }),
+    nextSteps: [
+      ...nextStepsFor({ game, runtimeText, whatIf, skseInstalled, dllPresent, expectedDll, alName, alPresent: alEntry !== undefined, pluginsNeedingAddressLibrary, counts, steam, log: logUsable ? log : null }),
+      // Picked without being asked: say which other game is there and how to check it.
+      ...alsoInstalled.map(
+        (other) => `This checked ${game.name}, the first game it found. ${other.name} is installed too: ask for it by name (gameId "${other.gameId}") to check it.`
+      ),
+    ],
   };
 }
 

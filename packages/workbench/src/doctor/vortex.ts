@@ -27,17 +27,26 @@ const HEAD_BYTES = 64 * 1024;
 /** Vortex's wiki page on deployment methods: the staging folder must be on the game's drive for hard links. */
 export const VORTEX_DEPLOYMENT = "https://github.com/Nexus-Mods/Vortex/wiki/MODDINGWIKI-Users-General-Deployment-Methods";
 
-const METHOD_WORDS: Record<string, string> = {
-  hardlink_activator: "hard links",
-  symlink_activator: "symbolic links",
-  symlink_activator_elevated: "symbolic links",
-  move_activator: "its move method",
-};
+/** The deployment methods Vortex ships, by their ids (its hardlink, symlink and move activator extensions). Only these are named back. */
+const METHOD_WORDS: ReadonlyMap<string, string> = new Map([
+  ["hardlink_activator", "hard links"],
+  ["symlink_activator", "symbolic links"],
+  ["symlink_activator_elevated", "symbolic links"],
+  ["move_activator", "its move method"],
+]);
 
 export type VortexRecord =
   | { state: "none" }
   | { state: "unreadable" }
-  | { state: "read"; gameId: string | null; deployMethod: string | null; staging: string | null };
+  | {
+      state: "read";
+      gameId: string | null;
+      /** One of Vortex's method ids, or null. */
+      deployMethod: string | null;
+      /** The record names a method that isn't one of those. What it says isn't kept. */
+      otherMethod: boolean;
+      staging: string | null;
+    };
 
 /** A string field before the file list, as JSON would read it, or null. */
 function field(text: string, key: string): string | null {
@@ -60,16 +69,14 @@ export function readVortexRecord(gameDir: string): VortexRecord {
   if (bytes === "missing") return { state: "none" };
   if (bytes === "unreadable") return { state: "unreadable" };
   const head = bytes.toString("utf8");
-  // Only what comes before the file list is the record's own; the files' fields are never read.
+  // Only what comes before the file list is the record's own: any of the list the read took in is cut off before a field is looked for.
   const cut = head.search(/"files"\s*:/);
   const top = cut >= 0 ? head.slice(0, cut) : head;
-  // A method is Vortex's id for it ("hardlink_activator"); anything else in that field is someone else's text and isn't repeated.
+  // A method is named back only when it is one of Vortex's own ids; any other text in that field isn't repeated.
   const method = field(top, "deploymentMethod");
-  return { state: "read", gameId: field(top, "gameId"), deployMethod: method !== null && METHOD_ID.test(method) ? method : null, staging: field(top, "stagingPath") };
+  const known = method !== null && METHOD_WORDS.has(method);
+  return { state: "read", gameId: field(top, "gameId"), deployMethod: known ? method : null, otherMethod: method !== null && !known, staging: field(top, "stagingPath") };
 }
-
-/** What Vortex's method ids look like. */
-const METHOD_ID = /^[a-z][a-z0-9_-]{0,39}$/i;
 
 function driveOf(path: string): number | null {
   try {
@@ -85,6 +92,11 @@ export type VortexCheck = {
   staging: string | null;
   /** The record was read and named a staging folder, whether or not it could be checked. */
   recorded: boolean;
+  /**
+   * What the Data folder held: no record, one that couldn't be opened, one that doesn't name this game, one that
+   * doesn't name a staging folder, or one that does.
+   */
+  record: "none" | "unreadable" | "other-game" | "no-staging" | "named";
   deployMethod: string | null;
   /** What couldn't be read, in words, for the report's limits. */
   skipped: string[];
@@ -92,12 +104,13 @@ export type VortexCheck = {
 
 /** Read Vortex's record for this game and judge its staging folder. `drive` is how a folder's drive is told; tests hand in their own. */
 export function checkVortex(gameDir: string, vortexGameId: string, drive: (path: string) => number | null = driveOf): VortexCheck {
-  const none: VortexCheck = { findings: [], staging: null, recorded: false, deployMethod: null, skipped: [] };
+  const none: VortexCheck = { findings: [], staging: null, recorded: false, record: "none", deployMethod: null, skipped: [] };
   const record = readVortexRecord(gameDir);
   if (record.state === "none") return none;
   if (record.state === "unreadable") {
     return {
       ...none,
+      record: "unreadable",
       skipped: ["Vortex's deployment record couldn't be opened"],
       findings: [
         {
@@ -112,11 +125,12 @@ export function checkVortex(gameDir: string, vortexGameId: string, drive: (path:
     };
   }
   // A record for another game, or one with no game in it, isn't this game's: Vortex names the game it deployed.
-  if (record.gameId !== vortexGameId) return none;
+  if (record.gameId !== vortexGameId) return { ...none, record: "other-game" };
   const method = record.deployMethod;
   if (record.staging === null) {
     return {
       ...none,
+      record: "no-staging",
       recorded: false,
       deployMethod: method,
       findings: [
@@ -135,6 +149,7 @@ export function checkVortex(gameDir: string, vortexGameId: string, drive: (path:
   if (isNetworkPath(staging)) {
     return {
       ...none,
+      record: "named",
       recorded: true,
       deployMethod: method,
       findings: [
@@ -152,6 +167,7 @@ export function checkVortex(gameDir: string, vortexGameId: string, drive: (path:
   if (!isDir(staging)) {
     return {
       ...none,
+      record: "named",
       recorded: true,
       deployMethod: method,
       findings: [
@@ -173,8 +189,8 @@ export function checkVortex(gameDir: string, vortexGameId: string, drive: (path:
   const stagingDrive = drive(staging);
   const dataDrive = data === null ? null : drive(data);
   const sameDrive = stagingDrive !== null && dataDrive !== null ? stagingDrive === dataDrive : null;
-  const words = method === null ? null : (METHOD_WORDS[method] ?? null);
-  const found = { staging, recorded: true, deployMethod: method, skipped: [] as string[] };
+  const words = method === null ? null : (METHOD_WORDS.get(method) ?? null);
+  const found = { staging, recorded: true, record: "named" as const, deployMethod: method, skipped: [] as string[] };
 
   if (method !== "hardlink_activator") {
     return {
@@ -186,7 +202,11 @@ export function checkVortex(gameDir: string, vortexGameId: string, drive: (path:
           status: "note",
           title: `Vortex deploys this game's mods with ${words ?? "a method ModWrench doesn't know"}`,
           detail:
-            (method === null ? "Vortex's deployment record doesn't name a method ModWrench can read. " : `Vortex's deployment record names its method as "${method}". `) +
+            (method !== null
+              ? `Vortex's deployment record names its method as "${method}". `
+              : record.otherMethod
+                ? "Vortex's deployment record names a method ModWrench doesn't know (it knows hard links, symbolic links, symbolic links run as administrator, and moving the files), so it isn't repeated here. "
+                : "Vortex's deployment record doesn't name a method. ") +
             "ModWrench checks the same-drive rule only for hard links, which is how Vortex deploys to this game when the staging folder is on the game's drive.",
           basis: "install",
           source: VORTEX_DEPLOYMENT,

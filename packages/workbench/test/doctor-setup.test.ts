@@ -1265,3 +1265,16 @@ test("without a deployment record the staging folder is listed as not checked, a
   assert.equal(find(linux, "setup.vortex-staging"), undefined);
   assert.equal(linux.looked.vortex, undefined);
 });
+
+test("a deployment record that doesn't lead to a staging folder is described as it is, not as missing", () => {
+  const why = (r: DoctorReport): string => r.notChecked.find((x) => /Vortex's staging folder/.test(x.what))?.why ?? "";
+  // One with no staging folder in it, as older versions of Vortex wrote.
+  const w = install();
+  const raw = { instance: "6f1c2d3e", version: 1, deploymentMethod: "hardlink_activator", gameId: "skyrimse", deploymentTime: 1700000000000, targetPath: dataOf(w), files: [] };
+  writeFileSync(join(dataOf(w), "vortex.deployment.json"), JSON.stringify(raw, undefined, 2));
+  assert.match(why(run()), /^Vortex's deployment record in the game's Data folder doesn't name it \(older versions of Vortex didn't write it\)\./);
+  // One for another game.
+  writeFileSync(join(dataOf(w), "vortex.deployment.json"), JSON.stringify({ ...raw, gameId: "fallout4", stagingPath: sandbox.root }, undefined, 2));
+  assert.match(why(run()), /^The deployment record in the game's Data folder \(vortex\.deployment\.json\) doesn't name this game, so it wasn't used\./);
+  assert.doesNotMatch(why(run()), /wasn't there/);
+});

@@ -1,6 +1,6 @@
 import { test, before, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, utimesSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { checkPatchDay, type PatchDayReport } from "../src/patchday/index.js";
 import { summarizePatchDay } from "../src/patchday/summary.js";
@@ -210,6 +210,49 @@ function run(w: F4World, extra: Parameters<typeof checkPatchDay>[0] = {}): Patch
   return r as PatchDayReport;
 }
 
+test("with no game named, a gamePath holding Fallout4.exe is checked as Fallout 4", () => {
+  const w = fallout4();
+  plugin(w, "Good.dll", { name: "Good", addressIndependence: AL137, structureIndependence: L137 });
+  const r = checkPatchDay({ gamePath: w.gameDir });
+  assert.equal(r.ok, true, r.ok ? "" : r.error);
+  if (!r.ok) return;
+  assert.equal(r.game.id, "fallout4");
+  assert.equal(r.scriptExtender.name, "F4SE");
+  assert.ok(!r.nextSteps.some((s) => /installed too/.test(s)), "a folder was given, so no other game was looked for");
+});
+
+test("with no game named and none given by folder, the first game installed in Steam is checked, and the answer names the other", () => {
+  // Skyrim Special Edition in a Steam library, then Fallout 4 beside it.
+  const sky = sandbox.makeWorld();
+  const gameDir = join(sky.steamapps, "common", "Fallout 4");
+  mkdirSync(join(gameDir, "Data", "F4SE", "Plugins"), { recursive: true });
+  writeFileSync(join(gameDir, "Fallout4.exe"), buildPe({ version: [1, 11, 240, 0] }));
+  writeFileSync(join(gameDir, "f4se_loader.exe"), buildPe({ version: [0, 0, 7, 9] }));
+  writeFileSync(join(gameDir, "f4se_1_11_240.dll"), buildPe({ version: [0, 0, 7, 9] }));
+  writeFileSync(
+    join(sky.steamapps, "appmanifest_377160.acf"),
+    ['"AppState"', "{", '\t"appid"\t\t"377160"', '\t"name"\t\t"Fallout 4"', '\t"StateFlags"\t\t"4"', '\t"installdir"\t\t"Fallout 4"', "}", ""].join("\n")
+  );
+  const both = checkPatchDay();
+  assert.equal(both.ok, true, both.ok ? "" : both.error);
+  if (!both.ok) return;
+  assert.equal(both.game.id, "skyrimspecialedition");
+  assert.equal(
+    both.nextSteps.at(-1),
+    'This checked Skyrim Special Edition, the first game it found. Fallout 4 is installed too: ask for it by name (gameId "fallout4") to check it.'
+  );
+  assert.match(summarizePatchDay(both), /Fallout 4 is installed too: ask for it by name \(gameId "fallout4"\)/);
+  // Asked for by name, the other isn't mentioned.
+  const named = checkPatchDay({ gameId: "fallout4" });
+  assert.equal(named.ok && named.game.id, "fallout4");
+  assert.ok(named.ok && !named.nextSteps.some((s) => /installed too/.test(s)));
+  // With Skyrim gone from Steam, Fallout 4 is the one found.
+  rmSync(join(sky.steamapps, "appmanifest_489830.acf"));
+  const alone = checkPatchDay();
+  assert.equal(alone.ok && alone.game.id, "fallout4");
+  assert.ok(alone.ok && !alone.nextSteps.some((s) => /installed too/.test(s)));
+});
+
 test("a healthy Fallout 4 1.11.240 is a GO, with F4SE named everywhere and SKSE nowhere", () => {
   const w = fallout4();
   plugin(w, "Good.dll", { name: "Good", addressIndependence: AL137, structureIndependence: L137 });
@@ -339,4 +382,40 @@ test("an F4SE 0.6.23 log, which names each plugin by its full path and writes no
   assert.equal(r.log?.pluginsLoaded, 1);
   assert.deepEqual(r.log?.refusals, ["Picky.dll: reported as incompatible during query"]);
   assert.ok(!JSON.stringify(r).includes("Jane"), "no folder from the log reaches the report");
+});
+
+test("F4SE 0.6.23's other refusals: a DLL that couldn't load, whatever its reason says, and one that isn't an F4SE plugin", () => {
+  const w = fallout4({ game: [1, 10, 163], library: false });
+  writeFileSync(join(w.gameDir, "f4se_loader.exe"), buildPe({ version: [0, 0, 6, 23] }));
+  writeFileSync(join(w.gameDir, "f4se_1_10_163.dll"), buildPe({ version: [0, 0, 6, 23] }));
+  for (const name of ["Needy.dll", "Plain.dll"]) writeFileSync(join(w.plugins, name), buildPe({ exports: [{ name: "F4SEPlugin_Query" }, { name: "F4SEPlugin_Load" }] }));
+  writeFileSync(join(w.plugins, "Half.dll"), buildPe({ exports: [{ name: "F4SEPlugin_Load" }] }));
+  writeFileSync(join(w.plugins, "Helper.dll"), buildPe({}));
+  const folder = "C:\\Games\\Fallout 4\\Data\\F4SE\\Plugins\\";
+  mkdirSync(join(w.log, ".."), { recursive: true });
+  writeFileSync(
+    w.log,
+    [
+      // A missing dependency: F4SE adds what it found missing after the error number, and a name can hold a bracket.
+      `couldn't load plugin ${folder}Needy.dll (Error 126: failed to load Helper (x64).dll)`,
+      `couldn't load plugin ${folder}Plain.dll (Error 193)`,
+      `plugin ${folder}Half.dll does not appear to be an F4SE plugin`,
+      // A support library that exports nothing F4SE looks for: F4SE says the same, and it isn't a refusal.
+      `plugin ${folder}Helper.dll does not appear to be an F4SE plugin`,
+      "",
+    ].join("\r\n")
+  );
+  const later = new Date(Date.now() + 60_000);
+  utimesSync(w.log, later, later);
+  const r = run(w);
+  assert.deepEqual(r.log?.refusals, [
+    "Needy.dll: couldn't load plugin (error 126)",
+    "Plain.dll: couldn't load plugin (error 193)",
+    "Half.dll: does not appear to be an F4SE plugin",
+  ]);
+  // The file check passed the two that load and failed Half.dll, so F4SE's log disagrees about the two that didn't load.
+  assert.deepEqual(r.log?.disagreements, [
+    'Needy.dll: F4SE logged "couldn\'t load plugin" (error 126) but the file check passed it',
+    'Plain.dll: F4SE logged "couldn\'t load plugin" (error 193) but the file check passed it',
+  ]);
 });

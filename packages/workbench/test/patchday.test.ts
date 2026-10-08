@@ -825,8 +825,11 @@ test("with no Steam library and no folder, it says what to pass instead of guess
   const r = checkPatchDay();
   assert.equal(r.ok, false);
   if (r.ok) return;
-  assert.match(r.error, /Couldn't find Skyrim Special Edition in any Steam library/);
-  assert.match(r.hint ?? "", /gamePath/);
+  assert.equal(r.error, "Couldn't find Skyrim Special Edition or Fallout 4 in any Steam library.");
+  assert.equal(r.hint, "If it's a GOG copy or sits somewhere unusual, pass gamePath (the folder that holds SkyrimSE.exe or Fallout4.exe).");
+  // Asked for by name, it looks for that game alone.
+  const named = checkPatchDay({ gameId: "skyrimspecialedition" });
+  assert.equal(named.ok ? "" : named.error, "Couldn't find Skyrim Special Edition in any Steam library.");
   assert.deepEqual(r.supportedGames, ["skyrimspecialedition", "fallout4"]);
 });
 
@@ -1384,8 +1387,12 @@ test("a folder without the game's executable is refused with what to pass", () =
     const r = checkPatchDay({ gamePath });
     assert.equal(r.ok, false, gamePath);
     if (r.ok) continue;
-    assert.equal(r.error, "SkyrimSE.exe isn't in that folder.");
-    assert.equal(r.hint, "gamePath should be the folder that holds SkyrimSE.exe.");
+    assert.equal(r.error, "Neither SkyrimSE.exe nor Fallout4.exe is in that folder.");
+    assert.equal(r.hint, "gamePath should be the folder that holds SkyrimSE.exe or Fallout4.exe.");
+    // Asked for by name, the error names that game's executable alone.
+    const named = checkPatchDay({ gamePath, gameId: "skyrimspecialedition" });
+    assert.equal(named.ok ? "" : named.error, "SkyrimSE.exe isn't in that folder.");
+    assert.equal(named.ok ? "" : named.hint, "gamePath should be the folder that holds SkyrimSE.exe.");
   }
 });
 

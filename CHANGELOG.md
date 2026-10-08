@@ -231,58 +231,65 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   hostile plugin and mod names. None of it has been run inside a real MCP client, on
   Windows or macOS, or against a real game folder.
 
-- **Crash Whisperer and the Doctors point at each other.** When no name stands out
-  in a crash log from a game the Doctors' plugin checks cover, one of Crash
-  Whisperer's next steps is to run the Doctors (`/mw-doctor`), which check the setup
-  problems a crash log may not name: a master that is missing, switched off or
-  loaded late, a load order past the plugin limit, two crash loggers at once. A log
-  whose list of loaded modules shows more than one crash logger gets a note (a
-  documented rule when Crash Logger SSE is one of them, ModWrench's guess for any
-  other pair). The Doctors, for their part, say that Crash Whisperer (`/mw-crash`)
-  reads the log when a crash logger it reads is installed, and every report for a
-  game whose logs Crash Whisperer reads ends by saying files can't show why a game
-  crashed and that Crash Whisperer can. The help-packet step now always keeps its
-  place at the end of Crash Whisperer's steps.
+- **Crash Whisperer and the Doctors point at each other.** When no name stands out in
+  a crash log from a game the Doctors' plugin checks cover, one of Crash Whisperer's
+  next steps is to run the Doctors (`/mw-doctor`), which check the setup problems a
+  crash log may not name: a master that is missing, switched off or loaded late, a
+  load order past the plugin limit, two crash loggers at once. A log whose list of
+  loaded modules shows more than one crash logger gets a note (a documented rule when
+  Crash Logger SSE is one of them, ModWrench's guess for any other pair). The Doctors,
+  for their part, say that Crash Whisperer (`/mw-crash`) reads the log when a crash
+  logger it reads is installed, and every report for a game whose logs Crash Whisperer
+  reads says, among its limits, that files can't show why a game crashed and that
+  Crash Whisperer reads the crash log. The help-packet step now always keeps its place
+  at the end of Crash Whisperer's steps, and a game updated since the crash keeps its
+  Patch Day step however many others there are.
 
-- **Fallout 4 in Patch Day and the Doctors.** `mw_patch_day` reads Fallout 4 and
-  F4SE the way it reads Skyrim and SKSE: the game's version, the F4SE loader and DLL
-  for that version (the GOG build for a GOG copy), the Address Library file, every
-  plugin in `Data/F4SE/Plugins` (and Mod Organizer 2's), and `f4se.log`, judged by
-  F4SE's own published rules at each release (`f4se-source`): 0.6.23 for 1.10.163,
-  which asks each plugin's own code; 0.7.0 to 0.7.4 for the Next-Gen update to
-  1.11.137; and 0.7.5 on, which count only the 1.11.137 Address Library and game
-  layout, so a plugin that declares only the 1.10.980 ones is held to the versions it
-  lists. The Microsoft Store and Epic copies, which F4SE's loader refuses, are a check
-  that says so. The Setup Doctor's plugin checks now cover Fallout 4 too (its eight
-  base plugins, `Fallout4.ccc`, `plugins.txt` for each store's copy, the plugin limits
-  from libloadorder, the library LOOT uses), with Fallout 4's crash loggers: none, two
-  at once, Buffout 4 on the Anniversary Edition (its NG page says it isn't supported),
-  and Addictol alongside a Buffout 4 build (Addictol's page says not to). Crash
-  Whisperer's pointer to the Doctors covers Fallout 4 logs as well. Built from F4SE's
-  source and constructed installs; not run against a real one.
-
-- **The Doctors check Vortex's staging folder.** Vortex deploys mods to Skyrim
-  Special Edition and Fallout 4 with hard links, which work only within one drive, and keeps
-  where its staging folder is in its own database. While it has mods deployed it
-  also writes a deployment record into the game's `Data` folder, and on Windows the
-  Setup Doctor now reads the start of it (the game, the method and the staging
-  folder, never the file list) and checks the staging folder: on the game's drive
-  when Vortex uses hard links (a documented rule from Vortex's wiki), not under
-  Program Files, OneDrive or a user folder (Vortex's own error message says OneDrive
-  can't deal with hard links), and with room on its drive. A record that names a
-  folder that isn't there, or one on another computer, which isn't opened, says so.
-  Without a record, the report still lists the staging folder as something it
-  couldn't check, and says why.
+- **Fallout 4 in Patch Day and the Doctors.** `mw_patch_day` reads Fallout 4 and F4SE
+  the way it reads Skyrim and SKSE: the game's version, the F4SE loader and DLL for
+  that version (the GOG build for a GOG copy), the Address Library file, every plugin
+  in `Data/F4SE/Plugins` (and Mod Organizer 2's), and `f4se.log`, judged by F4SE's own
+  published rules at each release (`f4se-source`): 0.6.23 for 1.10.163, which asks
+  each plugin's own code; 0.7.0 to 0.7.4 for the Next-Gen update to 1.11.137; and
+  0.7.5 on, which count only the 1.11.137 Address Library and game layout, so a plugin
+  that declares only the 1.10.980 ones is held to the versions it lists. The Microsoft
+  Store and Epic copies, which F4SE's loader refuses, are a check that says so. The
+  Setup Doctor's plugin checks now cover Fallout 4 too (its eight base plugins,
+  `Fallout4.ccc`, `plugins.txt` for each store's copy, the Microsoft Store copy's DLC
+  folders beside the game's, and the plugin limits from libloadorder, the library LOOT
+  uses, which let a list with no light plugin switched on hold 255 full plugins rather
+  than 254), with Fallout 4's crash loggers: none, two at once, Buffout 4 on the
+  Anniversary Edition (its NG page says it isn't supported), and Addictol alongside a
+  Buffout 4 build (Addictol's page says not to). Crash Whisperer's pointer to the
+  Doctors covers Fallout 4 logs as well. With no game named, `mw_patch_day` checks the
+  one whose executable is in `gamePath`, or else the first installed in a Steam
+  library, Skyrim before Fallout 4, and its answer names the other when both are
+  there; `/mw-patch` takes the game too. Built from F4SE's source and constructed
+  installs; not run against a real one.
+- **The Doctors check Vortex's staging folder.** Vortex deploys mods to Skyrim Special
+  Edition and Fallout 4 with hard links, which work only within one drive, and keeps
+  where its staging folder is in its own database. While it has mods deployed it also
+  writes a deployment record into the game's `Data` folder, and on Windows the Setup
+  Doctor now reads the start of it (the game, the method and the staging folder; any
+  of the file list it takes in is cut off unused) and checks the staging folder: on
+  the game's drive when Vortex uses hard links (a documented rule from Vortex's wiki),
+  not under Program Files, OneDrive or a user folder (Vortex's own error message says
+  OneDrive can't deal with hard links), and with room on its drive. A record that
+  names a folder that isn't there, or one on another computer, which isn't opened,
+  says so, and a method other than the four ModWrench knows is not repeated. Without a
+  record, or with one that doesn't name this game or a staging folder, the report
+  lists the staging folder as something it couldn't check, and says which.
 
 - **`/mw-critique` and `mw_critique`: feedback for the maintainers, posted by
   you.** Tell your AI client what went wrong, what you'd like or what you think,
   and it drafts a GitHub issue with what a maintainer needs to reproduce it filled
   in: ModWrench's version, the connectors that are on, the AI client as it named
   itself, the operating system and Node's version. The personal details it
-  recognises in your words are taken out first, as in Crash Whisperer's help
-  posts. **It sends nothing:** ModWrench makes no network request, and the answer
-  ends with a link that opens the repository's new feedback form on GitHub with
-  the draft filled in, which posts only when you press its button.
+  recognises in your words, and in the name your client gave, are taken out first,
+  as in Crash Whisperer's help posts, before the draft is cut to length. **It
+  sends nothing:** ModWrench makes no network request, and the answer ends with a
+  link that opens the repository's new feedback form on GitHub with the draft
+  filled in, which posts only when you press its button.
   [TRUST.md](TRUST.md#feedback-what-mw-critique-reads-and-sends) lists what goes
   in.
 
