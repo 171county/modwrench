@@ -128,7 +128,7 @@ export function buildPatchPrompt(version?: string): PromptResult {
   return user(
     "Is it safe to update my game? Run `mw_patch_day` and lead with the verdict " +
       "(go / check / wait) in one line. Then list only what's broken or unclear — " +
-      "the plugin, why, and whether the reason is SKSE's own rule or inferred — and " +
+      "the plugin, why, and whether the reason is the script extender's own rule or inferred — and " +
       "what I'd have to do about each. Don't call it safe: a go only means the " +
       "file checks passed." +
       target
@@ -240,13 +240,13 @@ export function registerPrompts(server: McpServer): { promptCount: number } {
 
   server.prompt(
     "mw-patch",
-    "Is it safe to update? Reads your game version, SKSE and every plugin, and says which ones SKSE would refuse after the patch — before it lands or after. Local and read-only.",
+    "Is it safe to update? Reads your game version, the script extender (SKSE for Skyrim, F4SE for Fallout 4) and every plugin, and says which ones it would refuse after the patch — before it lands or after. Local and read-only.",
     {
       version: z
         .string()
         .optional()
         .describe(
-          "A game version to check before you update, like 1.7.104. Leave it empty to check what's installed now."
+          "A game version to check before you update, like 1.7.104 for Skyrim or 1.11.240 for Fallout 4. Leave it empty to check what's installed now."
         ),
     },
     ({ version }) => buildPatchPrompt(version)
@@ -260,7 +260,7 @@ export function registerPrompts(server: McpServer): { promptCount: number } {
         .string()
         .optional()
         .describe(
-          "Canonical game id (e.g. skyrimspecialedition, lethalcompany). Leave it empty to check Skyrim Special Edition, which has the most checks."
+          "Canonical game id (e.g. skyrimspecialedition, fallout4, lethalcompany). Leave it empty to check Skyrim Special Edition; Fallout 4 has the same plugin checks."
         ),
     },
     ({ game }) => buildDoctorPrompt(game)

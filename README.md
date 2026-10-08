@@ -56,7 +56,7 @@ boring half of modding support: a lot of "my mods keep breaking" threads end wit
 isn't a mod. The Setup Doctor looks at where the game, Mod Organizer 2 and Vortex's staging folder
 live (Program Files, OneDrive and the other folders Windows protects or syncs), whether Vortex's
 staging folder is on the game's drive as its hard links need, how much room is left on the drive,
-and, for Skyrim Special Edition, the plugin list: plugins whose master is missing, switched off
+and, for Skyrim Special Edition and Fallout 4, the plugin list: plugins whose master is missing, switched off
 or loaded too late, the limit of 254 full and 4,096 light plugins, entries for plugins that are
 gone, Mod Organizer 2 and the game's own list disagreeing, clutter in MO2's Overwrite folder, and
 crash loggers (none, or two that fight). The Deck Doctor, on Linux and the Steam Deck, looks at
@@ -113,7 +113,7 @@ Four attachments. Install one, some, or all — `@modwrench/cli` composes whiche
 
 **Thunderstore** — browse communities, search mods, read full version history, and resolve dependency trees. No credential needed; the read API is public. *(9 tools)*
 
-**Workbench** — local, on your machine. Find your installed games, mod managers and loaders; read your load order out of MO2, r2modman or Vortex; parse a crash log from Crash Logger SSE, Buffout 4, NetScriptFramework or BepInEx, or have it explained: what happened, which names the log points at and how sure that is, and a help post ready to copy; look a mod up across platforms; check known conflicts; check, before or after a game patch, whether your SKSE plugins will survive it (Skyrim Special Edition and Anniversary Edition for now); and run the Doctors, a read-only health check of the setup behind the crash (plugin masters and limits, where things live, MO2's Overwrite folder, and on Linux and the Steam Deck the Steam, Proton and `nxm://` side). *(9 tools)*
+**Workbench** — local, on your machine. Find your installed games, mod managers and loaders; read your load order out of MO2, r2modman or Vortex; parse a crash log from Crash Logger SSE, Buffout 4, NetScriptFramework or BepInEx, or have it explained: what happened, which names the log points at and how sure that is, and a help post ready to copy; look a mod up across platforms; check known conflicts; check, before or after a game patch, whether your script extender plugins will survive it (SKSE for Skyrim Special Edition and Anniversary Edition, F4SE for Fallout 4); and run the Doctors, a read-only health check of the setup behind the crash (plugin masters and limits, where things live, MO2's Overwrite folder, and on Linux and the Steam Deck the Steam, Proton and `nxm://` side). *(9 tools)*
 
 The conflict check reads two sources: LOOT's masterlist, fetched live for Bethesda games, and a small conflict list bundled inside the package for games LOOT does not cover. **That bundled list ships empty** — all three files contain `[]` — so today it asserts nothing. It is named here because it is a channel that could carry claims about someone's mod in a future release, and `npx` pulls the latest version automatically unless you pin.
 

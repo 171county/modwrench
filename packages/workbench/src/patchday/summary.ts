@@ -41,9 +41,13 @@ export function clean(value: string, max = NAME_MAX): string {
 
 const BASIS_LABEL: Record<RuleBasis, string> = {
   "skse-source": "SKSE's source",
+  "f4se-source": "F4SE's source",
   "field-reports": "field reports",
   inferred: "inferred",
 };
+
+/** The script extender a report is about: SKSE unless the report says otherwise. */
+const extenderOf = (r: PatchDayReport): string => r.scriptExtender.name ?? "SKSE";
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 
@@ -55,18 +59,19 @@ function sourceLabel(source: string): string {
   return clean(source);
 }
 
-function problemLine(p: PluginLine): string {
+function problemLine(p: PluginLine, X: string): string {
   const named = p.name ? ` ("${clean(p.name)}")` : "";
-  const said = p.skseMessage ? ` SKSE says: "${clean(p.skseMessage, 120)}".` : "";
+  const said = p.skseMessage ? ` ${X} says: "${clean(p.skseMessage, 120)}".` : "";
   const reason = clean(p.reason, 300).replace(/\.$/, "");
   return `- ${clean(p.file)}${named}: ${p.status.toUpperCase()} [${BASIS_LABEL[p.basis]}; ${sourceLabel(p.source)}] ${reason}.${said}`;
 }
 
 function skseLine(r: PatchDayReport): string {
   const s = r.scriptExtender;
-  if (!s.loaderPresent && s.dllsInstalled.length === 0) return "SKSE: not installed";
-  if (s.dllPresent) return `SKSE: ${s.version ? `v${s.version}` : "present"} (${s.expectedDll})`;
-  return `SKSE: no build for this game version (needs ${s.expectedDll})`;
+  const X = extenderOf(r);
+  if (!s.loaderPresent && s.dllsInstalled.length === 0) return `${X}: not installed`;
+  if (s.dllPresent) return `${X}: ${s.version ? `v${s.version}` : "present"} (${s.expectedDll})`;
+  return `${X}: no build for this game version (needs ${s.expectedDll})`;
 }
 
 function addressLibraryLine(r: PatchDayReport): string {
@@ -77,11 +82,12 @@ function addressLibraryLine(r: PatchDayReport): string {
 }
 
 function logLine(r: PatchDayReport): string {
-  if (r.checked.source === "targetVersion") return "SKSE log: not used (it describes the installed version)";
+  const X = extenderOf(r);
+  if (r.checked.source === "targetVersion") return `${X} log: not used (it describes the installed version)`;
   const l = r.log;
-  if (!l || !l.found) return "SKSE log: not found";
-  if (!l.fresh) return "SKSE log: older than the last patch, so not used";
-  return `SKSE log: from after the last patch (${l.pluginsLoaded} loaded, ${l.refusals.length} refused)`;
+  if (!l || !l.found) return `${X} log: not found`;
+  if (!l.fresh) return `${X} log: older than the last patch, so not used`;
+  return `${X} log: from after the last patch (${l.pluginsLoaded} loaded, ${l.refusals.length} refused)`;
 }
 
 /** The plain-text answer for a Patch Day result: short enough to read at a glance, complete enough to act on. */
@@ -96,13 +102,14 @@ export function summarizePatchDay(result: PatchDayResult): string {
   const r = result;
   const out: string[] = [r.headline, "", `How sure: ${r.confidence.summary}`];
 
-  // SKSE's own log is the strongest evidence there is, so when it contradicts the
-  // file check it goes first. Each entry is already a full sentence naming the plugin
-  // and quoting what SKSE logged.
+  // The script extender's own log is the strongest evidence there is, so when it contradicts
+  // the file check it goes first. Each entry is already a full sentence naming the plugin
+  // and quoting what the script extender logged.
+  const X = extenderOf(r);
   const log = r.log;
   const disagreed = r.checked.source === "installed" && log && log.found && log.fresh ? log.disagreements : [];
   if (disagreed.length > 0) {
-    out.push("", `SKSE's own log disagrees with the file check on ${plural(disagreed.length, "plugin", "plugins")}:`);
+    out.push("", `${X}'s own log disagrees with the file check on ${plural(disagreed.length, "plugin", "plugins")}:`);
     for (const d of disagreed.slice(0, MAX_DISAGREEMENTS)) out.push(`- ${clean(d, 320)}`);
     if (disagreed.length > MAX_DISAGREEMENTS) out.push(`…and ${disagreed.length - MAX_DISAGREEMENTS} more.`);
   }
@@ -110,7 +117,7 @@ export function summarizePatchDay(result: PatchDayResult): string {
   const problems = r.plugins.problems;
   if (problems.length > 0) {
     out.push("", `Needs attention (${problems.length} of ${plural(r.plugins.total, "plugin", "plugins")}), worst first:`);
-    for (const p of problems.slice(0, FULL_LINES)) out.push(problemLine(p));
+    for (const p of problems.slice(0, FULL_LINES)) out.push(problemLine(p, X));
     const rest = problems.slice(FULL_LINES);
     if (rest.length > 0) {
       const names = rest.slice(0, NAMES_ONLY).map((p) => clean(p.file, 60));
