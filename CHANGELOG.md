@@ -231,6 +231,23 @@ This document is currently maintained by hand. When [release-please](https://git
   crashed and that Crash Whisperer can. The help-packet step now always keeps its
   place at the end of Crash Whisperer's steps.
 
+- **Fallout 4 in Patch Day and the Doctors.** `mw_patch_day` reads Fallout 4 and
+  F4SE the way it reads Skyrim and SKSE: the game's version, the F4SE loader and DLL
+  for that version (the GOG build for a GOG copy), the Address Library file, every
+  plugin in `Data/F4SE/Plugins` (and Mod Organizer 2's), and `f4se.log`, judged by
+  F4SE's own published rules at each release (`f4se-source`): 0.6.23 for 1.10.163,
+  which asks each plugin's own code; 0.7.0 to 0.7.4 for the Next-Gen update to
+  1.11.137; and 0.7.5 on, which count only the 1.11.137 Address Library and game
+  layout, so a plugin that declares only the 1.10.980 ones is held to the versions it
+  lists. The Microsoft Store and Epic copies, which F4SE's loader refuses, are a check
+  that says so. The Setup Doctor's plugin checks now cover Fallout 4 too (its eight
+  base plugins, `Fallout4.ccc`, `plugins.txt` for each store's copy, the plugin limits
+  from libloadorder, the library LOOT uses), with Fallout 4's crash loggers: none, two
+  at once, Buffout 4 on the Anniversary Edition (its NG page says it isn't supported),
+  and Addictol alongside a Buffout 4 build (Addictol's page says not to). Crash
+  Whisperer's pointer to the Doctors covers Fallout 4 logs as well. Built from F4SE's
+  source and constructed installs; not run against a real one.
+
 - **The Doctors check Vortex's staging folder.** Vortex deploys mods to Skyrim
   Special Edition and Fallout 4 with hard links, which work only within one drive, and keeps
   where its staging folder is in its own database. While it has mods deployed it

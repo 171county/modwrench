@@ -12,7 +12,9 @@ import { detectInstalledManagers, inferManagerForGame } from "../detect/manager.
 import { parseVdf } from "../detect/vdf.js";
 import { findMo2InstanceForGame, mo2Folder, readMo2LoadOrder } from "../loadorder/mo2.js";
 import { isNetworkPath } from "../localpath.js";
-import { readFileVersion, readFirstBytes } from "./pe.js";
+import { inspectF4sePlugin } from "./f4se.js";
+import { assessF4sePlugin, f4seSourceFor, needsF4seAddressLibrary } from "./f4se-rules.js";
+import { readFileVersion, readFirstBytes, type FileVersion } from "./pe.js";
 import {
   formatPacked,
   inspectSksePlugin,
@@ -20,7 +22,6 @@ import {
   parseVersionText,
   unpackVersion,
   VI_ADDRESS_LIBRARY_POST_AE,
-  type SkseVersionData,
 } from "./skse.js";
 import { clean } from "./summary.js";
 import {
@@ -31,6 +32,7 @@ import {
   type Confidence,
   type PluginAssessment,
   type RuleBasis,
+  type RuntimeContext,
   type Verdict,
 } from "./rules.js";
 
@@ -38,13 +40,73 @@ import {
 // A game update changes the executable. Script-extender plugins are tied to the
 // executable's layout, so after a patch the script extender refuses some of them
 // and the player finds out when the game won't start. Everything needed to see
-// that coming is already on disk: the game's version, which SKSE build is
-// installed, whether the Address Library file for this version exists, and what
-// each plugin DLL declares about itself. This reads those, applies SKSE's own
-// rules, and answers before the player launches.
+// that coming is already on disk: the game's version, which script extender
+// build is installed, whether the Address Library file for this version exists,
+// and what each plugin DLL declares about itself. This reads those, applies the
+// script extender's own rules (SKSE's for Skyrim Special Edition, F4SE's for
+// Fallout 4), and answers before the player launches.
 //
 // Local and read-only: no network, nothing written, nothing stored. See
 // TRUST.md ("Patch Day").
+
+/** The version data a plugin declares, as far as the script extender's log prints it. */
+type Declared = { dataVersion: number; name: string; pluginVersion: number };
+
+/** One plugin DLL, read and judged. */
+type Checked = {
+  assessment: PluginAssessment;
+  declared?: Declared;
+  /** The script extender looks for the Address Library file for this plugin. */
+  needsAddressLibrary: boolean;
+  /** The game versions it lists, packed. */
+  compatibleVersions: number[];
+};
+
+/** How a script extender's log words what it did with a plugin. */
+type LogDialect = {
+  /** The script extender, for the words of a disagreement. */
+  name: string;
+  /** Every status it writes for a plugin it didn't load. */
+  refusals: readonly string[];
+  /** How older builds name a plugin by its full path, up to and including the plugin folder. A file name can't start with a drive. */
+  pluginFolder: RegExp;
+  /** What it writes after a DLL that exports nothing it looks for. */
+  skippedTail: string;
+  /** Builds of it that write no "(handle N)" after a status. */
+  handleOptional: boolean;
+  /** A failed load can carry more after its error number: "(Error 126: failed to load x.dll)". */
+  errorSuffix: boolean;
+};
+
+/** What differs between the script extenders Patch Day reads. */
+type Extender = {
+  name: "SKSE" | "F4SE";
+  /** Where its builds are published. */
+  site: string;
+  /** The Address Library mod for it. */
+  addressLibrary: string;
+  /** Data\<folder>\Plugins holds its plugins, and My Games\<game>\<folder> its log. */
+  folder: string;
+  /** The basis of a rule from its published source. */
+  sourceBasis: RuleBasis;
+  check(path: string, ctx: RuntimeContext): Checked;
+  sourceFor(runtime: number): { build: string; covered: boolean };
+  /** The Address Library file a game version needs. */
+  addressLibraryFile(major: number, minor: number, build: number): string;
+  /** The file starts with a format number worth reporting (Skyrim's does; Fallout 4's starts with a count). */
+  addressLibraryFormat: boolean;
+  /** Its own version, from the FILEVERSION stamped on its DLL and loader; undefined when the file isn't its. */
+  stamp(v: FileVersion): number | undefined;
+  dialect: LogDialect;
+  /** The build that asks each plugin's own code instead of reading version data, and the export it calls. */
+  queryBuild: string;
+  queryExport: string;
+  nextPatchNote: string;
+  /** Copies of the game it refuses, by a file only that store puts in the game folder, and its own words. */
+  unsupported: ReadonlyArray<{ file: string; words: string }>;
+  /** GOG copies need a DLL with this suffix, or none. */
+  gogSuffix: string;
+};
 
 type PatchDayGame = {
   gameId: string;
@@ -53,26 +115,14 @@ type PatchDayGame = {
   loader: string;
   /** The game's own launcher, which Steam's Play button starts: on the Steam Deck the loader is often renamed to it. */
   launcher: string;
-  /** SKSE's DLL is `<dllPrefix>_<major>_<minor>_<build>.dll`, named for the game version. */
+  /** The script extender's DLL is `<dllPrefix>_<major>_<minor>_<build>.dll`, named for the game version. */
   dllPrefix: string;
   logFolder: string;
   logFile: string;
+  extender: Extender;
+  /** A game version to show in a hint. */
+  example: string;
 };
-
-const SUPPORTED: PatchDayGame[] = [
-  {
-    gameId: "skyrimspecialedition",
-    name: "Skyrim Special Edition",
-    exe: "SkyrimSE.exe",
-    loader: "skse64_loader.exe",
-    launcher: "SkyrimSELauncher.exe",
-    dllPrefix: "skse64",
-    logFolder: "Skyrim Special Edition",
-    logFile: "skse64.log",
-  },
-];
-
-export const PATCH_DAY_GAMES: string[] = SUPPORTED.map((g) => g.gameId);
 
 export type PatchDayOptions = {
   /** Default: the first supported game found on this machine. */
@@ -133,6 +183,8 @@ export type PatchDayReport = {
   checked: { version: string; source: "installed" | "targetVersion"; installed: string };
   steam: SteamFacts | null;
   scriptExtender: {
+    /** Which script extender: SKSE for Skyrim Special Edition, F4SE for Fallout 4. */
+    name: "SKSE" | "F4SE";
     loaderPresent: boolean;
     expectedDll: string;
     dllPresent: boolean;
@@ -350,14 +402,152 @@ const SKSE_REFUSALS = [
   "broken version check, will crash the game",
 ];
 const LOADED = "loaded correctly";
-const STATUS = [LOADED, ...SKSE_REFUSALS].map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-/** What SKSE writes after the version block: the status, an error code (except after a load), and the handle. */
-const STATUS_TAIL = new RegExp(`^(${STATUS})(?: (-?\\d+))? \\(handle -?\\d+\\)$`);
-/** The same, read from the end of a whole line, when the version block can't be matched exactly. */
-const LINE_TAIL = new RegExp(` [0-9A-F]{8}\\) (${STATUS})(?: (-?\\d+))? \\(handle -?\\d+\\)$`);
+const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * What the script extender writes after the version block: the status, an error code (except after a load), and the
+ * handle (`status`); and the same read from the end of a whole line, when the version block can't be matched exactly (`line`).
+ */
+function tails(d: LogDialect): { status: RegExp; line: RegExp; failed: RegExp; skipped: RegExp } {
+  const status = [LOADED, ...d.refusals].map(escapeRe).join("|");
+  const handle = d.handleOptional ? "(?: \\(handle -?\\d+\\))?" : " \\(handle -?\\d+\\)";
+  return {
+    status: new RegExp(`^(${status})(?: (-?\\d+))?${handle}$`),
+    line: new RegExp(` [0-9A-F]{8}\\) (${status})(?: (-?\\d+))?${handle}$`),
+    failed: d.errorSuffix ? / \(Error (-?\d+)(?:: [^)]*)?\)$/ : / \(Error (-?\d+)\)$/,
+    skipped: new RegExp(` \\(|${escapeRe(d.skippedTail)}$`),
+  };
+}
 /** SKSE 2.0.20 names a plugin by its full path, <game folder>\Data\SKSE\Plugins\<file>. A file name can't start with a drive. */
 const PLUGIN_FOLDER = /^(?:[A-Za-z]:|\\\\).*?\\Data\\SKSE\\Plugins\\/i;
 const SKIPPED_TAIL = " does not appear to be an SKSE plugin";
+
+/** Every status F4SE 0.6.23 and 0.7.0 to 0.7.9 write for a plugin they didn't load (PluginManager.cpp, ianpatt/f4se). */
+const F4SE_REFUSALS = [
+  "disabled, bad version data",
+  "disabled, no name specified",
+  "disabled, address library needs to be updated",
+  "disabled, incompatible with current version of the game",
+  "disabled, requires newer script extender",
+  "disabled, fatal error occurred while checking plugin compatibility",
+  "no version data",
+  "32-bit plugins can never work",
+  "couldn't load plugin",
+  "does not appear to be an F4SE plugin",
+  "reported as incompatible during query",
+  "reported as incompatible during load",
+  "disabled, fatal error occurred while loading plugin",
+];
+
+const SKSE_DIALECT: LogDialect = { name: "SKSE", refusals: SKSE_REFUSALS, pluginFolder: PLUGIN_FOLDER, skippedTail: SKIPPED_TAIL, handleOptional: false, errorSuffix: false };
+// F4SE 0.6.23 names a plugin by its full path and writes no handle; 0.7.x writes the file name and a handle, as SKSE does.
+const F4SE_DIALECT: LogDialect = {
+  name: "F4SE",
+  refusals: F4SE_REFUSALS,
+  pluginFolder: /^(?:[A-Za-z]:|\\\\).*?\\Data\\F4SE\\Plugins\\/i,
+  skippedTail: " does not appear to be an F4SE plugin",
+  handleOptional: true,
+  errorSuffix: true,
+};
+
+const SKSE: Extender = {
+  name: "SKSE",
+  site: "skse.silverlock.org",
+  addressLibrary: "Address Library for SKSE Plugins",
+  folder: "SKSE",
+  sourceBasis: "skse-source",
+  check(path, ctx) {
+    const info = inspectSksePlugin(path);
+    const v = info.versionData;
+    return {
+      assessment: assessPlugin(info, ctx),
+      ...(v ? { declared: v } : {}),
+      needsAddressLibrary: v !== undefined && (v.versionIndependence & VI_ADDRESS_LIBRARY_POST_AE) !== 0,
+      compatibleVersions: v?.compatibleVersions ?? [],
+    };
+  },
+  sourceFor: skseSourceFor,
+  addressLibraryFile: (major, minor, build) =>
+    packVersion(major, minor, build) < packVersion(1, 6, 0) ? `version-${major}-${minor}-${build}-0.bin` : `versionlib-${major}-${minor}-${build}-0.bin`,
+  addressLibraryFormat: true,
+  // SKSE stamps its DLL and its loader FILEVERSION 0,major,minor,beta (skse64_common/skse_version.rc), so 2.2.6 reads as 0.2.2.6.
+  stamp: (v) => (v[0] === 0 && v[1] > 0 ? packVersion(v[1], v[2], v[3]) : undefined),
+  dialect: SKSE_DIALECT,
+  queryBuild: "2.0.20",
+  queryExport: "SKSEPlugin_Query",
+  nextPatchNote:
+    "Pinned plugins list exact game versions, so SKSE will refuse them on the next game update until their authors rebuild them. " +
+    "That includes Address Library plugins built for the format used before 1.7.99: SKSE 2.3.1 accepts them only on game versions they list. " +
+    "Independent plugins pass SKSE's version check on any later version, but can still break if the game code they hook changes.",
+  unsupported: [],
+  gogSuffix: "",
+};
+
+const F4SE: Extender = {
+  name: "F4SE",
+  site: "f4se.silverlock.org",
+  addressLibrary: "Address Library for F4SE Plugins",
+  folder: "F4SE",
+  sourceBasis: "f4se-source",
+  check(path, ctx) {
+    const info = inspectF4sePlugin(path);
+    const v = info.versionData;
+    return {
+      assessment: assessF4sePlugin(info, ctx),
+      ...(v ? { declared: v } : {}),
+      needsAddressLibrary: needsF4seAddressLibrary(info, ctx.runtime),
+      compatibleVersions: v?.compatibleVersions ?? [],
+    };
+  },
+  sourceFor: f4seSourceFor,
+  // F4SE's CheckAddressLibrary looks for Data\F4SE\Plugins\version-<major>-<minor>-<build>-0.bin.
+  addressLibraryFile: (major, minor, build) => `version-${major}-${minor}-${build}-0.bin`,
+  addressLibraryFormat: false,
+  // F4SE stamps FILEVERSION 0,major,minor,beta too (f4se_common/f4se_version.rc), and its major is 0: 0.7.9 reads as 0.0.7.9.
+  stamp: (v) => (v[0] === 0 && (v[1] > 0 || v[2] > 0) ? packVersion(v[1], v[2], v[3]) : undefined),
+  dialect: F4SE_DIALECT,
+  queryBuild: "0.6.23",
+  queryExport: "F4SEPlugin_Query",
+  nextPatchNote:
+    "Pinned plugins list exact game versions, so F4SE will refuse them on the next game update until their authors rebuild them. " +
+    "That includes plugins that declare only the 1.10.980 Address Library or game layout: from F4SE 0.7.5 (game 1.11.159) on, F4SE accepts them only on game versions they list. " +
+    "Independent plugins pass F4SE's version check on any later version, but can still break if the game code they hook changes.",
+  // F4SE's loader refuses these copies (f4se_loader/main.cpp, f4se_loader_common/IdentifyEXE.cpp).
+  unsupported: [
+    { file: "appxmanifest.xml", words: "F4SE doesn't support the Microsoft Store (Game Pass) version of Fallout 4: its loader refuses it" },
+    { file: "EOSSDK-Win64-Shipping.dll", words: "F4SE doesn't support the Epic Games Store version of Fallout 4: its loader refuses it" },
+  ],
+  gogSuffix: "_gog",
+};
+
+const SUPPORTED: PatchDayGame[] = [
+  {
+    gameId: "skyrimspecialedition",
+    name: "Skyrim Special Edition",
+    exe: "SkyrimSE.exe",
+    loader: "skse64_loader.exe",
+    launcher: "SkyrimSELauncher.exe",
+    dllPrefix: "skse64",
+    logFolder: "Skyrim Special Edition",
+    logFile: "skse64.log",
+    extender: SKSE,
+    example: "1.7.104",
+  },
+  {
+    gameId: "fallout4",
+    name: "Fallout 4",
+    exe: "Fallout4.exe",
+    loader: "f4se_loader.exe",
+    launcher: "Fallout4Launcher.exe",
+    dllPrefix: "f4se",
+    logFolder: "Fallout4",
+    logFile: "f4se.log",
+    extender: F4SE,
+    example: "1.11.240",
+  },
+];
+
+export const PATCH_DAY_GAMES: string[] = SUPPORTED.map((g) => g.gameId);
 
 const hex8 = (n: number): string => n.toString(16).toUpperCase().padStart(8, "0");
 
@@ -390,15 +580,18 @@ function readHead(path: string, max: number): { text: string; mtimeMs: number } 
 }
 
 /**
- * What SKSE's log says about the plugins. `assessed` holds the file check's judgement of every plugin DLL on
- * disk, and `declared` the version data each one declares, both keyed by lower-case file name.
+ * What the script extender's log says about the plugins: skse64.log by default, or f4se.log with F4SE's `dialect`.
+ * `assessed` holds the file check's judgement of every plugin DLL on disk, and `declared` the version data each one
+ * declares, both keyed by lower-case file name.
  */
 export function readSkseLog(
   path: string,
   referenceMs: number,
   assessed: Map<string, PluginAssessment>,
-  declared: ReadonlyMap<string, SkseVersionData> = new Map()
+  declared: ReadonlyMap<string, Declared> = new Map(),
+  dialect: LogDialect = SKSE_DIALECT
 ): LogFacts {
+  const t = tails(dialect);
   const head = readHead(path, MAX_LOG_BYTES);
   if (!head) {
     return { found: false, fresh: false, pluginsLoaded: 0, refusals: [], disagreements: [] };
@@ -427,10 +620,10 @@ export function readSkseLog(
     }
     const lead = /^(?:couldn't load plugin|plugin) /i.exec(raw);
     if (!lead) continue;
-    const rest = raw.slice(lead[0].length).replace(PLUGIN_FOLDER, "");
+    const rest = raw.slice(lead[0].length).replace(dialect.pluginFolder, "");
     const lower = rest.toLowerCase();
     const key = onDisk.find(
-      (k) => lower.startsWith(k) && (lower.startsWith(" (", k.length) || lower.slice(k.length) === SKIPPED_TAIL.toLowerCase())
+      (k) => lower.startsWith(k) && (lower.startsWith(" (", k.length) || lower.slice(k.length) === dialect.skippedTail.toLowerCase())
     );
     const after = key !== undefined ? rest.slice(key.length) : "";
 
@@ -448,17 +641,17 @@ export function readSkseLog(
         if (!joined.startsWith(block)) continue;
         exact = true;
         i += spans;
-        const m = STATUS_TAIL.exec(joined.slice(block.length).trimEnd());
+        const m = t.status.exec(joined.slice(block.length).trimEnd());
         if (m) [, status, code] = m;
         break;
       }
     }
     if (!exact) {
-      const tail = LINE_TAIL.exec(raw.trimEnd());
-      const failed = /^couldn't load plugin /i.test(raw) ? / \(Error (-?\d+)\)$/.exec(rest) : null;
+      const tail = t.line.exec(raw.trimEnd());
+      const failed = /^couldn't load plugin /i.test(raw) ? t.failed.exec(rest) : null;
       if (tail) [, status, code] = tail;
       else if (failed) [status, code] = ["couldn't load plugin", failed[1]];
-      else if (rest.endsWith(SKIPPED_TAIL)) status = SKIPPED_TAIL.trim();
+      else if (rest.endsWith(dialect.skippedTail)) status = dialect.skippedTail.trim();
     }
     if (status === undefined) continue;
     if (status === LOADED) {
@@ -467,15 +660,15 @@ export function readSkseLog(
     }
     const predicted = key !== undefined ? assessed.get(key) : undefined;
     // SKSE writes one of these for a DLL that exports nothing it looks for, and doesn't count it as an error.
-    if ((status === "no version data" || status === SKIPPED_TAIL.trim()) && predicted?.status === "ok" && predicted.binding === "none") {
+    if ((status === "no version data" || status === dialect.skippedTail.trim()) && predicted?.status === "ok" && predicted.binding === "none") {
       continue;
     }
-    const guess = rest.slice(0, Math.max(0, rest.search(/ \(| does not appear to be an SKSE plugin$/))) || rest;
+    const guess = rest.slice(0, Math.max(0, rest.search(t.skipped))) || rest;
     const file = clean(key !== undefined ? rest.slice(0, key.length) : guess.split(/[\\/]/).pop()!, 120);
     const said = code !== undefined && code !== "0" ? ` (error ${code})` : "";
     refusals.push(clean(`${file}: ${status}${said}`, 240));
     if (predicted?.status === "ok") {
-      disagreements.push(clean(`${file}: SKSE logged "${status}"${said} but the file check passed it`, 320));
+      disagreements.push(clean(`${file}: ${dialect.name} logged "${status}"${said} but the file check passed it`, 320));
     }
   }
   return {
@@ -492,7 +685,7 @@ function logCandidates(game: PatchDayGame, gameDir: string, appId: string): stri
   const out: string[] = [];
   const steamapps = basename(dirname(gameDir)).toLowerCase() === "common" ? dirname(dirname(gameDir)) : null;
   const tail = (docs: string, folder: string): string =>
-    join(docs, "My Games", folder, "SKSE", game.logFile);
+    join(docs, "My Games", folder, game.extender.folder, game.logFile);
   if (process.platform === "win32") {
     // Documents in the user's folder, and wherever OneDrive's Known Folder Move put it, as the crash log finder reads them.
     for (const docs of documentsRoots(null, appId)) {
@@ -547,9 +740,10 @@ function runPatchDay(options: PatchDayOptions, found?: (install: PatchDayInstall
   if (!game || !def) {
     return fail(
       `Patch Day can't check "${gameId}" yet.`,
-      "It reads Skyrim Special Edition / Anniversary Edition and SKSE today. Fallout 4 (F4SE) is next."
+      "It reads Skyrim Special Edition and Anniversary Edition with SKSE, and Fallout 4 with F4SE."
     );
   }
+  const x = game.extender;
 
   let targetPacked: number | null = null;
   if (options.targetVersion !== undefined) {
@@ -557,7 +751,7 @@ function runPatchDay(options: PatchDayOptions, found?: (install: PatchDayInstall
     if (targetPacked === null) {
       return fail(
         `"${options.targetVersion}" isn't a game version.`,
-        'Give it like 1.7.104 — the number Steam or the SKSE site shows for the new patch.'
+        `Give it like ${game.example} — the number Steam or the ${x.name} site shows for the new patch.`
       );
     }
   }
@@ -599,21 +793,26 @@ function runPatchDay(options: PatchDayOptions, found?: (install: PatchDayInstall
 
   // The script extender: its loader, and the DLL named for this game version.
   const [major, minor, build] = unpackVersion(runtime);
-  const expectedDll = `${game.dllPrefix}_${major}_${minor}_${build}.dll`;
   let gameFiles: string[] = [];
   try {
     gameFiles = readdirSync(gameDir);
   } catch {
-    // Unreadable folder: treated as empty, and the verdict will say SKSE isn't there.
+    // Unreadable folder: treated as empty, and the verdict will say the script extender isn't there.
   }
   const lowerFiles = new Set(gameFiles.map((f) => f.toLowerCase()));
-  const dllsInstalled = gameFiles.filter((f) => new RegExp(`^${game.dllPrefix}_\\d+_\\d+_\\d+\\.dll$`, "i").test(f)).sort();
+  // F4SE's loader starts a GOG build of its DLL for a GOG copy, which it tells by the GOG Galaxy library the game uses;
+  // the library sitting in the game folder stands in for that here.
+  const gog = x.gogSuffix !== "" && lowerFiles.has("galaxy64.dll");
+  const expectedDll = `${game.dllPrefix}_${major}_${minor}_${build}${gog ? x.gogSuffix : ""}.dll`;
+  const dllPattern = new RegExp(`^${game.dllPrefix}_\\d+_\\d+_\\d+${x.gogSuffix !== "" ? `(?:${x.gogSuffix})?` : ""}\\.dll$`, "i");
+  const dllsInstalled = gameFiles.filter((f) => dllPattern.test(f)).sort();
   const dllPresent = lowerFiles.has(expectedDll.toLowerCase());
+  // A copy the script extender refuses outright, told by a file only that store puts in the game folder.
+  const unsupported = x.unsupported.find((u) => lowerFiles.has(u.file.toLowerCase()))?.words;
   const skseFileVersion = (file: string): number | undefined => {
     const name = gameFiles.find((f) => f.toLowerCase() === file.toLowerCase());
-    // SKSE stamps its DLL and its loader FILEVERSION 0,major,minor,beta (skse64_common/skse_version.rc), so 2.2.6 reads as 0.2.2.6.
     const v = name ? readFileVersion(join(gameDir, name)) : null;
-    return v && v[0] === 0 && v[1] > 0 ? packVersion(v[1], v[2], v[3]) : undefined;
+    return v ? x.stamp(v) : undefined;
   };
   // On the Steam Deck the loader is often renamed to the game's launcher, so that Steam's Play button starts SKSE.
   // It is still SKSE's loader if it carries SKSE's stamp; the game's own launcher doesn't.
@@ -630,7 +829,7 @@ function runPatchDay(options: PatchDayOptions, found?: (install: PatchDayInstall
 
   // Every place SKSE would find plugins, overlaid the way Mod Organizer 2 overlays them.
   const winners = new Map<string, FileEntry>();
-  const gamePlugins = resolveCI(gameDir, "Data", "SKSE", "Plugins");
+  const gamePlugins = resolveCI(gameDir, "Data", x.folder, "Plugins");
   const gameFolderFiles = gamePlugins ? listPluginFiles(gamePlugins, "game", 0) : [];
   overlay(winners, gameFolderFiles);
 
@@ -665,13 +864,13 @@ function runPatchDay(options: PatchDayOptions, found?: (install: PatchDayInstall
     } else if (order) {
       let withPlugins = 0;
       for (const mod of enabled) {
-        const dir = mods ? resolveCI(mods, mod.name, "SKSE", "Plugins") : null;
+        const dir = mods ? resolveCI(mods, mod.name, x.folder, "Plugins") : null;
         const files = dir ? listPluginFiles(dir, `mo2:${mod.name}`, 1 + mod.modlistIndex) : [];
         if (files.length > 0) withPlugins++;
         overlay(winners, files);
       }
       const overwrite = folder("overwrite_directory", "overwrite");
-      const overwritePlugins = overwrite ? resolveCI(overwrite, "SKSE", "Plugins") : null;
+      const overwritePlugins = overwrite ? resolveCI(overwrite, x.folder, "Plugins") : null;
       if (overwritePlugins) overlay(winners, listPluginFiles(overwritePlugins, "mo2:overwrite", Number.MAX_SAFE_INTEGER));
       mo2.used = true;
       mo2.reason = `Mod Organizer 2's profile and enabled mods were read${overwrite ? ", and its Overwrite folder" : ""}, since MO2 is what loads plugins for this game`;
@@ -690,19 +889,16 @@ function runPatchDay(options: PatchDayOptions, found?: (install: PatchDayInstall
   }
 
   // The Address Library file for this game version.
-  const alName =
-    runtime < packVersion(1, 6, 0)
-      ? `version-${major}-${minor}-${build}-0.bin`
-      : `versionlib-${major}-${minor}-${build}-0.bin`;
+  const alName = x.addressLibraryFile(major, minor, build);
   const alEntry = winners.get(alName.toLowerCase());
   let alFormat: number | undefined;
-  if (alEntry) {
+  if (alEntry && x.addressLibraryFormat) {
     const head = readFirstBytes(alEntry.abs, 4);
     if (head) alFormat = head.readUInt32LE(0);
   }
 
   // Judge every plugin.
-  const source = skseSourceFor(runtime);
+  const source = x.sourceFor(runtime);
   const ctx = {
     runtime,
     ...(skseVersion !== undefined ? { skseVersion } : {}),
@@ -710,24 +906,22 @@ function runPatchDay(options: PatchDayOptions, found?: (install: PatchDayInstall
   };
   const lines: PluginLine[] = [];
   const assessed = new Map<string, PluginAssessment>();
-  const declared = new Map<string, SkseVersionData>();
+  const declared = new Map<string, Declared>();
   let pluginsNeedingAddressLibrary = 0;
   const pinned: Array<{ file: string; supports: string[] }> = [];
   let independent = 0;
   let legacy = 0;
   for (const entry of [...winners.values()].sort((a, b) => a.file.localeCompare(b.file))) {
     if (!entry.file.toLowerCase().endsWith(".dll")) continue;
-    const info = inspectSksePlugin(entry.abs);
-    const verdict = assessPlugin(info, ctx);
+    const checked = x.check(entry.abs, ctx);
+    const verdict = checked.assessment;
     assessed.set(entry.file.toLowerCase(), verdict);
-    if (info.versionData) declared.set(entry.file.toLowerCase(), info.versionData);
-    if (info.versionData && info.versionData.versionIndependence & VI_ADDRESS_LIBRARY_POST_AE) {
-      pluginsNeedingAddressLibrary++;
-    }
+    if (checked.declared) declared.set(entry.file.toLowerCase(), checked.declared);
+    if (checked.needsAddressLibrary) pluginsNeedingAddressLibrary++;
     if (verdict.binding === "independent") independent++;
     else if (verdict.binding === "legacy") legacy++;
     else if (verdict.binding === "pinned") {
-      pinned.push({ file: clean(entry.file, NAME_MAX), supports: (info.versionData?.compatibleVersions ?? []).map(formatPacked) });
+      pinned.push({ file: clean(entry.file, NAME_MAX), supports: checked.compatibleVersions.map(formatPacked) });
     }
     const line: PluginLine = {
       file: clean(entry.file, NAME_MAX),
@@ -737,7 +931,7 @@ function runPatchDay(options: PatchDayOptions, found?: (install: PatchDayInstall
       reason: verdict.reason,
       basis: verdict.basis,
     };
-    const name = clean(info.versionData?.name ?? "", NAME_MAX);
+    const name = clean(checked.declared?.name ?? "", NAME_MAX);
     if (name) line.name = name;
     if (verdict.skseMessage) line.skseMessage = verdict.skseMessage;
     lines.push(line);
@@ -759,11 +953,13 @@ function runPatchDay(options: PatchDayOptions, found?: (install: PatchDayInstall
   } catch {
     // The version was readable a moment ago; a stat failure just leaves the log "not fresh".
   }
-  const log = logPath ? readSkseLog(logPath, exeMtime, assessed, declared) : null;
+  const log = logPath ? readSkseLog(logPath, exeMtime, assessed, declared, x.dialect) : null;
   const logUsable = log && log.found && !whatIf;
 
   const decision = decide({
     gameName: game.name,
+    extender: x.name,
+    ...(unsupported !== undefined ? { unsupported } : {}),
     version: runtimeText,
     whatIf,
     skse: {
@@ -803,11 +999,13 @@ function runPatchDay(options: PatchDayOptions, found?: (install: PatchDayInstall
         ? { fresh: log.fresh, loaded: log.pluginsLoaded, refusals: log.refusals.length, disagreements: log.disagreements.length }
         : null,
       flagged: problems.map((p) => p.basis),
+      extender: { name: x.name, sourceFor: x.sourceFor, queryBuild: x.queryBuild, queryExport: x.queryExport },
     }),
     game: { id: game.gameId, name: game.name },
     checked: { version: runtimeText, source: whatIf ? "targetVersion" : "installed", installed: installedText },
     steam,
     scriptExtender: {
+      name: x.name,
       loaderPresent,
       expectedDll,
       dllPresent,
@@ -829,27 +1027,25 @@ function runPatchDay(options: PatchDayOptions, found?: (install: PatchDayInstall
       pinned,
       independent,
       legacy,
-      note:
-        "Pinned plugins list exact game versions, so SKSE will refuse them on the next game update until their authors rebuild them. " +
-        "That includes Address Library plugins built for the format used before 1.7.99: SKSE 2.3.1 accepts them only on game versions they list. " +
-        "Independent plugins pass SKSE's version check on any later version, but can still break if the game code they hook changes.",
+      note: x.nextPatchNote,
     },
     sources: { gameFolderPlugins: gameFolderFiles.filter((f) => f.file.toLowerCase().endsWith(".dll")).length, mo2 },
     log,
-    limits: limitsFor(source, runtimeText),
+    limits: limitsFor(source, runtimeText, x),
     nextSteps: nextStepsFor({ game, runtimeText, whatIf, skseInstalled, dllPresent, expectedDll, alName, alPresent: alEntry !== undefined, pluginsNeedingAddressLibrary, counts, steam, log: logUsable ? log : null }),
   };
 }
 
-function limitsFor(source: { build: string; covered: boolean }, version: string): string[] {
+function limitsFor(source: { build: string; covered: boolean }, version: string, x: Extender): string[] {
+  const X = x.name;
   const limits = [
     "Read-only and local: it opens file headers and a few small files, writes nothing, sends nothing and keeps nothing. File names and mod folder names appear in the result; folder paths do not.",
-    `A result marked basis "skse-source" comes from the published source of SKSE ${source.build} and carries SKSE's own log text. Later SKSE builds can add rules.`,
-    "A plugin that passes SKSE's version check can still crash or misbehave if the game code it hooks has changed. That can't be seen from files.",
+    `A result marked basis "${x.sourceBasis}" comes from the published source of ${X} ${source.build} and carries ${X}'s own log text. Later ${X} builds can add rules.`,
+    `A plugin that passes ${X}'s version check can still crash or misbehave if the game code it hooks has changed. That can't be seen from files.`,
   ];
   if (!source.covered) {
     limits.push(
-      `SKSE hasn't published its source for ${version}. These results apply the rules of SKSE ${source.build}, the nearest published build; SKSE's own log from a launch is the real answer.`
+      `${X} hasn't published its source for ${version}. These results apply the rules of ${X} ${source.build}, the nearest published build; ${X}'s own log from a launch is the real answer.`
     );
   }
   return limits;
@@ -870,16 +1066,18 @@ function nextStepsFor(a: {
   log: LogFacts | null;
 }): string[] {
   const steps: string[] = [];
+  const x = a.game.extender;
+  const X = x.name;
   if (a.skseInstalled && !a.dllPresent) {
-    // SKSE's loader refuses any game version but the one it was built for (IdentifyEXE.cpp), so a build and its loader go together.
+    // The script extender's loader refuses any game version but the one it was built for (IdentifyEXE.cpp in SKSE and F4SE), so a build and its loader go together.
     steps.push(
       a.whatIf
-        ? `Once the game is on ${a.runtimeText}, get the SKSE build made for it from skse.silverlock.org and install all of its files as you did before, ${a.game.loader} included; it adds ${a.expectedDll}. Until then keep the SKSE you have: each SKSE loader starts only the game version it was built for.`
-        : `Get the SKSE build made for ${a.runtimeText} from skse.silverlock.org and install all of its files as you did before, ${a.game.loader} included; it adds ${a.expectedDll}. Each SKSE loader starts only the game version it was built for, so the one you have can't start this version.`
+        ? `Once the game is on ${a.runtimeText}, get the ${X} build made for it from ${x.site} and install all of its files as you did before, ${a.game.loader} included; it adds ${a.expectedDll}. Until then keep the ${X} you have: each ${X} loader starts only the game version it was built for.`
+        : `Get the ${X} build made for ${a.runtimeText} from ${x.site} and install all of its files as you did before, ${a.game.loader} included; it adds ${a.expectedDll}. Each ${X} loader starts only the game version it was built for, so the one you have can't start this version.`
     );
   }
   if (a.pluginsNeedingAddressLibrary > 0 && !a.alPresent) {
-    steps.push(`Install the Address Library for SKSE Plugins build for ${a.runtimeText} (it adds ${a.alName}).`);
+    steps.push(`Install the ${x.addressLibrary} build for ${a.runtimeText} (it adds ${a.alName}).`);
   }
   if (a.counts.broken > 0) {
     steps.push("For each broken plugin, check its mod page for a build made for this game version. Until there is one, that mod won't work — disabling it is safer than leaving a refused plugin in place.");
@@ -890,7 +1088,7 @@ function nextStepsFor(a: {
     );
   }
   if (!a.whatIf && (!a.log || !a.log.found || !a.log.fresh)) {
-    steps.push("Launch the game once through SKSE, close it, and run this again — SKSE's own log from that launch is the strongest evidence there is.");
+    steps.push(`Launch the game once through ${X}, close it, and run this again — ${X}'s own log from that launch is the strongest evidence there is.`);
   }
   return steps;
 }

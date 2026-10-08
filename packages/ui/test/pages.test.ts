@@ -224,7 +224,36 @@ test("the Patch Day page says Mod Organizer 2 wasn't read when it loads the plug
 
 test("the Patch Day legend explains only the labels a result can carry", () => {
   const legend = /<dl class="legend">([\s\S]*?)<\/dl>/.exec(renderPatchDayApp())![1]!;
-  assert.deepEqual([...legend.matchAll(/<dt>([^<]*)<\/dt>/g)].map((m) => m[1]), ["SKSE source", "Inferred"]);
+  assert.deepEqual([...legend.matchAll(/<dt>([^<]*)<\/dt>/g)].map((m) => m[1]), ["SKSE source, F4SE source", "Inferred"]);
+});
+
+test("a Fallout 4 report reads F4SE throughout the Patch Day page, and an unknown name reads as SKSE", async () => {
+  const f4 = (name: unknown) => {
+    const base = patchDayReport("CHECK — Fallout 4 1.11.240: 1 plugin would be refused or fail.") as Record<string, unknown>;
+    return {
+      ...base,
+      game: { name: "Fallout 4" },
+      checked: { source: "installed", version: "1.11.240.0" },
+      confidence: { evidence: "log", summary: "Backed by F4SE's own log." },
+      scriptExtender: { name, loaderPresent: true, dllPresent: true, version: "0.7.9", expectedDll: "f4se_1_11_240.dll", dllsInstalled: ["f4se_1_11_240.dll"] },
+      plugins: {
+        total: 1, ok: 0, broken: 1, unclear: 0, passed: [],
+        problems: [{ file: "Old.dll", status: "broken", reason: "pinned", basis: "f4se-source", source: "game", skseMessage: "disabled, incompatible with current version of the game" }],
+      },
+      log: { found: true, fresh: true, pluginsLoaded: 3, refusals: ["Old.dll: disabled"], disagreements: ['New.dll: F4SE logged "no version data" but the file check passed it'] },
+    };
+  };
+  const page = loadPage(renderPatchDayApp());
+  await page.show(f4("F4SE"));
+  const text = ["clash", "chips", "plugins", "sure"].map((id) => textOf(page.el(id))).join("\n");
+  for (const words of ["F4SE's own log disagrees with the file check", "F4SE will log: ", "F4SE source", "F4SE log", "F4SE's own log"]) {
+    assert.ok(text.includes(words), words);
+  }
+  assert.doesNotMatch(text, /SKSE/);
+  assert.equal((page.el("whatif") as unknown as { placeholder: string }).placeholder, "1.11.240");
+  const odd = loadPage(renderPatchDayApp());
+  await odd.show(f4("<b>F4SE</b>"));
+  assert.ok(textOf(odd.el("chips")).includes("SKSE"), "a name Patch Day doesn't write isn't shown");
 });
 
 test("the Doctor page says what it found of Vortex's deployment record, as text, and nothing when it didn't look", async () => {

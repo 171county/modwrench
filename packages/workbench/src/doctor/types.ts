@@ -95,7 +95,7 @@ export type DoctorOptions = {
 export const SEVERITY: Record<DoctorStatus, number> = { problem: 0, warn: 1, note: 2, ok: 3 };
 
 /** The games the Setup Doctor's plugin checks (masters, plugin limits, crash loggers) cover, by game id. */
-export const PLUGIN_CHECK_GAMES: ReadonlySet<string> = new Set(["skyrimspecialedition"]);
+export const PLUGIN_CHECK_GAMES: ReadonlySet<string> = new Set(["skyrimspecialedition", "fallout4"]);
 
 /** "Windows", "Linux", "Steam Deck" or "macOS", for people. */
 export function platformName(platform: DoctorPlatform, steamDeck: boolean): string {

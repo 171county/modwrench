@@ -86,7 +86,7 @@ const CSS = String.raw`
 .preason{margin:6px 0 0;overflow-wrap:anywhere}
 .pmeta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;color:var(--sub);font-size:12.5px}
 .basis{color:var(--sub)}
-.basis[data-basis="skse-source"]{border-style:solid;color:var(--ink)}
+.basis[data-basis="skse-source"],.basis[data-basis="f4se-source"]{border-style:solid;color:var(--ink)}
 .basis[data-basis="field-reports"]{border-style:dashed}
 .basis[data-basis="inferred"]{border-style:dotted}
 .psrc{overflow-wrap:anywhere}
@@ -173,8 +173,8 @@ const BODY = String.raw`
   <details id="legend" class="more" hidden>
     <summary>How to read the labels</summary>
     <dl class="legend">
-      <dt>SKSE source</dt><dd>A rule taken from SKSE's published source code. SKSE would refuse the plugin with the message shown.</dd>
-      <dt>Inferred</dt><dd>ModWrench's best guess from how the file looks. Treat it as a hint and confirm it against SKSE's own log.</dd>
+      <dt>SKSE source, F4SE source</dt><dd>A rule taken from the script extender's published source code (SKSE for Skyrim, F4SE for Fallout 4). It would refuse the plugin with the message shown.</dd>
+      <dt>Inferred</dt><dd>ModWrench's best guess from how the file looks. Treat it as a hint and confirm it against the script extender's own log.</dd>
     </dl>
   </details>
   <details id="where" class="more" hidden><summary>Where it looked</summary><ul id="where-list"></ul></details>
@@ -199,14 +199,17 @@ const SCRIPT = String.raw`
   var STATUS = { broken: 'Broken', unclear: 'Unclear' };
   var BASIS = {
     'skse-source': { label: 'SKSE source', tip: "A rule taken from SKSE's published source code." },
+    'f4se-source': { label: 'F4SE source', tip: "A rule taken from F4SE's published source code." },
     'field-reports': { label: 'Field reports', tip: "Matches what players and plugin authors have reported. Not from SKSE's source." },
     inferred: { label: 'Inferred', tip: "ModWrench's best guess from how the file looks. Treat it as a hint." }
   };
-  var EVIDENCE = {
-    log: { label: 'SKSE log', full: "SKSE's own log", level: 3 },
-    files: { label: 'Files', full: "the files and SKSE's rules", level: 2 },
-    prediction: { label: 'Prediction', full: 'a prediction', level: 1 }
-  };
+  // The script extender a report is about. Only the two names Patch Day writes are used; anything else reads as SKSE.
+  function xse(r) { var s = r && r.scriptExtender; return s && s.name === 'F4SE' ? 'F4SE' : 'SKSE'; }
+  function evidenceFor(key, X) {
+    if (key === 'log') return { label: X + ' log', full: X + "'s own log", level: 3 };
+    if (key === 'files') return { label: 'Files', full: 'the files and ' + X + "'s rules", level: 2 };
+    return { label: 'Prediction', full: 'a prediction', level: 1 };
+  }
   var INITIAL_ROWS = 10;
 
   function el(id) { return document.getElementById(id); }
@@ -299,7 +302,7 @@ const SCRIPT = String.raw`
     var host = el('sure');
     clear(host);
     var c = r.confidence || {};
-    var ev = EVIDENCE[c.evidence] || EVIDENCE.prediction;
+    var ev = evidenceFor(c.evidence, xse(r));
     var gauge = h('div', { class: 'gauge', role: 'img', 'aria-label': 'Evidence: ' + ev.full + ', level ' + ev.level + ' of 3' }, [
       h('span', { class: ev.level >= 1 ? 'seg on' : 'seg' }),
       h('span', { class: ev.level >= 2 ? 'seg on' : 'seg' }),
@@ -310,9 +313,9 @@ const SCRIPT = String.raw`
     show('sure', true);
   }
 
-  // SKSE's own log is the real answer. When it refused a plugin the file check had
-  // passed, say so here, above everything else on the page; each entry is already a
-  // sentence naming the plugin and quoting what SKSE logged.
+  // The script extender's own log is the real answer. When it refused a plugin the file
+  // check had passed, say so here, above everything else on the page; each entry is
+  // already a sentence naming the plugin and quoting what the script extender logged.
   function renderClash(r) {
     var host = el('clash');
     clear(host);
@@ -320,12 +323,13 @@ const SCRIPT = String.raw`
     var checked = r.checked || {};
     var list = log && log.found && log.fresh && checked.source !== 'targetVersion' && Array.isArray(log.disagreements) ? log.disagreements : [];
     if (list.length === 0) { show('clash', false); return; }
-    host.appendChild(h('h2', { class: 'h2', text: "SKSE's own log disagrees with the file check" }));
-    host.appendChild(h('p', { class: 'small', text: 'SKSE refused ' + (list.length === 1 ? 'a plugin' : list.length + ' plugins') + " the file check had passed. SKSE's log is what really happened, so start here." }));
+    var X = xse(r);
+    host.appendChild(h('h2', { class: 'h2', text: X + "'s own log disagrees with the file check" }));
+    host.appendChild(h('p', { class: 'small', text: X + ' refused ' + (list.length === 1 ? 'a plugin' : list.length + ' plugins') + " the file check had passed. " + X + "'s log is what really happened, so start here." }));
     var items = h('ul', { class: 'plain-list' });
     list.slice(0, 10).forEach(function (entry) {
       var text = tidy(entry, 320);
-      var parts = /^(.{1,100}?): (SKSE logged .*)$/.exec(text);
+      var parts = /^(.{1,100}?): ((?:SKSE|F4SE) logged .*)$/.exec(text);
       items.appendChild(h('li', {}, parts ? [h('code', { text: parts[1] }), ': ' + parts[2]] : [text]));
     });
     host.appendChild(items);
@@ -356,10 +360,11 @@ const SCRIPT = String.raw`
 
     host.appendChild(chip('info', tidy(game.name, 40) || 'Game', tidy(checked.version, 24), whatIf ? 'The version being asked about' : 'The installed version'));
 
+    var X = xse(r);
     var installed = Array.isArray(skse.dllsInstalled) ? skse.dllsInstalled.length : 0;
-    if (!skse.loaderPresent && installed === 0) host.appendChild(chip('warn', 'SKSE', 'not installed'));
-    else if (skse.dllPresent) host.appendChild(chip('ok', 'SKSE', skse.version ? 'v' + tidy(skse.version, 20) : 'present', tidy(skse.expectedDll, 60)));
-    else host.appendChild(chip('bad', 'SKSE', 'no build for this version', 'Needs ' + tidy(skse.expectedDll, 60)));
+    if (!skse.loaderPresent && installed === 0) host.appendChild(chip('warn', X, 'not installed'));
+    else if (skse.dllPresent) host.appendChild(chip('ok', X, skse.version ? 'v' + tidy(skse.version, 20) : 'present', tidy(skse.expectedDll, 60)));
+    else host.appendChild(chip('bad', X, 'no build for this version', 'Needs ' + tidy(skse.expectedDll, 60)));
 
     if (lib.present) host.appendChild(chip('ok', 'Address Library', 'present' + (lib.format === null || lib.format === undefined ? '' : ' (format ' + num(lib.format) + ')'), tidy(lib.expectedFile, 60)));
     else if (num(lib.pluginsNeedingIt) > 0) host.appendChild(chip('bad', 'Address Library', 'missing', 'Needs ' + tidy(lib.expectedFile, 60)));
@@ -377,15 +382,15 @@ const SCRIPT = String.raw`
     }
 
     var log = r.log;
-    if (whatIf) host.appendChild(chip('info', 'SKSE log', 'not used', 'It describes the installed version.'));
-    else if (!log || !log.found) host.appendChild(chip('info', 'SKSE log', 'not found'));
-    else if (!log.fresh) host.appendChild(chip('info', 'SKSE log', 'older than the last patch'));
-    else host.appendChild(chip(Array.isArray(log.refusals) && log.refusals.length ? 'warn' : 'ok', 'SKSE log',
+    if (whatIf) host.appendChild(chip('info', X + ' log', 'not used', 'It describes the installed version.'));
+    else if (!log || !log.found) host.appendChild(chip('info', X + ' log', 'not found'));
+    else if (!log.fresh) host.appendChild(chip('info', X + ' log', 'older than the last patch'));
+    else host.appendChild(chip(Array.isArray(log.refusals) && log.refusals.length ? 'warn' : 'ok', X + ' log',
       num(log.pluginsLoaded) + ' loaded, ' + (Array.isArray(log.refusals) ? log.refusals.length : 0) + ' refused'));
     show('chips', true);
   }
 
-  function pluginRow(q) {
+  function pluginRow(q, X) {
     var status = STATUS[q.status] ? q.status : 'unclear';
     var basis = BASIS[q.basis] ? q.basis : 'inferred';
     return h('li', { class: 'prow', 'data-status': status }, [
@@ -399,7 +404,7 @@ const SCRIPT = String.raw`
         h('span', { class: 'badge basis', 'data-basis': basis, title: BASIS[basis].tip, text: BASIS[basis].label }),
         h('span', { class: 'psrc', text: sourceLabel(q.source) })
       ]),
-      q.skseMessage ? h('p', { class: 'pskse' }, ['SKSE will log: ', h('q', { text: tidy(q.skseMessage, 160) })]) : null
+      q.skseMessage ? h('p', { class: 'pskse' }, [X + ' will log: ', h('q', { text: tidy(q.skseMessage, 160) })]) : null
     ]);
   }
 
@@ -431,11 +436,11 @@ const SCRIPT = String.raw`
     }
 
     if (problems.length === 0) {
-      host.appendChild(h('p', { class: 'calm', text: total > 0 ? 'The file check flagged no plugin.' : 'No SKSE plugins were found.' }));
+      host.appendChild(h('p', { class: 'calm', text: total > 0 ? 'The file check flagged no plugin.' : 'No ' + xse(r) + ' plugins were found.' }));
     } else {
       var shown = state.showAll ? problems.length : Math.min(problems.length, INITIAL_ROWS);
       var list = h('ul', { class: 'plist' });
-      problems.slice(0, shown).forEach(function (q) { list.appendChild(pluginRow(q || {})); });
+      problems.slice(0, shown).forEach(function (q) { list.appendChild(pluginRow(q || {}, xse(r))); });
       host.appendChild(list);
       if (problems.length > shown) {
         var more = h('button', { class: 'btn small mt', type: 'button', text: 'Show all ' + problems.length });
@@ -506,6 +511,7 @@ const SCRIPT = String.raw`
     var checked = r.checked || {};
     var whatIf = checked.source === 'targetVersion';
     var input = el('whatif');
+    input.placeholder = xse(r) === 'F4SE' ? '1.11.240' : '1.7.104';
     if (whatIf) input.value = tidy(state.args.targetVersion !== undefined ? state.args.targetVersion : checked.version, 24);
     el('btn-installed').hidden = !whatIf;
     show('controls', true);

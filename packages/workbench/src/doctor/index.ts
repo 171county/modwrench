@@ -5,6 +5,7 @@ import { detectOs, detectSteamDeck } from "../detect/os.js";
 import { readFileVersion } from "../patchday/pe.js";
 import { runDeckChecks } from "./deck.js";
 import { Budget, isDir, isFile, resolveCI } from "./fsutil.js";
+import { PLUGIN_GAMES } from "./games.js";
 import { createGuard } from "./guard.js";
 import { judgeCrashLoggers } from "./loggers.js";
 import { judgeLocation, judgeMyGames, judgeRoom, type Place, type Room } from "./location.js";
@@ -34,12 +35,10 @@ export type { DoctorFinding, DoctorOptions, DoctorReport, DoctorResult, DoctorEr
 // Local and read-only: no network, no process started, nothing written or kept.
 // What it can't see is listed in the report rather than skipped over.
 
-/** The games the Doctors know about. Plugin checks exist for Skyrim Special Edition so far. */
+/** The games the Doctors know about. Plugin checks exist for Skyrim Special Edition and Fallout 4 (games.ts). */
 export const DOCTOR_GAMES: string[] = KNOWN_GAMES.map((g) => g.gameId);
 
 const SKYRIM_SE = "skyrimspecialedition";
-/** Skyrim SE's game folder is the one that holds this, as Patch Day and MO2 (GameSkyrimSE's binaryName) both know it. */
-const SKYRIM_SE_EXE = "SkyrimSE.exe";
 
 /** Is `child` the same folder as `parent`, or somewhere below it? */
 function isInside(child: string, parent: string): boolean {
@@ -94,10 +93,10 @@ function notChecked(platform: DoctorPlatform, def: GameDef, ranSetup: boolean, r
       { what: "Whether Flatpak apps have the folder permissions they need", why: "Permission overrides live in Flatpak's own configuration." }
     );
   }
-  if (def.family === "bethesda" && def.gameId !== SKYRIM_SE) {
+  if (def.family === "bethesda" && PLUGIN_GAMES[def.gameId] === undefined) {
     out.push({
       what: `Plugin limits, masters and crash loggers for ${def.displayName}`,
-      why: "The plugin checks are built for Skyrim Special Edition so far.",
+      why: "The plugin checks are built for Skyrim Special Edition and Fallout 4 so far.",
     });
   }
   if (def.loaderChecks.some((c) => c.loader === "melonloader")) {
@@ -134,9 +133,11 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
   if (options.gamePath !== undefined && options.gamePath.trim() !== "") {
     const given = resolve(options.gamePath);
     // The plugin checks read Data and plugins.txt from this folder, so a folder that isn't the game's own (its Data
-    // folder, the library above it) would read as a game with nothing installed. Skyrim SE's folder is known by its
-    // executable. The other games don't have theirs on record yet, so for them any folder is taken as given.
-    const exe = def.gameId === SKYRIM_SE ? resolveCI(given, SKYRIM_SE_EXE) : null;
+    // folder, the library above it) would read as a game with nothing installed. A game with plugin checks is known by
+    // its executable (SkyrimSE.exe, Fallout4.exe, as Patch Day and MO2 know them). The other games don't have theirs
+    // on record yet, so for them any folder is taken as given.
+    const known = PLUGIN_GAMES[def.gameId];
+    const exe = known !== undefined ? resolveCI(given, known.exe) : null;
     if (!isDir(given)) {
       findings.push({
         id: "setup.game",
@@ -147,14 +148,14 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
         fix: "Give the folder that holds the game's executable.",
         basis: "install",
       });
-    } else if (def.gameId === SKYRIM_SE && (exe === null || !isFile(exe))) {
+    } else if (known !== undefined && (exe === null || !isFile(exe))) {
       findings.push({
         id: "setup.game",
         area: gameArea,
         status: "problem",
         title: "That folder isn't the game's folder",
-        detail: `gamePath points at a folder with no ${SKYRIM_SE_EXE} in it, so it isn't the game's own folder, and nothing in it was checked as the game.`,
-        fix: `Give the folder that holds ${SKYRIM_SE_EXE}: the game's own folder, not its Data folder or the library folder above it.`,
+        detail: `gamePath points at a folder with no ${known.exe} in it, so it isn't the game's own folder, and nothing in it was checked as the game.`,
+        fix: `Give the folder that holds ${known.exe}: the game's own folder, not its Data folder or the library folder above it.`,
         basis: "install",
       });
     } else {
@@ -192,7 +193,7 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
     // checks would otherwise judge the game's own list as if it were the one MO2 plays. (A step that stopped is listed already.)
     const asked = options.mo2InstancePath !== undefined || options.profileName !== undefined;
     if (read !== undefined && !read.used && (asked || read.missed === true)) {
-      const pluginChecks = def.gameId === SKYRIM_SE && gameDir !== null;
+      const pluginChecks = PLUGIN_GAMES[def.gameId] !== undefined && gameDir !== null;
       findings.push({
         id: "setup.mo2",
         area: "setup",
@@ -247,9 +248,10 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
       skipped.push(...vortex.skipped);
     }
 
-    if (def.gameId === SKYRIM_SE && gameDir !== null) {
+    const pluginGame = PLUGIN_GAMES[def.gameId];
+    if (pluginGame !== undefined && gameDir !== null) {
       const dir = gameDir;
-      const check = step("The plugin list", () => checkPlugins({ gameDir: dir, platform, mo2, libraries, appId: def.steamAppId, budget }));
+      const check = step("The plugin list", () => checkPlugins({ gameDir: dir, platform, mo2, libraries, appId: def.steamAppId, budget, game: pluginGame }));
       if (check !== undefined) {
         findings.push(...check.findings);
         looked = check.plugins;
@@ -269,13 +271,13 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
 
       if (check !== undefined) {
         step("Crash loggers", () => {
-          const exe = resolveCI(dir, SKYRIM_SE_EXE);
-          findings.push(...judgeCrashLoggers(check.index, exe !== null ? readFileVersion(exe) : null));
+          const exe = resolveCI(dir, pluginGame.exe);
+          findings.push(...judgeCrashLoggers(check.index, exe !== null ? readFileVersion(exe) : null, pluginGame.id));
         });
       }
 
       step("The My Games folder", () => {
-        const myGames = judgeMyGames(platform, ["Skyrim Special Edition", "Skyrim Special Edition GOG", "Skyrim Special Edition EPIC"]);
+        const myGames = judgeMyGames(platform, pluginGame.myGames);
         if (myGames !== null) findings.push(myGames);
       });
     }
@@ -352,7 +354,7 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
         (options.mo2InstancePath === undefined ? " If you play through Mod Organizer 2, pass mo2InstancePath (the folder that holds ModOrganizer.ini)." : "")
     );
   }
-  if (def.gameId === SKYRIM_SE && ranSetup) {
+  if (PLUGIN_GAMES[def.gameId] !== undefined && ranSetup) {
     limits.push("Plugins are read by their header only, never loaded. Crash loggers are recognised by their usual file names, so one that ships under another name isn't seen.");
   }
   if (!complete) limits.push(`Some folders or plugins were skipped (${skipped.join("; ")}), so the checks that needed them don't cover everything.`);

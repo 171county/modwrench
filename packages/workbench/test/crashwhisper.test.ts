@@ -1337,3 +1337,30 @@ test("with five steps already, the help-packet step still comes last", () => {
   assert.equal(r.nextSteps[5], PACKET_STEP);
   assert.match(summarizeCrashWhisper(r), /^6\. To ask for help, ask for a help packet/m);
 });
+
+test("Fallout 4: two crash loggers in a Buffout 4 log are ModWrench's guess, and a crash with no lead gets the Doctors step", () => {
+  const r = run(
+    lines(
+      "Fallout 4 v1.10.984",
+      "Buffout 4 v1.36.0",
+      "",
+      'Unhandled exception "EXCEPTION_ACCESS_VIOLATION" at 0x7FF6F34995BE Fallout4.exe+16B95BE',
+      "",
+      "PROBABLE CALL STACK:",
+      "\t[0] 0x7FF6F34995BE Fallout4.exe+16B95BE",
+      "",
+      "MODULES:",
+      "\tFallout4.exe            0x7FF6F1E00000",
+      "\tBuffout4.dll            0x7FFB6F2D0000",
+      "\tAddictolCrashLogger.dll 0x7FFB6F3D0000",
+      ""
+    )
+  );
+  assert.equal(r.crash.game.id, "fallout4");
+  const check = r.checks.find((c) => c.id === "crash-loggers");
+  assert.ok(check, r.checks.map((c) => c.id).join(", "));
+  assert.equal(check.basis, "guess");
+  assert.equal(check.title, "More than one crash logger was loaded (Buffout 4, Addictol Crash Logger)");
+  assert.match(check.fix ?? "", /The Doctors \(\/mw-doctor\) list the crash loggers in your install\.$/);
+  assert.ok(r.nextSteps.includes(DOCTOR_STEP), r.nextSteps.join("\n"));
+});

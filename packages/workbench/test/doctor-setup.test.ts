@@ -896,9 +896,10 @@ test("a game with no plugin checks gets the location and room checks, and says w
 
 test("another Bethesda game says its plugin checks aren't built yet, rather than running Skyrim's rules on it", () => {
   const w = install();
-  makeSteam(w.steam, { game: { appId: "377160", dir: "Fallout 4", name: "Fallout 4" } });
-  const r = run({ gameId: "fallout4" });
-  assert.ok(r.notChecked.some((n) => n.what === "Plugin limits, masters and crash loggers for Fallout 4"));
+  makeSteam(w.steam, { game: { appId: "611670", dir: "SkyrimVR", name: "Skyrim VR" } });
+  const r = run({ gameId: "skyrimvr" });
+  assert.ok(r.notChecked.some((n) => n.what === "Plugin limits, masters and crash loggers for Skyrim VR"));
+  assert.ok(r.notChecked.some((n) => /built for Skyrim Special Edition and Fallout 4 so far/.test(n.why)));
   assert.equal(find(r, "setup.plugin-limit"), undefined);
   assert.ok(r.notChecked.some((n) => /Vortex's staging folder/.test(n.what)));
 });

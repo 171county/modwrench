@@ -2,9 +2,9 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { clean } from "../patchday/summary.js";
 import { Budget, readDir, resolveCI } from "./fsutil.js";
+import { PLUGIN_GAMES, type PluginGame } from "./games.js";
 import type { Mo2Facts } from "./mo2facts.js";
 import {
-  SKYRIM_BASE_PLUGINS,
   isLight,
   isProblem,
   readCreationClubList,
@@ -17,8 +17,8 @@ import {
 import type { DoctorFinding, DoctorPlatform, DoctorReport } from "./types.js";
 
 // ─── The plugin list ─────────────────────────────────────────────────────────
-// Skyrim loads the plugins in plugins.txt, in that order, after its own files and
-// the Creation Club files. A handful of facts about that list explain a great many
+// Skyrim and Fallout 4 load the plugins in plugins.txt, in that order, after their own
+// files and the Creation Club files. A handful of facts about that list explain a great many
 // crashes: more plugins than the game can hold, a plugin whose master isn't there,
 // is switched off, or loads after it, and files that aren't plugins at all.
 //
@@ -31,7 +31,7 @@ import type { DoctorFinding, DoctorPlatform, DoctorReport } from "./types.js";
 export const FULL_LIMIT = 254;
 export const LIGHT_LIMIT = 4096;
 
-const LIMIT_SOURCE = "https://dyndolod.info/Messages/Plugin-Limit";
+const SKYRIM = PLUGIN_GAMES.skyrimspecialedition!;
 const LOAD_ORDER_SOURCE = "https://loot.readthedocs.io/en/latest/app/sorting.html";
 
 type Found = { abs: string; source: string };
@@ -40,7 +40,7 @@ type Found = { abs: string; source: string };
 export type Index = {
   /** Lower-case file name to the file that wins. */
   plugins: Map<string, Found>;
-  /** Lower-case names of the DLLs in SKSE's Plugins folders. */
+  /** Lower-case names of the DLLs in the script extender's Plugins folders (SKSE's or F4SE's). */
   skseDlls: Set<string>;
   /** NetScriptFramework's runtime is installed. */
   netScript: boolean;
@@ -52,8 +52,8 @@ export type Index = {
   skipped: string[];
 };
 
-/** Add what `dir` holds. Returns how many folders couldn't be listed: `dir` itself, or its SKSE Plugins folder. */
-function addRoot(dir: string, source: string, index: Index): number {
+/** Add what `dir` holds. Returns how many folders couldn't be listed: `dir` itself, or its script extender's Plugins folder. */
+function addRoot(dir: string, source: string, index: Index, xse: string): number {
   const names = readDir(dir);
   if (names === null) return 1;
   let unreadable = 0;
@@ -61,7 +61,7 @@ function addRoot(dir: string, source: string, index: Index): number {
     const lower = name.toLowerCase();
     if (/\.(?:esp|esm|esl)$/.test(lower)) {
       index.plugins.set(lower, { abs: join(dir, name), source });
-    } else if (lower === "skse") {
+    } else if (lower === xse.toLowerCase()) {
       const plugins = resolveCI(dir, name, "Plugins");
       if (plugins !== null) {
         const dlls = readDir(plugins);
@@ -75,7 +75,7 @@ function addRoot(dir: string, source: string, index: Index): number {
   return unreadable;
 }
 
-export function buildIndex(gameDir: string, mo2: Mo2Facts, budget: Budget): Index {
+export function buildIndex(gameDir: string, mo2: Mo2Facts, budget: Budget, game: PluginGame = SKYRIM): Index {
   const index: Index = { plugins: new Map(), skseDlls: new Set(), netScript: false, missingMods: [], complete: true, skipped: [] };
   // A folder that is there but can't be listed isn't an empty one: what is in it is unknown, so the picture isn't whole.
   const skip = (why: string): void => {
@@ -85,7 +85,7 @@ export function buildIndex(gameDir: string, mo2: Mo2Facts, budget: Budget): Inde
   let unreadable = 0;
   const data = resolveCI(gameDir, "Data");
   if (data === null) skip("the game folder has no Data folder");
-  else unreadable += addRoot(data, "game folder", index);
+  else unreadable += addRoot(data, "game folder", index, game.xse);
   if (mo2.used) {
     if (mo2.modsDir === null || mo2.modsDir === undefined) {
       skip("MO2's mods folder wasn't found");
@@ -98,10 +98,10 @@ export function buildIndex(gameDir: string, mo2: Mo2Facts, budget: Budget): Inde
         }
         const dir = resolveCI(mo2.modsDir, folder.name);
         if (dir === null) index.missingMods.push(folder.name);
-        else unreadable += addRoot(dir, `mo2:${folder.name}`, index);
+        else unreadable += addRoot(dir, `mo2:${folder.name}`, index, game.xse);
       }
     }
-    if (mo2.overwriteDir) unreadable += addRoot(mo2.overwriteDir, "mo2:overwrite", index);
+    if (mo2.overwriteDir) unreadable += addRoot(mo2.overwriteDir, "mo2:overwrite", index, game.xse);
   }
   if (unreadable > 0) skip(`${unreadable} ${unreadable === 1 ? "folder" : "folders"} couldn't be opened`);
   return index;
@@ -111,17 +111,20 @@ export function buildIndex(gameDir: string, mo2: Mo2Facts, budget: Budget): Inde
 
 /**
  * The folder the game keeps plugins.txt in, which depends on the store the copy came from. libloadorder tells them
- * apart by a file only that store's installer puts in the game folder (skyrim_se_appdata_folder_name, src/game_settings.rs).
+ * apart by a file only that store's installer puts in the game folder (src/game_settings.rs); see games.ts.
  */
-function listFolder(gameDir: string): string {
-  if (resolveCI(gameDir, "Galaxy64.dll") !== null) return "Skyrim Special Edition GOG";
-  if (resolveCI(gameDir, "EOSSDK-Win64-Shipping.dll") !== null) return "Skyrim Special Edition EPIC";
-  if (resolveCI(gameDir, "appxmanifest.xml") !== null) return "Skyrim Special Edition MS";
-  return "Skyrim Special Edition";
+function listFolder(gameDir: string, game: PluginGame): string {
+  return game.listFolder((file) => resolveCI(gameDir, file) !== null);
 }
 
-/** Where Skyrim keeps plugins.txt: the Windows profile, or, under Proton, the game's prefix. "unreadable" when it is there but can't be opened. */
-export function readGamePluginList(platform: DoctorPlatform, libraries: readonly string[], appId: string, gameDir: string): ListEntry[] | null | "unreadable" {
+/** Where the game keeps plugins.txt: the Windows profile, or, under Proton, the game's prefix. "unreadable" when it is there but can't be opened. */
+export function readGamePluginList(
+  platform: DoctorPlatform,
+  libraries: readonly string[],
+  appId: string,
+  gameDir: string,
+  game: PluginGame = SKYRIM
+): ListEntry[] | null | "unreadable" {
   const bases: string[] = [];
   if (platform === "windows") {
     bases.push(process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local"));
@@ -130,7 +133,7 @@ export function readGamePluginList(platform: DoctorPlatform, libraries: readonly
       bases.push(join(lib, "compatdata", appId, "pfx", "drive_c", "users", "steamuser", "AppData", "Local"));
     }
   }
-  const folder = listFolder(gameDir);
+  const folder = listFolder(gameDir, game);
   for (const base of bases) {
     const file = resolveCI(base, folder, "Plugins.txt");
     if (file === null) continue;
@@ -164,15 +167,16 @@ const PROBLEM_WORDS: Record<HeaderProblemKind, string> = {
 /** A name from the player's own files, safe to put in text. */
 const nm = (value: string): string => clean(value, 70);
 
-export function limitFinding(full: number, light: number, implicit: number): DoctorFinding {
+export function limitFinding(full: number, light: number, implicit: number, game: PluginGame = SKYRIM): DoctorFinding {
   const counts = `${full} of ${FULL_LIMIT} full plugins and ${light} of ${LIGHT_LIMIT} light plugins are switched on, counting the ${implicit} game and Creation Club files that load without being listed.`;
-  const rule = `Skyrim can load ${FULL_LIMIT} full plugins and ${LIGHT_LIMIT} light ones; a light plugin is one flagged ESL or named .esl.`;
+  const rule = `${game.short} can load ${FULL_LIMIT} full plugins and ${LIGHT_LIMIT} light ones; a light plugin is one flagged ESL or named .esl.`;
+  const LIMIT_SOURCE = game.limitSource;
   if (full > FULL_LIMIT || light > LIGHT_LIMIT) {
     return {
       id: "setup.plugin-limit",
       area: "setup",
       status: "problem",
-      title: "Over Skyrim's plugin limit",
+      title: `Over ${game.short}'s plugin limit`,
       detail: `${counts} ${rule} The game can't load more than that.`,
       fix: "Switch off or remove plugins until you are under the limit. Merging plugins, or flagging small ones as light, are the usual ways to make room.",
       basis: "rule",
@@ -184,7 +188,7 @@ export function limitFinding(full: number, light: number, implicit: number): Doc
       id: "setup.plugin-limit",
       area: "setup",
       status: "warn",
-      title: "Close to Skyrim's plugin limit",
+      title: `Close to ${game.short}'s plugin limit`,
       detail: `${counts} ${rule}`,
       fix: "Leave yourself some room before adding more: the next few plugins will hit the limit.",
       basis: "rule",
@@ -195,7 +199,7 @@ export function limitFinding(full: number, light: number, implicit: number): Doc
     id: "setup.plugin-limit",
     area: "setup",
     status: "ok",
-    title: "Plugin count is within Skyrim's limits",
+    title: `Plugin count is within ${game.short}'s limits`,
     detail: counts,
     basis: "rule",
     source: LIMIT_SOURCE,
@@ -348,16 +352,19 @@ export type PluginCheckInput = {
   libraries: readonly string[];
   appId: string;
   budget: Budget;
+  /** Which game's rules and files. Default Skyrim Special Edition. */
+  game?: PluginGame;
 };
 
 const enabledNames = (list: readonly ListEntry[]): Set<string> => new Set(list.filter((e) => e.enabled).map((e) => e.name.toLowerCase()));
 
 export function checkPlugins(input: PluginCheckInput): PluginCheck {
   const { gameDir, platform, mo2, libraries, appId, budget } = input;
-  const index = buildIndex(gameDir, mo2, budget);
+  const game = input.game ?? SKYRIM;
+  const index = buildIndex(gameDir, mo2, budget, game);
   const findings: DoctorFinding[] = [];
 
-  const gameList = readGamePluginList(platform, libraries, appId, gameDir);
+  const gameList = readGamePluginList(platform, libraries, appId, gameDir, game);
   let list: ListEntry[] | null | "unreadable" = gameList;
   if (mo2.used && mo2.profileDir !== undefined) {
     const file = resolveCI(mo2.profileDir, "plugins.txt");
@@ -382,13 +389,13 @@ export function checkPlugins(input: PluginCheckInput): PluginCheck {
       area: "setup",
       status: "note",
       title: "No plugin list found",
-      detail: "There is no plugins.txt to read yet. Skyrim creates it the first time the launcher or a mod manager runs, so there is nothing to check for limits or masters.",
+      detail: `There is no plugins.txt to read yet. ${game.short} creates it the first time the launcher or a mod manager runs, so there is nothing to check for limits or masters.`,
       basis: "install",
     });
     return { findings, index, skipped: index.skipped };
   }
 
-  const implicitNames = [...new Set([...SKYRIM_BASE_PLUGINS, ...readCreationClubList(gameDir)])];
+  const implicitNames = [...new Set([...game.base, ...readCreationClubList(gameDir, game.ccc)])];
   const implicitLower = new Set(implicitNames.map((n) => n.toLowerCase()));
 
   const rows: Row[] = [];
@@ -474,7 +481,7 @@ export function checkPlugins(input: PluginCheckInput): PluginCheck {
       title: "Plugin count not fully checked",
       detail:
         `${gapText.charAt(0).toUpperCase()}${gapText.slice(1)}, ` +
-        `and whether a plugin is full or light is in its header, so it can't say whether the list is within Skyrim's ${FULL_LIMIT} full and ${LIGHT_LIMIT} light limits.` +
+        `and whether a plugin is full or light is in its header, so it can't say whether the list is within ${game.short}'s ${FULL_LIMIT} full and ${LIGHT_LIMIT} light limits.` +
         (looked.read === 0
           ? ""
           : ` ${looked.read === 1 ? "The 1 it did open comes" : `The ${looked.read} it did open come`} to ${full} full and ${light} light, so the real totals are at least that.`),
@@ -483,10 +490,10 @@ export function checkPlugins(input: PluginCheckInput): PluginCheck {
           ? "Run it again. If it keeps stopping short, the plugins or mod folders may be on a slow or network drive."
           : "Close any program that holds the plugins or mod folders open, download again any plugin listed as damaged, then run this again.",
       basis: "install",
-      source: LIMIT_SOURCE,
+      source: game.limitSource,
     });
   } else {
-    findings.push(limitFinding(full, light, implicitCount));
+    findings.push(limitFinding(full, light, implicitCount, game));
   }
 
   findings.push(...masterFindings(rows, index, mo2.used));
@@ -579,7 +586,7 @@ export function checkPlugins(input: PluginCheckInput): PluginCheck {
         title: "MO2's list and the game's own plugins.txt differ",
         detail:
           `${inMo2.length} ${inMo2.length === 1 ? "plugin is" : "plugins are"} switched on only in MO2's profile and ${inGame.length} only in the game's own list. ` +
-          "MO2 uses its profile for what it launches; anything started outside MO2 (Steam, the SKSE loader on its own, LOOT outside MO2) reads the game's list. " +
+          `MO2 uses its profile for what it launches; anything started outside MO2 (Steam, the ${game.xse} loader on its own, LOOT outside MO2) reads the game's list. ` +
           "That is normal if you always start the game from MO2.",
         basis: "install",
       });

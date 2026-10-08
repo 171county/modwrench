@@ -21,12 +21,13 @@ function report(over: Partial<PatchDayReport> = {}): PatchDayReport {
     confidence: {
       evidence: "files",
       summary: "From the files only, using SKSE 2.2.6's own rules, the checks SKSE makes at launch. SKSE's log from a launch would confirm it.",
-      basis: { "skse-source": 0, "field-reports": 0, inferred: 0 },
+      basis: { "skse-source": 0, "f4se-source": 0, "field-reports": 0, inferred: 0 },
     },
     game: { id: "skyrimspecialedition", name: "Skyrim Special Edition" },
     checked: { version: "1.6.1170.0", source: "installed", installed: "1.6.1170.0" },
     steam: null,
-    scriptExtender: { loaderPresent: true, expectedDll: "skse64_1_6_1170.dll", dllPresent: true, version: "2.2.6", dllsInstalled: ["skse64_1_6_1170.dll"] },
+    scriptExtender: {
+      name: "SKSE", loaderPresent: true, expectedDll: "skse64_1_6_1170.dll", dllPresent: true, version: "2.2.6", dllsInstalled: ["skse64_1_6_1170.dll"] },
     addressLibrary: { expectedFile: "versionlib-1-6-1170-0.bin", present: true, format: 2, pluginsNeedingIt: 1 },
     plugins: { total: 3, ok: 3, broken: 0, unclear: 0, problems: [], passed: ["a.dll", "b.dll", "c.dll"] },
     nextPatch: { pinned: [], independent: 1, legacy: 0, note: "n" },
@@ -141,7 +142,8 @@ test("a what-if names the build it would need and leaves SKSE's log out of it", 
       verdict: "wait",
       headline: "WAIT — If you update Skyrim Special Edition to 1.7.104.0: SKSE has no build for it installed.",
       checked: { version: "1.7.104.0", source: "targetVersion", installed: "1.6.1170.0" },
-      scriptExtender: { loaderPresent: true, expectedDll: "skse64_1_7_104.dll", dllPresent: false, version: null, dllsInstalled: ["skse64_1_6_1170.dll"] },
+      scriptExtender: {
+      name: "SKSE", loaderPresent: true, expectedDll: "skse64_1_7_104.dll", dllPresent: false, version: null, dllsInstalled: ["skse64_1_6_1170.dll"] },
       addressLibrary: { expectedFile: "versionlib-1-7-104-0.bin", present: false, format: null, pluginsNeedingIt: 2 },
       steam: { updatePending: true },
       // The log describes the version that is installed, so a what-if about another one must not quote it.
@@ -202,7 +204,8 @@ test("Steam, SKSE and the Address Library are described in a line each", () => {
   const text = summarizePatchDay(
     report({
       steam: { buildId: "1", updatePending: true },
-      scriptExtender: { loaderPresent: false, expectedDll: "x.dll", dllPresent: false, version: null, dllsInstalled: [] },
+      scriptExtender: {
+      name: "SKSE", loaderPresent: false, expectedDll: "x.dll", dllPresent: false, version: null, dllsInstalled: [] },
       addressLibrary: { expectedFile: "v.bin", present: false, format: null, pluginsNeedingIt: 0 },
     })
   );
