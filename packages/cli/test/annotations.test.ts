@@ -19,7 +19,7 @@ const SRC = (file: string): string =>
   new URL(`../src/${file}`, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
 
 /** Where each meta-tool is registered. */
-const SOURCES: Record<string, string> = { mw_activate_platform: "index.ts", mw_deck: "deck.ts" };
+const SOURCES: Record<string, string> = { mw_activate_platform: "index.ts", mw_deck: "deck.ts", mw_critique: "critique.ts" };
 
 const HINTS = [
   "readOnlyHint",

@@ -41,6 +41,10 @@
     "./detect": {
       "types": "./dist/detect/environment.d.ts",
       "import": "./dist/detect/environment.js"
+    },
+    "./feedback": {
+      "types": "./dist/feedback.d.ts",
+      "import": "./dist/feedback.js"
     }
   },
   "bin": {

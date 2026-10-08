@@ -116,11 +116,11 @@ Four attachments. Install one, some, or all — `@modwrench/cli` composes whiche
 
 The conflict check reads two sources: LOOT's masterlist, fetched live for Bethesda games, and a small conflict list bundled inside the package for games LOOT does not cover. **That bundled list ships empty** — all three files contain `[]` — so today it asserts nothing. It is named here because it is a channel that could carry claims about someone's mod in a future release, and `npx` pulls the latest version automatically unless you pin.
 
-Plus two meta tools: one activates a platform mid-session, and one opens the deck, which shows which platforms are connected (a page in clients that support MCP Apps, the connector list as text everywhere else).
+Plus three meta tools: one activates a platform mid-session, one opens the deck, which shows which platforms are connected (a page in clients that support MCP Apps, the connector list as text everywhere else), and one drafts feedback for ModWrench's maintainers as a GitHub issue that you read and post yourself (it sends nothing).
 
-**52 tools. 51 of them read. One writes** — see [The one thing it writes](#the-one-thing-it-writes).
+**53 tools. 52 of them read. One writes** — see [The one thing it writes](#the-one-thing-it-writes).
 
-It also registers **seven slash commands** your MCP client will offer you: `/modwrench` opens the deck, `/mw-find` searches every connected platform at once, `/mw-crash` asks why your game crashed (it reads your newest crash log itself), `/mw-conflicts` checks a game's load order, `/mw-order` reads your load order, `/mw-patch` asks whether a game update is safe, and `/mw-doctor` asks whether your setup is ready. They are shortcuts that call the tools above — they add no capability the tools do not already have.
+It also registers **eight slash commands** your MCP client will offer you: `/modwrench` opens the deck, `/mw-find` searches every connected platform at once, `/mw-crash` asks why your game crashed (it reads your newest crash log itself), `/mw-conflicts` checks a game's load order, `/mw-order` reads your load order, `/mw-patch` asks whether a game update is safe, `/mw-doctor` asks whether your setup is ready, and `/mw-critique` drafts feedback for the maintainers. They are shortcuts that call the tools above — they add no capability the tools do not already have.
 
 ## How to use it
 

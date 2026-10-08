@@ -11,6 +11,7 @@ import {
   buildOrderPrompt,
   buildPatchPrompt,
   buildDoctorPrompt,
+  buildCritiquePrompt,
 } from "../src/prompts.js";
 
 // registerPrompts is tested against a mock McpServer — we don't need a
@@ -25,7 +26,7 @@ class MockPromptServer {
   }
 }
 
-test("PROMPT_NAMES holds the seven summons in menu order", () => {
+test("PROMPT_NAMES holds the eight summons in menu order", () => {
   assert.deepEqual(PROMPT_NAMES, [
     "modwrench",
     "mw-find",
@@ -34,14 +35,15 @@ test("PROMPT_NAMES holds the seven summons in menu order", () => {
     "mw-order",
     "mw-patch",
     "mw-doctor",
+    "mw-critique",
   ]);
-  assert.equal(PROMPT_COUNT, 7);
+  assert.equal(PROMPT_COUNT, 8);
 });
 
 test("registerPrompts registers every prompt and reports the count", () => {
   const server = new MockPromptServer();
   const { promptCount } = registerPrompts(server as unknown as never);
-  assert.equal(promptCount, 7);
+  assert.equal(promptCount, 8);
   assert.deepEqual(server.registered.sort(), [...PROMPT_NAMES].sort());
 });
 
@@ -189,4 +191,29 @@ test("/mw-doctor is described as read-only, and says what it checks without prom
   assert.match(description, /what each finding rests on/);
   assert.match(description, /what it can't see/);
   assert.doesNotMatch(description, /fix(?:es)? everything|guarantee|safe\b/i);
+});
+
+test("/mw-critique drafts an issue with mw_critique, keeps the user's words theirs and says nothing is posted", () => {
+  const text = buildCritiquePrompt().messages[0]?.content.text ?? "";
+  assert.match(text, /call `mw_critique` with the kind \(bug, idea or other\), a short title and my words/);
+  assert.match(text, /ask me at most two short questions/);
+  assert.match(text, /don't add file paths, log contents, my name or anything personal unless I ask/);
+  assert.match(text, /nothing is posted until I open the link and press Create/);
+  assert.doesNotMatch(text, /What I want to say/, "nothing was said, so nothing is quoted");
+});
+
+test("/mw-critique with words passes them after the instructions, as the user's own", () => {
+  const text = buildCritiquePrompt("  the load order page was empty for my MO2 profile  ").messages[0]?.content.text ?? "";
+  assert.match(text, /\n\nWhat I want to say:\nthe load order page was empty for my MO2 profile$/);
+});
+
+test("/mw-critique is described as sending nothing", () => {
+  let description = "";
+  const server = {
+    prompt: (name: string, text: string) => {
+      if (name === "mw-critique") description = text;
+    },
+  };
+  registerPrompts(server as unknown as never);
+  assert.match(description, /for you to read and post yourself\. Nothing is sent\.$/);
 });
