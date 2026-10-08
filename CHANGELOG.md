@@ -314,6 +314,9 @@ This document is currently maintained by hand. When [release-please](https://git
 - The Workbench now has 9 tools (52 in total), and there are 7 slash commands.
   `/modwrench` mentions the update check, `/mw-crash` now asks for Crash
   Whisperer, and `/mw-doctor` asks for the Doctors.
+- The release workflows stop, publishing nothing, when the repository is private.
+  npm provenance needs a public source repository, and TRUST.md promises that the
+  source is public and that every release can be checked against it.
 - Steam detection on Linux also looks in the Flatpak build's current folder,
   `~/.var/app/com.valvesoftware.Steam/.local/share/Steam`. It looked only in the
   older `data/Steam` folder there, which not every Flatpak install has, so a
