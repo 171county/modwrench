@@ -25,6 +25,9 @@ export function createRemoteMcpServer(): McpServer {
     version: "0.1.0",
   });
 
+  // Five of these tools point at a page, but a server made for one request never saw the
+  // client's initialize, so it can't tell who draws pages and sends their data to no one
+  // unless MODWRENCH_STRUCTURED=always. README and TRUST.md say so.
   registerThunderstoreTools(server);
 
   return server;

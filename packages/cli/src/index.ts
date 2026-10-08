@@ -12,7 +12,7 @@ import { registerThunderstoreTools } from "@modwrench/thunderstore/register";
 import { registerWorkbenchTools } from "@modwrench/workbench/register";
 import { MetaCatalog, type PlatformDef } from "./catalog.js";
 import { registerPrompts } from "./prompts.js";
-import { renderShell, createUIResource, THEME_IDS } from "@modwrench/ui";
+import { registerDeckTool } from "./deck.js";
 
 // ─── Subcommand dispatch ─────────────────────────────────────────────────────
 // Must run before the MCP boot block below. Two routes today:
@@ -250,86 +250,10 @@ server.registerTool(
   }
 );
 
-// ─── mw_deck — stateless MCP-UI surface ──────────────────────────────────────
-// Returns the ModWrench deck as a ui:// resource built entirely from the current
-// catalog state. Four flagship-game themes; no state, no storage, no network from
-// the rendered HTML — the UI is a pure function of the tool output.
-
-const CONNECTOR_META: Record<string, { name: string; tool: string }> = {
-  nexus: { name: "Nexus Mods", tool: "nexus_search" },
-  modio: { name: "mod.io", tool: "modio_list_games" },
-  thunderstore: { name: "Thunderstore", tool: "thunderstore_list_communities" },
-  workbench: { name: "Workbench", tool: "mw_detect_environment" },
-};
-
-const FLAGSHIP_GAMES = [
-  { id: "skyrim", name: "Skyrim SE", note: "Nexus \u00b7 Bethesda" },
-  { id: "fallout", name: "Fallout 4", note: "Nexus \u00b7 Bethesda" },
-  { id: "lethal", name: "Lethal Company", note: "Thunderstore \u00b7 BepInEx" },
-  { id: "valheim", name: "Valheim", note: "Thunderstore \u00b7 BepInEx" },
-];
-
-server.registerTool(
-  "mw_deck",
-  {
-    title: "Open the ModWrench deck",
-    description: "Open the ModWrench deck: a themed, interactive MCP-UI surface (a ui:// resource) showing the active connectors and flagship games in four skins (Skyrim, Fallout Pip-Boy, Lethal Company, Valheim). Stateless \u2014 rendered fresh from the current catalog, holds nothing. Use when the user says \"open the deck\", \"summon/show ModWrench\", or wants a visual dashboard. Optional args set the initial theme and view.",
-    inputSchema: {
-      theme: z
-        .enum([...THEME_IDS] as [string, ...string[]])
-        .optional()
-        .describe("Initial theme: skyrim | fallout | lethal | valheim. Default skyrim."),
-      view: z
-        .enum(["deck", "mods", "crash"])
-        .optional()
-        .describe("Initial view. Default 'deck'."),
-    },
-    annotations: {
-      readOnlyHint: true,
-      destructiveHint: false,
-      idempotentHint: true,
-      openWorldHint: false,
-    },
-  },
-  async ({ theme, view }) => {
-    const active = new Map(
-      catalog.listActive().map((p) => [p.platformId, p.toolCount] as const)
-    );
-    const connectors = catalog.knownIds().map((id) => {
-      const meta = CONNECTOR_META[id] ?? { name: id, tool: "" };
-      const on = active.has(id);
-      return {
-        id,
-        name: meta.name,
-        tool: meta.tool,
-        status: on ? ("on" as const) : ("off" as const),
-        ...(on ? { toolCount: active.get(id) } : {}),
-      };
-    });
-    const html = renderShell({
-      theme,
-      view: view ?? "deck",
-      deck: { connectors, games: FLAGSHIP_GAMES },
-    });
-    return {
-      content: [
-        {
-          type: "text" as const,
-          text: JSON.stringify(
-            { view: view ?? "deck", theme: theme ?? "skyrim", connectors },
-            null,
-            2
-          ),
-        },
-        createUIResource({
-          uri: "ui://modwrench/deck",
-          html,
-          meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "760px"] },
-        }),
-      ],
-    };
-  }
-);
+// ─── mw_deck — the ModWrench deck ───────────────────────────────────────────
+// The active connectors and flagship games, read from the catalog on every call.
+// See deck.ts.
+registerDeckTool(server, catalog);
 
 // ─── Prompts — the "/" summons ───────────────────────────────────────────────
 // Typed entry points hosts surface as slash-commands: /modwrench, /mw-find,

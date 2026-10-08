@@ -3,21 +3,23 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 // ─── The two always-on meta-tools declare their annotation hints ────────────
-// mw_activate_platform and mw_deck are registered inline in src/index.ts — the
-// boot script, which runs the whole server at import time — so they can't be
-// exercised through a mock McpServer the way the platform packages can. This
-// guard scans the source instead, in the house style of nexus's
-// preview-adult guard: a little brittle beats silently passing.
+// mw_activate_platform is registered inline in src/index.ts — the boot script,
+// which runs the whole server at import time — so it can't be exercised
+// through a mock McpServer the way the platform packages can. mw_deck lives in
+// src/deck.ts and is held to the same scan. This guard scans the source
+// instead, in the house style of nexus's preview-adult guard: a little brittle
+// beats silently passing.
 //
 // What it enforces: every tool declares all four MCP annotation hints as
 // explicit booleans. Hosts (and directories like OpenAI's) reject or mis-handle
 // tools with missing or non-boolean hints. The hints are honest
 // self-descriptions for host UX — hints, not guarantees, per the MCP spec.
 
-const SRC = new URL("../src/index.ts", import.meta.url).pathname.replace(
-  /^\/([A-Za-z]:)/,
-  "$1"
-);
+const SRC = (file: string): string =>
+  new URL(`../src/${file}`, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+
+/** Where each meta-tool is registered. */
+const SOURCES: Record<string, string> = { mw_activate_platform: "index.ts", mw_deck: "deck.ts" };
 
 const HINTS = [
   "readOnlyHint",
@@ -36,9 +38,8 @@ function toolBlock(src: string, name: string): string {
 }
 
 test("the meta-tools declare all four boolean annotation hints", () => {
-  const src = readFileSync(SRC, "utf8");
-  for (const name of ["mw_activate_platform", "mw_deck"]) {
-    const block = toolBlock(src, name);
+  for (const [name, file] of Object.entries(SOURCES)) {
+    const block = toolBlock(readFileSync(SRC(file), "utf8"), name);
     assert.match(block, /title:\s*"/, `${name} is missing a title`);
     for (const hint of HINTS) {
       assert.match(

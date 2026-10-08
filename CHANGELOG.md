@@ -217,6 +217,69 @@ This document is currently maintained by hand. When [release-please](https://git
   Windows or macOS, or against a real game folder.
 
 ### Changed
+- **The older panels are MCP Apps pages now, and text-only clients no longer
+  get HTML.** Fourteen tools put an MCP-UI panel, about 28 KB of HTML, into
+  every answer, and a client that couldn't draw it pasted it into the
+  conversation (see 0.2.3). They now point at one of five pages instead (mods,
+  dependencies and load order, crash log, conflicts, deck), which only clients
+  that support MCP Apps fetch, and send the page's data as structured content
+  only to those clients. Every other client gets the same text answer as
+  before and nothing else; a client that drew MCP-UI panels but doesn't
+  support MCP Apps now shows the text answer only. `MODWRENCH_UI=off` now
+  means no pages and no structured data (unless `MODWRENCH_STRUCTURED=always`)
+  rather than a stub of about 130 bytes in place of each panel.
+  `@modwrench/remote` starts a fresh server for every request, so it never
+  learns that a client can draw pages: its Thunderstore tools point at their
+  pages but send the data only with `MODWRENCH_STRUCTURED=always` (to every
+  client), and without it a page there shows only the text answer. The pages
+  keep the four game skins, make no network requests and keep nothing; see
+  [TRUST.md](TRUST.md#the-other-pages). The README's two pictures are
+  retaken from the new pages. Like the three newer pages, they were checked in a
+  stand-in for an MCP Apps host, not yet in a real client.
+- `nexus_trending`, `modio_list_mods`, `modio_search_mods`,
+  `thunderstore_list_mods`, `thunderstore_search_mods`, `thunderstore_top_mods`
+  and `mw_query_mod_metadata` no longer put an MCP-UI panel (about 28 KB of
+  HTML) in every answer. In clients that support MCP Apps they point at the
+  Mods page (`ui://modwrench/mods`). It shows each mod's author, platform and
+  page address, and can ask the client to open a mod's page on nexusmods.com,
+  mod.io or thunderstore.io. Other clients get the text answer only,
+  unchanged. With `MODWRENCH_UI=off` there is no page and no structured data.
+- **The dependency and load-order tools answer with a page instead of embedded
+  HTML.** `thunderstore_mod_dependencies`, `thunderstore_resolve_dependencies`
+  and `mw_read_load_order` now point at one MCP Apps page,
+  `ui://modwrench/deps`, which only clients that draw pages fetch; they send
+  its data as structured content only to those clients. Text-only clients get
+  the same text answer as before and no HTML. `ui://modwrench/order` is
+  retired. The page shows a mod's author when the manager knows it
+  (r2modman), shows an entry whose enable state isn't known (Vortex) as `?`
+  rather than ON, shows Vortex's warning, says when a resolved dependency tree
+  couldn't resolve every reference or stopped at its depth or size limit, and
+  shows why a load order couldn't be read (that case had no panel before). It
+  never receives the folder the load order was read from.
+- **`mw_parse_crashlog` and `mw_diagnose_crash` show their crash on an MCP Apps
+  page instead of an embedded MCP-UI panel.** Their text answer is unchanged.
+  Clients that support MCP Apps fetch the Crash log page
+  (`ui://modwrench/crash`) once and are sent the parsed crash as structured
+  data. Every other client gets the text answer alone, with no HTML in the
+  result. `MODWRENCH_UI=off` turns off the page and its data. The page's single
+  Ask about this button replaces "Ask AI to diagnose" and sends a fixed
+  sentence with nothing from the log in it. The "Parse a crashlog" and "Try
+  another log" buttons, which ran the tool with no arguments, are gone. A cut
+  list now says "first 32 of N". Each plugin stays on one line. Section text
+  loses characters that print nothing or flip text direction.
+- `mw_check_known_conflicts` no longer embeds the MCP-UI conflicts panel. In
+  MCP Apps clients it points at the Conflicts page (`ui://modwrench/conflicts`)
+  and sends the conflicts as structured data; text-only clients get the same
+  JSON text and nothing else. The page shows a patch's mod id as text: the old
+  Patch button, which posted a prompt holding masterlist text, is gone, and a
+  warning that repeats LOOT's reason is shown once.
+- **`mw_deck` is an MCP Apps page now** (`ui://modwrench/deck`). Clients that
+  support MCP Apps draw it; every other client gets the same connector list as
+  text and no HTML (it used to embed about 28 KB of MCP-UI panel in every
+  answer). The text answer is unchanged. The rows that ran a tool and the game
+  tiles that posted a prompt are replaced by **Ask** buttons, shown only when
+  your client takes messages from a page, which put a fixed sentence in the
+  chat. `view` is kept for compatibility; the page always shows the deck.
 - **`mw_patch_day` and `mw_crash_whisperer` send the structured report only to
   clients that say they can draw pages.** Some clients hand the model the
   structured result *instead of* the text (Codex's source, read on 2026-10-02,
@@ -251,6 +314,20 @@ This document is currently maintained by hand. When [release-please](https://git
   older `data/Steam` folder there, which not every Flatpak install has, so a
   Flatpak Steam without it could be missed by `mw_detect_environment` and the
   tools built on it.
+
+### Removed
+- **MCP-UI embedded resources.** No tool puts a `ui://` resource inside its
+  answer any more, and `ui://modwrench/order` is retired (the load order is on
+  `ui://modwrench/deps`). From `@modwrench/ui`: `createUIResource`,
+  `UIResourceBlock`, `renderShell`, `ShellOptions`, `ShellView`, `renderDeck`,
+  `renderMods`, `renderCrash`, `renderConflicts`, `renderDeps` and their data
+  types (`Connector`, `DeckData`, `ModCard`, `ModsData`, `CrashData`,
+  `ConflictItem`, `ConflictsData`, `DepsData`), and `resolveTheme`. `esc` and
+  `panelsDisabled` are still exported.
+- The panels' tab bar.
+- From the mods panel: the enable/disable toggle (it changed nothing) and the
+  empty state's 'Search mods' button (a tool call with no arguments).
+- The conflicts panel's Patch prompt button.
 
 ### Fixed
 - **Workbench tools no longer open network paths.** A path argument that named
