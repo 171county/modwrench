@@ -21,6 +21,8 @@ const R2MODMAN = "https://github.com/ebkr/r2modmanPlus/wiki/Modding-on-a-Steam-D
 const BEPINEX_TROUBLESHOOTING = "https://docs.bepinex.dev/articles/user_guide/troubleshooting.html";
 const PROTON_NTFS = "https://github.com/ValveSoftware/Proton/wiki/Using-a-NTFS-disk-with-Linux-and-Windows";
 const STEAM_RUNTIME_434 = "https://github.com/ValveSoftware/steam-runtime/issues/434";
+/** A Valve staff reply on Proton's tracker: Proton won't support FAT32 (no symlinks, 4 GB files). */
+const PROTON_FAT32 = "https://github.com/ValveSoftware/Proton/issues/2439#issuecomment-475743504";
 const FLATHUB_STEAM = "https://github.com/flathub/com.valvesoftware.Steam/wiki/Home";
 const UESP_LINUX = "https://en.uesp.net/wiki/Oblivion_Mod:Linux";
 
@@ -250,8 +252,16 @@ export function driveFinding(steam: SteamFacts, mounts: readonly MountEntry[] | 
         "ntfs-3g shows up as fuseblk, as do some other drivers."
     );
   }
-  if (risky.some((r) => r.kind === "fat")) {
-    sentences.push("exFAT and FAT drives can't hold the symlinks a Proton prefix uses. That is an inference; no Valve page says it.");
+  // FAT32 (vfat) has a Valve answer; exFAT has only the same missing feature.
+  const fat32 = risky.some((r) => r.kind === "fat" && r.type !== "exfat");
+  const exfat = risky.some((r) => r.kind === "fat" && r.type === "exfat");
+  if (fat32) {
+    sentences.push("Valve has said Proton won't support FAT32, because it can't hold symlinks and caps a file at 4 GB.");
+  }
+  if (exfat) {
+    sentences.push(
+      `exFAT can't hold the symlinks a Proton prefix uses${fat32 ? " either" : ""}. That it won't work is an inference; no Valve page says it about exFAT.`
+    );
   }
   return {
     id: "deck.library-drive",
@@ -260,8 +270,8 @@ export function driveFinding(steam: SteamFacts, mounts: readonly MountEntry[] | 
     title: "A Steam library on an NTFS, exFAT or FAT drive",
     detail: sentences.join(" "),
     fix: "Keep Proton games on an ext4, btrfs or xfs drive. The Proton wiki's workaround for a shared drive is to link the game's compatdata folder onto a Linux filesystem.",
-    basis: ntfsLike ? "rule" : "guess",
-    source: ntfsLike ? PROTON_NTFS : STEAM_RUNTIME_434,
+    basis: ntfsLike || fat32 ? "rule" : "guess",
+    source: ntfsLike ? PROTON_NTFS : fat32 ? PROTON_FAT32 : STEAM_RUNTIME_434,
   };
 }
 
