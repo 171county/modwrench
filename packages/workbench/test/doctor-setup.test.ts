@@ -1245,7 +1245,7 @@ test("Vortex's deployment record leads to its staging folder: the drive rule, th
   const r = run();
   const f = must(r, "setup.vortex-staging");
   assert.deepEqual([f.status, f.basis], ["ok", "rule"]);
-  assert.deepEqual(r.looked.vortex, { record: true, method: "hardlink_activator" });
+  assert.deepEqual(r.looked.vortex, { record: true, deployMethod: "hardlink_activator" });
   assert.ok(!r.notChecked.some((x) => /Vortex's staging folder/.test(x.what)), "it was checked, so it isn't listed as not checked");
   // One disk in the test, so the staging drive is the game's drive, said once.
   assert.match(must(r, "setup.room").detail, /^the game's drive and Vortex's staging drive: [\d.]+ GB free\.$/);

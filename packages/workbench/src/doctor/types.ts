@@ -67,8 +67,8 @@ export type DoctorReport = {
     steam: "native" | "flatpak" | "custom" | "none";
     mo2: { used: boolean; reason: string; profile?: string; modFolders?: number };
     plugins?: { listed: number; active: number; read: number; unreadable: number; complete: boolean };
-    /** Vortex's deployment record, when it was looked for (Windows): whether it named a staging folder, and the method it names. */
-    vortex?: { record: boolean; method?: string };
+    /** Vortex's deployment record, when it was looked for (Windows): whether it named a staging folder, and the deployment method it names. */
+    vortex?: { record: boolean; deployMethod?: string };
   };
 };
 

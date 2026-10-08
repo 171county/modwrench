@@ -452,10 +452,10 @@ cat packages/core/src/auth.ts
 
 | Host | Why it appears | Contacted? |
 |---|---|---|
-| `github.com` | inside the User-Agent string (`core/src/index.ts:140`), in the CLI's help text, as the wikis and issues the Doctors name as sources (r2modman, Proton, Flathub, Mod Organizer 2, a Steam runtime issue), and as the feedback form `/mw-critique`'s link opens in your browser | no |
+| `github.com` | inside the User-Agent string (`core/src/index.ts:140`), in the CLI's help text, as the wikis, issues and source files the Doctors name as sources (r2modman, Proton and its issue tracker, Flathub, Mod Organizer 2, a Steam runtime issue, Vortex's wiki, libloadorder), and as the feedback form `/mw-critique`'s link opens in your browser | no |
 | `help.nexusmods.com` | a link in an error message pointing at Nexus's API policy | no |
 | `mod.io` | links telling you where to get your API key, and the address of a mod's page in a result | no |
-| `www.nexusmods.com` | the same two kinds of link, and the crash loggers' pages the Doctors name as sources | no |
+| `www.nexusmods.com` | the same two kinds of link, and the crash loggers' and Addictol's pages the Doctors name as sources | no |
 | `home` | a comment in `crashwhisper/redact.ts` saying why `https://home/x` is not read as a path | no |
 | `docs.bepinex.dev` | BepInEx's troubleshooting page, named as a source by the Deck Doctor | no |
 | `dyndolod.info` | the plugin-limit page, named as a source by the Setup Doctor | no |
@@ -487,4 +487,4 @@ If any of these greps turn up something this page does not account for, that is 
 
 ---
 
-*Last verified against the code on 2026-09-15; the Patch Day, Crash Whisperer and Doctors sections, their pages and the lines that mention them were added and checked against the code on 2026-10-02, and checked again on 2026-10-03 after the fixes listed in the changelog, when the greps above were re-run and gave the counts stated here (nineteen hosts, thirteen request sites, no filesystem writes and no `child_process` in the workbench). The other pages, which replaced the MCP-UI panels, and the lines that mention them were added and checked against the code on 2026-10-05, when the greps were re-run and gave the same counts. If you find a gap between this document and the source, the source is the truth and this document is wrong.*
+*Last verified against the code on 2026-09-15; the Patch Day, Crash Whisperer and Doctors sections, their pages and the lines that mention them were added and checked against the code on 2026-10-02, and checked again on 2026-10-03 after the fixes listed in the changelog, when the greps above were re-run and gave the counts stated here (nineteen hosts, thirteen request sites, no filesystem writes and no `child_process` in the workbench). The other pages, which replaced the MCP-UI panels, and the lines that mention them were added and checked against the code on 2026-10-05, when the greps were re-run and gave the same counts. Fallout 4, Vortex's staging folder and `/mw-critique` were added and checked on 2026-10-08, and the greps, re-run then, still gave nineteen hosts, thirteen request sites, no filesystem writes and no `child_process` in the workbench. If you find a gap between this document and the source, the source is the truth and this document is wrong.*

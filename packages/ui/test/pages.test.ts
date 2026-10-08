@@ -263,9 +263,9 @@ test("the Doctor page says what it found of Vortex's deployment record, as text,
     await page.show({ ...base, looked: { ...base.looked, ...looked } });
     return textOf(page.el("where-list"));
   };
-  assert.match(await where({ vortex: { record: true, method: "hardlink_activator" } }), /Vortex: its deployment record in the game's Data folder names the staging folder \(method hardlink_activator\)\./);
+  assert.match(await where({ vortex: { record: true, deployMethod: "hardlink_activator" } }), /Vortex: its deployment record in the game's Data folder names the staging folder \(method hardlink_activator\)\./);
   assert.match(await where({ vortex: { record: false } }), /Vortex: no deployment record naming a staging folder in the game's Data folder\./);
   assert.doesNotMatch(await where({}), /Vortex/);
-  const hostile = await where({ vortex: { record: true, method: `<img src=x onerror=alert(1)> ${HOSTILE}` } });
+  const hostile = await where({ vortex: { record: true, deployMethod: `<img src=x onerror=alert(1)> ${HOSTILE}` } });
   assert.match(hostile, /\(method <img src=x/, "written as text");
 });

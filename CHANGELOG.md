@@ -224,8 +224,9 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   could be read as a switched-off master. Where its sources
   disagree (when a missing master crashes the game, on launch or during play) it says
   "likely" and not when. Tested on constructed installs, including a stand-in Steam,
-  Mod Organizer 2 and Proton prefix, with 264 tests in six files and the Doctors'
-  rules broken on purpose, 43 ways, to confirm a test fails each time. The page was
+  Mod Organizer 2 and Proton prefix, with 288 tests in eight files and the Doctors'
+  rules broken on purpose, 43 ways and then 7 more for Vortex and Fallout 4, to
+  confirm a test fails each time. The page was
   exercised in a real browser against a stand-in for an MCP Apps host, including
   hostile plugin and mod names. None of it has been run inside a real MCP client, on
   Windows or macOS, or against a real game folder.
