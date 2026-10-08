@@ -1,4 +1,6 @@
+import { loggersNamed } from "../crashlog/loggers.js";
 import type { CrashlogParseResult } from "../crashlog/types.js";
+import { PLUGIN_CHECK_GAMES } from "../doctor/types.js";
 import { clean } from "../patchday/summary.js";
 import type { BepInExFacts, LoadProblem } from "./bepinex-scan.js";
 import { sameVersion, versionParts, type InstallContext } from "./context.js";
@@ -129,6 +131,28 @@ export function runChecks(input: CheckInput): Check[] {
     });
   }
 
+  // More than one crash logger loaded. Crash Logger SSE's page says only one can be active at a time, NetScriptFramework
+  // included; for any other pair that is ModWrench's guess. A logger can be loaded with its crash logging switched off in
+  // its own settings, which a module list can't show. The Doctors check the same thing from the install.
+  const bethesda = ["crashlogger-sse", "buffout4", "netscriptframework"].includes(parsed.detectedType);
+  const loggers = bethesda ? loggersNamed(input.modules) : [];
+  if (loggers.length >= 2) {
+    const sse = loggers.includes("Crash Logger SSE");
+    const doctor = PLUGIN_CHECK_GAMES.has(input.game.id ?? "") ? " The Doctors (/mw-doctor) list the crash loggers in your install." : "";
+    checks.push({
+      id: "crash-loggers",
+      severity: "note",
+      title: `More than one crash logger was loaded (${loggers.join(", ")})`,
+      detail:
+        (sse
+          ? "The log's list of loaded modules has them all. Crash Logger SSE's page says only one crash logger can be active at a time, NetScriptFramework included."
+          : "The log's list of loaded modules has them all. Crash loggers hook the same crash handler, so two active at once can each miss a crash. No page says exactly this for this pair, so it is ModWrench's guess.") +
+        " One whose crash logging is switched off in its own settings doesn't count, and the log can't show that.",
+      basis: sse ? "rule" : "guess",
+      fix: `Keep one crash logger, and remove the others or switch off their crash logging.${doctor}`,
+    });
+  }
+
   // BepInEx's own verdicts on mods it couldn't load.
   if (input.bepinex) {
     input.bepinex.problems.slice(0, 8).forEach((p, i) => checks.push(bepinexLoadCheck(p, i)));
@@ -146,7 +170,6 @@ export function runChecks(input: CheckInput): Check[] {
 
   // The engine's plugin limit, counted from the log's own plugin list. Only the Bethesda loggers list Bethesda plugins:
   // a BepInEx log lists the mods it loaded, which have no slots to run out of.
-  const bethesda = ["crashlogger-sse", "buffout4", "netscriptframework"].includes(parsed.detectedType);
   const regular = bethesda ? regularPlugins(parsed) : 0;
   if (regular >= REGULAR_PLUGIN_LIMIT) {
     checks.push({
