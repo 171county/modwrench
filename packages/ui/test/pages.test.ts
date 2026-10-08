@@ -226,3 +226,17 @@ test("the Patch Day legend explains only the labels a result can carry", () => {
   const legend = /<dl class="legend">([\s\S]*?)<\/dl>/.exec(renderPatchDayApp())![1]!;
   assert.deepEqual([...legend.matchAll(/<dt>([^<]*)<\/dt>/g)].map((m) => m[1]), ["SKSE source", "Inferred"]);
 });
+
+test("the Doctor page says what it found of Vortex's deployment record, as text, and nothing when it didn't look", async () => {
+  const base = doctorReport("Headline.") as { looked: Record<string, unknown> };
+  const where = async (looked: Record<string, unknown>): Promise<string> => {
+    const page = loadPage(renderDoctorApp());
+    await page.show({ ...base, looked: { ...base.looked, ...looked } });
+    return textOf(page.el("where-list"));
+  };
+  assert.match(await where({ vortex: { record: true, method: "hardlink_activator" } }), /Vortex: its deployment record in the game's Data folder names the staging folder \(method hardlink_activator\)\./);
+  assert.match(await where({ vortex: { record: false } }), /Vortex: no deployment record naming a staging folder in the game's Data folder\./);
+  assert.doesNotMatch(await where({}), /Vortex/);
+  const hostile = await where({ vortex: { record: true, method: `<img src=x onerror=alert(1)> ${HOSTILE}` } });
+  assert.match(hostile, /\(method <img src=x/, "written as text");
+});

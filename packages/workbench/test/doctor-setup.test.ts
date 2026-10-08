@@ -1227,3 +1227,40 @@ test("the order of findings is worst first, and the next steps come from the pro
     }
   );
 });
+
+// ─── Vortex's staging folder ─────────────────────────────────────────────────
+
+/** Vortex's deployment record in the game's Data folder, as Vortex writes it, naming `staging`. */
+function vortexRecord(w: World, staging: string, method = "hardlink_activator"): void {
+  const raw = { instance: "6f1c2d3e", version: 1, deploymentMethod: method, gameId: "skyrimse", deploymentTime: 1700000000000, stagingPath: staging, targetPath: dataOf(w), files: [] };
+  writeFileSync(join(dataOf(w), "vortex.deployment.json"), JSON.stringify(raw, undefined, 2));
+}
+
+test("Vortex's deployment record leads to its staging folder: the drive rule, the place and the room are checked", () => {
+  const w = install();
+  const staging = join(sandbox.root, `vortex-${homes}`, "Vortex Mods", "skyrimse");
+  mkdirSync(staging, { recursive: true });
+  vortexRecord(w, staging);
+  const r = run();
+  const f = must(r, "setup.vortex-staging");
+  assert.deepEqual([f.status, f.basis], ["ok", "rule"]);
+  assert.deepEqual(r.looked.vortex, { record: true, method: "hardlink_activator" });
+  assert.ok(!r.notChecked.some((x) => /Vortex's staging folder/.test(x.what)), "it was checked, so it isn't listed as not checked");
+  // One disk in the test, so the staging drive is the game's drive, said once.
+  assert.match(must(r, "setup.room").detail, /^the game's drive and Vortex's staging drive: [\d.]+ GB free\.$/);
+  assert.match(must(r, "setup.location").detail, /Vortex's staging folder isn't under Program Files/);
+  assert.ok(!JSON.stringify(r).includes(staging), "the staging folder's path isn't in the report");
+});
+
+test("without a deployment record the staging folder is listed as not checked, and why; off Windows it isn't looked for", () => {
+  install();
+  const r = run();
+  assert.deepEqual(r.looked.vortex, { record: false }, "it looked and found none");
+  const entry = r.notChecked.find((x) => /Vortex's staging folder/.test(x.what));
+  assert.match(entry?.why ?? "", /^Vortex names it in the game's Data folder \(vortex\.deployment\.json\) only while it has mods deployed, and that record wasn't there\./);
+  const w = install();
+  vortexRecord(w, join(sandbox.root, "anywhere"));
+  const linux = run({ platform: "linux" });
+  assert.equal(find(linux, "setup.vortex-staging"), undefined);
+  assert.equal(linux.looked.vortex, undefined);
+});

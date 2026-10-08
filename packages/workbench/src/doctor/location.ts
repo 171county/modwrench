@@ -29,7 +29,7 @@ export function spotsOf(path: string, platform: DoctorPlatform): Spot[] {
   return spots;
 }
 
-export type Place = { what: "game" | "mo2" | "mo2-mods"; path: string };
+export type Place = { what: "game" | "mo2" | "mo2-mods" | "vortex-staging"; path: string };
 
 const STEP = "https://stepmodifications.org/wiki/Guide:System_Setup_Guide";
 const WABBAJACK = "https://wiki.wabbajack.org/user_documentation/Troubleshooting%20FAQ.html";
@@ -40,7 +40,12 @@ const SPOT_WORDS: Record<Spot, string> = {
   "user-folder": "one of your user folders (Desktop, Documents, Downloads, Pictures or Videos)",
 };
 
-const WHAT_WORDS: Record<Place["what"], string> = { game: "The game", mo2: "Mod Organizer 2's instance", "mo2-mods": "Mod Organizer 2's mods folder" };
+const WHAT_WORDS: Record<Place["what"], string> = {
+  game: "The game",
+  mo2: "Mod Organizer 2's instance",
+  "mo2-mods": "Mod Organizer 2's mods folder",
+  "vortex-staging": "Vortex's staging folder",
+};
 
 export function judgeLocation(places: readonly Place[], platform: DoctorPlatform): DoctorFinding | null {
   // With nothing to look at there is nothing to say; "not in a protected folder" would claim a look that never happened.
@@ -52,10 +57,14 @@ export function judgeLocation(places: readonly Place[], platform: DoctorPlatform
     if (spots.length > 0) flagged.push({ place, spots });
   }
   if (flagged.length === 0) {
-    // Say only what was looked at: the game isn't checked against the user folders, and MO2 only when it was found.
+    // Say only what was looked at: the game isn't checked against the user folders, and MO2 and Vortex only when they were found.
+    const tools = [
+      ...(places.some((p) => p.what === "mo2" || p.what === "mo2-mods") ? ["Mod Organizer 2"] : []),
+      ...(places.some((p) => p.what === "vortex-staging") ? ["Vortex's staging folder"] : []),
+    ];
     const said = [
       ...(places.some((p) => p.what === "game") ? ["the game isn't under Program Files or a OneDrive folder"] : []),
-      ...(places.some((p) => p.what !== "game") ? ["Mod Organizer 2 isn't under Program Files, a OneDrive folder or one of your user folders"] : []),
+      ...(tools.length > 0 ? [`${tools.join(" and ")} ${tools.length === 1 ? "isn't" : "aren't"} under Program Files, a OneDrive folder or one of your user folders`] : []),
     ].join(", and ");
     return {
       id: "setup.location",
@@ -81,13 +90,19 @@ export function judgeLocation(places: readonly Place[], platform: DoctorPlatform
       "Wabbajack's FAQ lists OneDrive, Desktop, Documents, Downloads, Pictures and Videos among the protected folders to keep installs out of."
     );
   }
+  if (flagged.some((f) => f.place.what === "vortex-staging" && f.spots.includes("onedrive"))) {
+    // Vortex's own error text for this case (util/nativeErrors.ts in its source).
+    sentences.push("Vortex's own error message for this case says OneDrive can't deal with hard links, which is how Vortex deploys mods to this game.");
+  }
   return {
     id: "setup.location",
     area: "setup",
     status: "warn",
     title: flagged.length === 1 ? "A folder Windows protects or syncs" : "Folders Windows protects or syncs",
     detail: sentences.join(" "),
-    fix: "Move it to a plain folder such as D:\\SteamLibrary or C:\\Games. Steam can move a game between library folders from the game's Properties, under Installed Files.",
+    fix:
+      "Move it to a plain folder such as D:\\SteamLibrary or C:\\Games. Steam can move a game between library folders from the game's Properties, under Installed Files." +
+      (flagged.some((f) => f.place.what === "vortex-staging") ? " For Vortex's staging folder, choose a new one in Vortex's Settings, under Mods, and Vortex moves the mods there." : ""),
     basis: "rule",
     source: programFiles ? STEP : WABBAJACK,
     items,
