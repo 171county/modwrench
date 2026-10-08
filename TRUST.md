@@ -380,6 +380,8 @@ That is how you get bug fixes, and it is also the honest answer to "could the ma
 
 **Releases carry npm provenance.** From 0.1.0 onward, packages are published by a GitHub Actions workflow with `--provenance`, which produces a signed attestation binding the published tarball to the exact public commit and build that produced it. It is not a promise that the code is good — it is cryptographic proof the code on npm is the code in this repo, and not something built on someone's laptop.
 
+**Nothing is released from a private repository.** Provenance needs a public source repository, and this page promises you can read the source, so the release workflows check first and stop with an error, publishing nothing, while the repository is private.
+
 You can check it yourself:
 
 ```bash

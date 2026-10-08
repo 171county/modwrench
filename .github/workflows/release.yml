@@ -23,6 +23,17 @@ jobs:
       contents: read
       id-token: write # npm provenance
     steps:
+      # npm provenance only works from a public repository, and TRUST.md promises the
+      # source is public and that each release can be checked against it. Released from a
+      # private repository, the packages would fail to publish with provenance, or carry a
+      # provenance link nobody can follow, so stop before anything is installed or published.
+      # The registry and GitHub release jobs need this one, so they stop too.
+      - name: Refuse to release from a private repository
+        if: ${{ github.event.repository.private }}
+        run: |
+          echo "::error::This repository is private. npm provenance needs a public source repository, and TRUST.md promises the source is public. Make the repository public, then run the release again."
+          exit 1
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
