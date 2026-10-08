@@ -21,7 +21,7 @@ import { adultContentAllowed, applyAdultPolicy } from "./adult.js";
  * Used by both the standalone @modwrench/nexus bin and the meta-server in
  * @modwrench/cli that bundles multiple platforms into one MCP entry.
  */
-import { renderShell, createUIResource, type ModCard } from "@modwrench/ui";
+import { MODS_PAGE, modsView, pageData, registerAppPage, type ModRow, type ModsView } from "@modwrench/ui";
 
 const APP = appIdentity(import.meta.url);
 
@@ -35,10 +35,10 @@ type NexusRow = {
   downloads?: number;
 };
 
-/** Nexus discovery lists -> a Skyrim-skinned mods ui:// resource (Nexus is
+/** Nexus discovery lists -> the Mods page's data, Skyrim-skinned (Nexus is
  * Bethesda-dominant, so the SkyUI/MO2 look is the natural fit). */
-function nexusModsUI(query: string, domain: string, rows: NexusRow[]) {
-  const mods: ModCard[] = rows.map((r) => ({
+function nexusModsView(query: string, domain: string, rows: NexusRow[]): ModsView {
+  const mods: ModRow[] = rows.map((r) => ({
     name: r.name,
     author: r.author ?? "unknown",
     platform: "nexus",
@@ -48,11 +48,7 @@ function nexusModsUI(query: string, domain: string, rows: NexusRow[]) {
     summary: r.summary,
     pageUrl: `https://www.nexusmods.com/${domain}/mods/${r.mod_id}`,
   }));
-  return createUIResource({
-    uri: "ui://modwrench/mods",
-    html: renderShell({ theme: "skyrim", view: "mods", mods: { query, mods } }),
-    meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
-  });
+  return modsView({ theme: "skyrim", query, mods });
 }
 
 export function registerNexusTools(
@@ -381,6 +377,7 @@ export function registerNexusTools(
   );
 
   // Tool 6: Trending mods for a game
+  const modsPage = registerAppPage(server, MODS_PAGE);
   server.registerTool(
     "nexus_trending",
     {
@@ -397,6 +394,7 @@ export function registerNexusTools(
         idempotentHint: true,
         openWorldHint: true,
       },
+      ...(modsPage ? { _meta: modsPage } : {}),
     },
     async ({ game_domain }) => {
       const mods = await nexusRequest<
@@ -415,8 +413,8 @@ export function registerNexusTools(
             type: "text",
             text: JSON.stringify(mods, null, 2),
           },
-          nexusModsUI(`Trending \u00b7 ${game_domain}`, game_domain, mods),
         ],
+        ...pageData(server, nexusModsView(`Trending \u00b7 ${game_domain}`, game_domain, mods), modsPage !== undefined),
       };
     }
   );

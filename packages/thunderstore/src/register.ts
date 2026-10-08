@@ -13,7 +13,7 @@ import { appIdentity, createHttpClient, getEnv, log, ModWrenchError } from "@mod
  * When v3 write support lands, this will be refactored to support OAuth
  * tokens for publishing. For now: read-only, no creds, no env required.
  */
-import { renderShell, createUIResource, type ModCard } from "@modwrench/ui";
+import { DEPS_PAGE, MODS_PAGE, depsView, modsView, pageData, registerAppPage, type ModRow, type ModsView } from "@modwrench/ui";
 import { resolveDependencyTree } from "./resolve.js";
 
 const APP = appIdentity(import.meta.url);
@@ -27,11 +27,11 @@ type TsRow = {
   page_url?: string;
 };
 
-/** Map a Thunderstore summary list to a themed mods ui:// resource. Valheim
+/** Map a Thunderstore summary list to the Mods page's data. Valheim
  * searches get the Valheim skin; every other Unity co-op community gets the
  * Lethal Company terminal skin. */
-function thunderstoreModsUI(query: string, community: string, rows: TsRow[]) {
-  const mods: ModCard[] = rows.map((r) => ({
+function thunderstoreModsView(query: string, community: string, rows: TsRow[]): ModsView {
+  const mods: ModRow[] = rows.map((r) => ({
     name: r.name,
     author: r.author,
     platform: "thunderstore",
@@ -41,11 +41,7 @@ function thunderstoreModsUI(query: string, community: string, rows: TsRow[]) {
     pageUrl: r.page_url,
   }));
   const theme = /valheim/i.test(community) ? "valheim" : "lethal";
-  return createUIResource({
-    uri: "ui://modwrench/mods",
-    html: renderShell({ theme, view: "mods", mods: { query, mods } }),
-    meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
-  });
+  return modsView({ theme, query, mods });
 }
 
 export function registerThunderstoreTools(server: McpServer): {
@@ -198,6 +194,7 @@ export function registerThunderstoreTools(server: McpServer): {
   );
 
   // Tool 3: list mods in a community (paginated, summary view)
+  const modsPage = registerAppPage(server, MODS_PAGE);
   server.registerTool(
     "thunderstore_list_mods",
     {
@@ -221,6 +218,7 @@ export function registerThunderstoreTools(server: McpServer): {
         idempotentHint: true,
         openWorldHint: true,
       },
+      ...(modsPage ? { _meta: modsPage } : {}),
     },
     async ({ community, limit }) => {
       type ModVersion = {
@@ -270,8 +268,8 @@ export function registerThunderstoreTools(server: McpServer): {
             type: "text",
             text: `Showing ${summary.length} of ${mods.length} mods in ${community}:\n\n${JSON.stringify(summary, null, 2)}`,
           },
-          thunderstoreModsUI(`${community} mods`, community, summary),
         ],
+        ...pageData(server, thunderstoreModsView(`${community} mods`, community, summary), modsPage !== undefined),
       };
     }
   );
@@ -340,6 +338,7 @@ export function registerThunderstoreTools(server: McpServer): {
         idempotentHint: true,
         openWorldHint: true,
       },
+      ...(modsPage ? { _meta: modsPage } : {}),
     },
     async ({ community, query, limit }) => {
       type Mod = {
@@ -370,8 +369,8 @@ export function registerThunderstoreTools(server: McpServer): {
             type: "text",
             text: `Matched ${matched.length} mods (showing ${summary.length}):\n\n${JSON.stringify(summary, null, 2)}`,
           },
-          thunderstoreModsUI(q, community, summary),
         ],
+        ...pageData(server, thunderstoreModsView(q, community, summary), modsPage !== undefined),
       };
     }
   );
@@ -461,6 +460,7 @@ export function registerThunderstoreTools(server: McpServer): {
         idempotentHint: true,
         openWorldHint: true,
       },
+      ...(modsPage ? { _meta: modsPage } : {}),
     },
     async ({ community, limit }) => {
       type Mod = {
@@ -493,12 +493,13 @@ export function registerThunderstoreTools(server: McpServer): {
             type: "text",
             text: `Top ${ranked.length} mods in ${community} by rating:\n\n${JSON.stringify(ranked, null, 2)}`,
           },
-          thunderstoreModsUI(`Top ${community}`, community, ranked),
         ],
+        ...pageData(server, thunderstoreModsView(`Top ${community}`, community, ranked), modsPage !== undefined),
       };
     }
   );
 
+  const depsPage = registerAppPage(server, DEPS_PAGE);
   server.registerTool(
     "thunderstore_mod_dependencies",
     {
@@ -516,6 +517,7 @@ export function registerThunderstoreTools(server: McpServer): {
         idempotentHint: true,
         openWorldHint: true,
       },
+      ...(depsPage ? { _meta: depsPage } : {}),
     },
     async ({ namespace, name }) => {
       const pkg = await thunderstoreRequest<{
@@ -532,16 +534,8 @@ export function registerThunderstoreTools(server: McpServer): {
               2
             )}`,
           },
-          createUIResource({
-            uri: "ui://modwrench/deps",
-            html: renderShell({
-              theme: "lethal",
-              view: "deps",
-              deps: { root: `${namespace}-${name}`, deps },
-            }),
-            meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
-          }),
         ],
+        ...pageData(server, depsView({ theme: "lethal", root: `${namespace}-${name}`, deps }), depsPage !== undefined),
       };
     }
   );
@@ -573,6 +567,7 @@ export function registerThunderstoreTools(server: McpServer): {
         idempotentHint: true,
         openWorldHint: true,
       },
+      ...(depsPage ? { _meta: depsPage } : {}),
     },
     async ({ namespace, name, maxDepth }) => {
       const fetchDeps = async (ns: string, nm: string) => {
@@ -606,16 +601,18 @@ export function registerThunderstoreTools(server: McpServer): {
             type: "text",
             text: JSON.stringify(res, null, 2),
           },
-          createUIResource({
-            uri: "ui://modwrench/deps",
-            html: renderShell({
-              theme: "lethal",
-              view: "deps",
-              deps: { root: res.root, deps: installFirst },
-            }),
-            meta: { "mcpui.dev/ui-preferred-frame-size": ["1040px", "720px"] },
-          }),
         ],
+        ...pageData(
+          server,
+          depsView({
+            theme: "lethal",
+            root: res.root,
+            deps: installFirst,
+            unresolved: res.unresolved.length,
+            truncated: res.truncated,
+          }),
+          depsPage !== undefined
+        ),
       };
     }
   );

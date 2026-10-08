@@ -2,24 +2,34 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import {
   CRASH_WHISPERER_APP_URI,
   DOCTOR_APP_URI,
   MCP_APP_MIME,
   MCP_APPS_EXTENSION_ID,
   PATCH_DAY_APP_URI,
+  clientDrawsPages,
+  pageAnswer,
   renderCrashWhispererApp,
   renderDoctorApp,
+  renderModsApp,
   renderPatchDayApp,
+  structuredMode,
+  wantsStructured,
 } from "@modwrench/ui";
-import { clientDrawsPages, pageAnswer, structuredMode, wantsStructured } from "../src/apps.js";
+import { registerPatchDayApp } from "../src/apps.js";
+import { AppsMockServer as SharedMockServer, DRAWS_PAGES, PLAIN } from "./helpers/apps-server.js";
 import { registerWorkbenchTools } from "../src/register.js";
 import { clean } from "../src/patchday/summary.js";
 import { whisper } from "../src/crashwhisper/index.js";
 
 // ─── The pages and the tools that point at them ──────────────────────────────
-// mw_patch_day, mw_crash_whisperer and mw_doctor each carry a page for clients that
-// support MCP Apps. These tests pin the rules that keep that safe to ship:
+// Every workbench tool but mw_detect_environment carries a page for clients that
+// support MCP Apps (the full map is pinned below). These tests pin the rules that
+// keep that safe to ship:
 //
 //   - a tool only advertises a page that was actually registered, so a client
 //     is never sent after a resource that isn't there;
@@ -27,7 +37,7 @@ import { whisper } from "../src/crashwhisper/index.js";
 //     partial server, a server that has already connected) the tool still
 //     registers and still answers, as text, and one page failing doesn't take
 //     the other down;
-//   - nothing else points at a page, and the tool count is what it says;
+//   - every page a tool points at is registered, and the tool count is what it says;
 //   - the full report goes only to clients that can draw it (or when asked for),
 //     because some clients show the model the structured data instead of the text.
 //
@@ -124,9 +134,9 @@ test("each page is registered at its address with the MCP Apps type", () => {
   withUi(undefined, () => {
     const server = new AppsMockServer();
     register(server);
-    assert.deepEqual([...server.resources.keys()].sort(), PAGES.map((p) => p.uri).sort());
     for (const p of PAGES) {
-      const page = server.resources.get(p.uri)!;
+      const page = server.resources.get(p.uri);
+      assert.ok(page, `${p.name} is not registered`);
       assert.equal(page.name, p.name);
       assert.equal(page.config.mimeType, MCP_APP_MIME);
       assert.ok(page.config.title);
@@ -200,15 +210,48 @@ test("a page answers with the address it was asked for", async () => {
   });
 });
 
-test("only mw_patch_day, mw_crash_whisperer and mw_doctor point at a page, and there are nine tools", () => {
+test("every tool that points at a page points at one that is registered, the three point at theirs, and there are nine tools", () => {
   withUi(undefined, () => {
     const server = new AppsMockServer();
     const { toolCount } = register(server);
     assert.equal(toolCount, 9);
     assert.equal(server.tools.size, 9);
-    const withMeta = [...server.tools].filter(([, t]) => t.config._meta !== undefined).map(([name]) => name);
-    assert.deepEqual(withMeta.sort(), ["mw_crash_whisperer", "mw_doctor", "mw_patch_day"]);
-    assert.equal(server.resources.size, 3);
+    for (const [name, tool] of server.tools) {
+      const meta = tool.config._meta as { ui?: { resourceUri?: string } } | undefined;
+      if (meta) assert.ok(server.resources.has(meta.ui?.resourceUri ?? ""), `${name} points at a page that isn't registered`);
+    }
+    for (const p of PAGES) {
+      assert.equal((server.tools.get(p.tool)!.config._meta as { ui: { resourceUri: string } }).ui.resourceUri, p.uri, p.tool);
+    }
+  });
+});
+
+test("the full map: which workbench tool points at which page, and the seven pages registered", () => {
+  withUi(undefined, () => {
+    const server = new AppsMockServer();
+    register(server);
+    const pageOf = (name: string): string | null =>
+      (server.tools.get(name)!.config._meta as { ui?: { resourceUri?: string } } | undefined)?.ui?.resourceUri ?? null;
+    assert.deepEqual(Object.fromEntries([...server.tools.keys()].map((name) => [name, pageOf(name)])), {
+      mw_detect_environment: null,
+      mw_read_load_order: "ui://modwrench/deps",
+      mw_parse_crashlog: "ui://modwrench/crash",
+      mw_query_mod_metadata: "ui://modwrench/mods",
+      mw_check_known_conflicts: "ui://modwrench/conflicts",
+      mw_diagnose_crash: "ui://modwrench/crash",
+      mw_patch_day: "ui://modwrench/patch-day",
+      mw_crash_whisperer: "ui://modwrench/crash-whisperer",
+      mw_doctor: "ui://modwrench/doctor",
+    });
+    assert.deepEqual(Object.fromEntries([...server.resources].map(([uri, r]) => [uri, r.name])), {
+      "ui://modwrench/deps": "deps_panel",
+      "ui://modwrench/crash": "crash_panel",
+      "ui://modwrench/mods": "mods_panel",
+      "ui://modwrench/conflicts": "conflicts_panel",
+      "ui://modwrench/patch-day": "patch_day_panel",
+      "ui://modwrench/crash-whisperer": "crash_whisperer_panel",
+      "ui://modwrench/doctor": "doctor_panel",
+    });
   });
 });
 
@@ -257,11 +300,16 @@ test("one page that can't be registered doesn't take the others down, and its to
     const server = new OnePageServer();
     const { toolCount } = register(server);
     assert.equal(toolCount, 9);
-    assert.deepEqual([...server.resources.keys()], [PATCH_DAY_APP_URI]);
-    assert.ok(server.tools.get("mw_patch_day")!.config._meta !== undefined, "the page that registered is advertised");
-    for (const tool of ["mw_crash_whisperer", "mw_doctor"]) {
-      assert.equal(server.tools.get(tool)!.config._meta, undefined, `${tool}: the page that didn't register isn't advertised`);
-      assert.ok(server.tools.has(tool));
+    assert.equal(server.resources.size, 1);
+    const [registered] = [...server.resources.keys()];
+    const advertised = [...server.tools].filter(([, t]) => t.config._meta !== undefined);
+    assert.ok(advertised.length > 0, "the page that registered is advertised");
+    for (const [name, tool] of advertised) {
+      assert.equal((tool.config._meta as { ui: { resourceUri: string } }).ui.resourceUri, registered, `${name}: the page that didn't register isn't advertised`);
+    }
+    for (const p of PAGES) {
+      assert.ok(server.tools.has(p.tool));
+      if (p.uri !== registered) assert.equal(server.tools.get(p.tool)!.config._meta, undefined, `${p.tool}: the page that didn't register isn't advertised`);
     }
   });
 });
@@ -322,6 +370,12 @@ test("clientDrawsPages: no way to tell is a no", () => {
     "a throwing server doesn't take the tool down"
   );
   assert.equal(clientDrawsPages(new AppsMockServer()), false, "the plain mock server");
+});
+
+test("the stand-in server the page tests share tells a client that draws pages from a text-only one", () => {
+  assert.equal(clientDrawsPages(new SharedMockServer(DRAWS_PAGES)), true);
+  assert.equal(clientDrawsPages(new SharedMockServer(PLAIN)), false);
+  assert.equal(clientDrawsPages(new SharedMockServer()), false, "no client connected yet");
 });
 
 test("wantsStructured: a pages-capable client by default, anyone on 'always', nobody on 'never'", () => {
@@ -479,7 +533,7 @@ test("the pages tidy a name exactly the way the server's clean() does", () => {
     `  padded ${String.fromCharCode(0xa0)}`,
     `line one${String.fromCharCode(10)}Next steps:${String.fromCharCode(13, 10)}1. do it`
   );
-  for (const [name, render] of [["Patch Day", renderPatchDayApp], ["Crash Whisperer", renderCrashWhispererApp], ["Doctor", renderDoctorApp]] as const) {
+  for (const [name, render] of [["Patch Day", renderPatchDayApp], ["Crash Whisperer", renderCrashWhispererApp], ["Doctor", renderDoctorApp], ["Skin (Mods)", renderModsApp]] as const) {
     const tidy = pageTidy(render());
     for (const s of samples) {
       for (const max of [5, 80]) {
@@ -497,4 +551,47 @@ test("the Crash Whisperer page's paste limit is the server's", () => {
   assert.ok(!over.ok && /too much text/.test(over.error), "one character over the page's limit is too much for the server too");
   const at = whisper({ logContent: "x".repeat(limit), checkInstall: false, compareRecent: 0 });
   assert.ok(at.ok || !/too much text/.test(at.error), "the server takes as much as the page sends");
+});
+
+// ─── Against the real SDK ────────────────────────────────────────────────────
+// The mock servers above stand in for the SDK. These run the same registration on a
+// real McpServer with a real client, because what matters (a second registration of
+// one address, a registration after connecting) is the SDK's behaviour, not a mock's.
+
+async function connected(server: McpServer): Promise<Client> {
+  const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: "test", version: "1" });
+  await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
+  return client;
+}
+
+test("with the real SDK, a page asked for twice is one resource, and asking again after connecting returns it without registering it again", async () => {
+  const server = new McpServer({ name: "test", version: "1" });
+  const first = withUi(undefined, () => registerPatchDayApp(server));
+  const second = withUi(undefined, () => registerPatchDayApp(server));
+  assert.ok(first, "the page registered");
+  assert.deepEqual(second, first);
+  const client = await connected(server);
+  try {
+    const late = withUi(undefined, () => registerPatchDayApp(server));
+    assert.deepEqual(late, first, "a tool registered after connecting still points at the page");
+    const { resources } = await client.listResources();
+    assert.deepEqual(resources.map((r) => r.uri), [PATCH_DAY_APP_URI]);
+    const read = await client.readResource({ uri: PATCH_DAY_APP_URI });
+    assert.equal(read.contents.length, 1);
+    assert.equal(read.contents[0]!.mimeType, MCP_APP_MIME);
+  } finally {
+    await client.close();
+  }
+});
+
+test("with the real SDK, a server that registered no page before connecting can't take one after, and asking again doesn't throw", async () => {
+  const server = new McpServer({ name: "test", version: "1" });
+  const client = await connected(server);
+  try {
+    assert.equal(withUi(undefined, () => registerPatchDayApp(server)), undefined);
+    assert.equal(withUi(undefined, () => registerPatchDayApp(server)), undefined, "a retry is refused too, and nothing throws");
+  } finally {
+    await client.close();
+  }
 });

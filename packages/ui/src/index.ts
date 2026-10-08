@@ -1,12 +1,12 @@
-// @modwrench/ui — stateless MCP-UI toolkit for ModWrench.
+// @modwrench/ui — the MCP Apps pages for ModWrench.
 //
-// Tools return a themed, interactive UI as a ui:// resource built entirely from
-// their own output. Four flagship-game themes (Skyrim, Fallout, Lethal Company,
-// Valheim); three views (deck, mod cards, crashlog panel) under one shell. No
-// state, no storage, no network from the rendered HTML.
+// A tool points at a page by URI; a client that draws MCP Apps pages fetches it
+// and hands it the tool's result. The mods, dependencies, crash log, conflicts
+// and deck pages wear four flagship-game skins (Skyrim, Fallout, Lethal Company,
+// Valheim); Patch Day, Crash Whisperer and the Doctor follow the host's colours.
+// No state, no storage, no network from any page.
 
-export { createUIResource, esc, panelsDisabled } from "./resource.js";
-export type { UIResourceBlock } from "./resource.js";
+export { esc, panelsDisabled } from "./app.js";
 
 // MCP Apps: pages a client fetches by URI instead of receiving inside the tool
 // result. See app.ts.
@@ -25,26 +25,20 @@ export { renderPatchDayApp } from "./patchday-app.js";
 export { renderCrashWhispererApp } from "./crashwhisperer-app.js";
 export { renderDoctorApp } from "./doctor-app.js";
 
+// Registering a page and answering a tool for it, from any package. See serve.ts.
+export * from "./serve.js";
+
+// The pages that replace the older panels, in the game skins of skin.ts.
+export * from "./mods-app.js";
+export * from "./deps-app.js";
+export * from "./crash-app.js";
+export * from "./conflicts-app.js";
+export * from "./deck-app.js";
+
 export {
   THEMES,
   THEME_IDS,
-  resolveTheme,
   themeForCrashType,
   themeStyleBlock,
 } from "./themes.js";
 export type { Theme, ThemeId } from "./themes.js";
-
-export { renderDeck, renderMods, renderCrash, renderConflicts, renderDeps } from "./views.js";
-export type {
-  Connector,
-  DeckData,
-  ModCard,
-  ModsData,
-  CrashData,
-  ConflictItem,
-  ConflictsData,
-  DepsData,
-} from "./views.js";
-
-export { renderShell } from "./shell.js";
-export type { ShellOptions, ShellView } from "./shell.js";
