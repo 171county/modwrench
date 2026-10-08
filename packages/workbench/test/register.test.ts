@@ -395,6 +395,19 @@ test("a handler that hits an error it didn't plan for answers in one sentence, w
   assert.equal(checked, 8);
 });
 
+test("through the real SDK, a tool whose arguments are all optional answers a call that leaves arguments out", async () => {
+  // `arguments` is optional in tools/call, and some clients leave it out for a tool called
+  // with nothing. SDK 1.32.0 reads that as {}; before it the call failed validation with
+  // "Invalid arguments", which is why the packages now ask for ^1.32.0.
+  const { client, close } = await connected();
+  try {
+    const r = (await client.callTool({ name: "mw_doctor" })) as CallResult;
+    assert.match(textOf(r), /^Doctor: /, textOf(r));
+  } finally {
+    await close();
+  }
+});
+
 test("through the real SDK, a locked MO2 file gives a plain error, not the path and user name Node put in its message", async () => {
   const root = mkdtempSync(join(tmpdir(), "mw-guard-"));
   const instance = join(root, "Jane Doe", "MO2 Portable");

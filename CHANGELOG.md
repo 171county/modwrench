@@ -333,6 +333,14 @@ This document is currently maintained by hand. When [release-please](https://git
 - The conflicts panel's Patch prompt button.
 
 ### Fixed
+- **A tool or slash command whose arguments are all optional answers when a client
+  leaves the arguments out.** Before version 1.32.0, the MCP SDK checked a
+  `tools/call` or `prompts/get` request that had no `arguments` field against the
+  tool's argument list and failed it before ModWrench saw it, so a client that
+  called `mw_doctor`, `mw_crash_whisperer` or `/mw-doctor` that way got an
+  "invalid arguments" error instead of an answer. ModWrench now needs SDK 1.32.0
+  or later, which reads a missing `arguments` as none given. A tool or command
+  that needs an argument still says it's missing.
 - **Workbench tools no longer open network paths.** A path argument that named
   another computer or a device (`\\server\share\…`, `//server/share`,
   `\\?\UNC\…`, `\\.\…`) went straight to the filesystem. On Windows, opening one

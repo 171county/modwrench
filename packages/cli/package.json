@@ -48,7 +48,7 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.24.0",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "@modwrench/core": "0.2.4",
     "@modwrench/modio": "0.2.4",
     "@modwrench/nexus": "0.2.4",
