@@ -432,6 +432,14 @@ This document is currently maintained by hand. When [release-please](https://git
   back, which worked before, now gets that 400, and a client whose session was
   closed gets "Session not found" until it reconnects. The 100-session limit is
   shared by everyone who can reach the server.
+- **`@modwrench/remote` answers a bad request body with a short JSON error.** A
+  body that wasn't JSON, was over the size limit, or used an encoding the
+  server doesn't take got Express's HTML error page, with the stack trace and
+  the server's folder paths, and the same stack went to the server's console.
+  It now gets a JSON-RPC error: `-32700 Parse error` (400) for a body that
+  isn't JSON, `-32600 Request body too large` (413), `-32600 Invalid Request`
+  for the other rejected bodies, and `-32603 Internal server error` (500) for
+  anything else, with no stack trace or path.
 
 ## [0.2.4] — 2026-09-15
 
