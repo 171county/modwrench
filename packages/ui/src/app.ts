@@ -20,12 +20,28 @@
  * True when the person has turned pages off with MODWRENCH_UI=off (or 0, false,
  * none). Tools then point at no page and send no structured data for one.
  *
- * Read per call rather than cached at import, so a host that mutates process.env
- * between requests is honoured, and so tests can toggle it without re-importing.
+ * Read per call rather than cached at import: a tool checks it when it is registered
+ * (whether to point at a page) and again on every answer (whether to send a page its
+ * data), and tests can toggle it without re-importing.
  */
 export function panelsDisabled(): boolean {
   const raw = (process.env.MODWRENCH_UI ?? "").trim().toLowerCase();
   return raw === "off" || raw === "0" || raw === "false" || raw === "none";
+}
+
+/**
+ * Who gets a tool's structured report, from MODWRENCH_STRUCTURED (see serve.ts):
+ * "always" sends it to every client, "never" to none, anything else ("auto") to a
+ * client that has said it can draw pages, while the tool has a page.
+ */
+export type StructuredMode = "auto" | "always" | "never";
+
+const ALWAYS = new Set(["always", "on", "1", "true", "yes"]);
+const NEVER = new Set(["never", "off", "0", "false", "no", "none"]);
+
+export function structuredMode(value: string | undefined = process.env.MODWRENCH_STRUCTURED): StructuredMode {
+  const v = value?.trim().toLowerCase() ?? "";
+  return ALWAYS.has(v) ? "always" : NEVER.has(v) ? "never" : "auto";
 }
 
 /** Escape a string for safe interpolation into HTML text/attribute context. */
@@ -66,11 +82,12 @@ export const DOCTOR_APP_URI = "ui://modwrench/doctor";
  * their check again; the other pages never call a tool) and "model" so the
  * assistant can still call it.
  *
- * Returns undefined when the person has switched panels off (MODWRENCH_UI=off),
- * so the tool then advertises no page at all.
+ * Returns undefined when the person has switched panels off (MODWRENCH_UI=off), or
+ * has said no client gets structured data (MODWRENCH_STRUCTURED=never): without its
+ * data a page could only repeat the text answer, so the tool advertises no page at all.
  */
 export function appToolMeta(resourceUri: string): Record<string, unknown> | undefined {
-  if (panelsDisabled()) return undefined;
+  if (panelsDisabled() || structuredMode() === "never") return undefined;
   return {
     ui: { resourceUri, visibility: ["model", "app"] },
     "ui/resourceUri": resourceUri,

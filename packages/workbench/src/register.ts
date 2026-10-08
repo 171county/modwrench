@@ -215,6 +215,8 @@ export function registerWorkbenchTools(server: McpServer): {
               author: m.author,
             })),
             warning: result.warning,
+            // MO2's mod folders, which the page draws when the profile lists no plugins.
+            folders: (result.modFolders ?? []).map((f) => ({ name: f.name, enabled: f.enabled, index: f.modlistIndex })),
           })
         : orderView({ theme: themeForGameId(gameId), ok: false, reason: result.reason });
 

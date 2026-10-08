@@ -159,6 +159,19 @@ test("MODWRENCH_UI=off: no page is registered and no metadata is returned", () =
   }
 });
 
+test("MODWRENCH_STRUCTURED=never: no page is registered and no metadata is returned, since no page would ever get data", () => {
+  for (const value of ["never", "NEVER", "off", "0", "false", "no", "none"]) {
+    withUi(undefined, () =>
+      withEnv("MODWRENCH_STRUCTURED", value, () => {
+        const server = new MockServer();
+        assert.equal(registerAppPage(server, def()), undefined, value);
+        assert.equal(appToolMeta("ui://modwrench/anything"), undefined, value);
+        assert.equal(server.calls.length, 0, value);
+      })
+    );
+  }
+});
+
 // ─── Who gets the structured data ────────────────────────────────────────────
 
 const capable = { server: { getClientCapabilities: () => ({ extensions: { [MCP_APPS_EXTENSION_ID]: { mimeTypes: [MCP_APP_MIME] } } }) } };
@@ -187,4 +200,17 @@ test("pageData: the data goes to a client that draws pages while there is a page
     else assert.deepEqual(got, {}, label);
     assert.ok(!("isError" in got), label);
   }
+});
+
+test("pageData: turning pages off while the server runs stops the data at once, even for a page registered before", () => {
+  const data = { view: "test" };
+  withUi(undefined, () => {
+    const server = new MockServer();
+    const page = def();
+    assert.ok(registerAppPage(server, page), "the page was registered with pages on");
+    assert.deepEqual(pageData(capable, data, true), { structuredContent: data });
+    withUi("off", () => assert.deepEqual(pageData(capable, data, true), {}, "auto mode honours MODWRENCH_UI=off on every answer"));
+    // "always" is the person's explicit wish to have the data everywhere, pages or not.
+    withUi("off", () => withEnv("MODWRENCH_STRUCTURED", "always", () => assert.deepEqual(pageData(plainClient, data, false), { structuredContent: data })));
+  });
 });
