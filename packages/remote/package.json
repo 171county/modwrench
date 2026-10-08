@@ -1,6 +1,6 @@
 {
   "name": "@modwrench/remote",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "ModWrench remote Streamable HTTP MCP server for remote-capable clients.",
   "keywords": [
     "mcp",
@@ -50,8 +50,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.0",
-    "@modwrench/core": "0.2.4",
-    "@modwrench/thunderstore": "0.2.4",
+    "@modwrench/core": "0.3.0",
+    "@modwrench/thunderstore": "0.3.0",
     "express": "^5.2.1"
   },
   "devDependencies": {
