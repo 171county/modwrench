@@ -452,7 +452,9 @@ test("Vortex's staging folder in OneDrive cites Vortex's own words about hard li
   assert.ok(f);
   assert.equal(f.status, "warn");
   assert.deepEqual(f.items, ["Vortex's staging folder: a OneDrive folder"]);
-  assert.match(f.detail, /Vortex's own error message for this case says OneDrive can't deal with hard links, which is how Vortex deploys mods to this game\./);
+  // Hard links are Vortex's default, not always its method (the record may name another), so this doesn't say they are how it deploys.
+  assert.match(f.detail, /Vortex's own error message for this case says OneDrive can't deal with hard links, which are Vortex's default way to deploy mods to this game\./);
+  assert.doesNotMatch(f.detail, /how Vortex deploys/);
   assert.match(f.fix ?? "", /For Vortex's staging folder, choose a new one in Vortex's Settings, under Mods, and Vortex moves the mods there\./);
   // The default staging folder, under AppData, is in none of the folders Windows protects or syncs.
   assert.equal(judgeLocation([at("vortex-staging", "C:\\Users\\Sam\\AppData\\Roaming\\Vortex\\skyrimse\\mods")], "windows")?.status, "ok");

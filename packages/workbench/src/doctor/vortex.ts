@@ -24,7 +24,7 @@ const RECORD = "vortex.deployment.json";
 /** Enough for the fields Vortex writes before "files". */
 const HEAD_BYTES = 64 * 1024;
 
-/** Vortex's wiki page on deployment methods: the staging folder must be on the game's drive for hard links. */
+/** Vortex's wiki page on deployment methods: the staging folder must be on the game's drive for hard links and for the move method. */
 export const VORTEX_DEPLOYMENT = "https://github.com/Nexus-Mods/Vortex/wiki/MODDINGWIKI-Users-General-Deployment-Methods";
 
 /** The deployment methods Vortex ships, by their ids (its hardlink, symlink and move activator extensions). Only these are named back. */
@@ -93,7 +93,7 @@ export type VortexCheck = {
   /** The record was read and named a staging folder, whether or not it could be checked. */
   recorded: boolean;
   /**
-   * What the Data folder held: no record, one that couldn't be opened, one that doesn't name this game, one that
+   * What the Data folder held: no record, one that couldn't be opened, one that names another game, one that
    * doesn't name a staging folder, or one that does.
    */
   record: "none" | "unreadable" | "other-game" | "no-staging" | "named";
@@ -124,8 +124,9 @@ export function checkVortex(gameDir: string, vortexGameId: string, drive: (path:
       ],
     };
   }
-  // A record for another game, or one with no game in it, isn't this game's: Vortex names the game it deployed.
-  if (record.gameId !== vortexGameId) return { ...none, record: "other-game" };
+  // A record that names another game isn't this game's. One with no game in it is: Vortex only began writing the game
+  // into the record in 2021, and its own check (checkStagingGame) takes a record without one as the current game's.
+  if (record.gameId !== null && record.gameId !== vortexGameId) return { ...none, record: "other-game" };
   const method = record.deployMethod;
   if (record.staging === null) {
     return {
@@ -192,7 +193,7 @@ export function checkVortex(gameDir: string, vortexGameId: string, drive: (path:
   const words = method === null ? null : (METHOD_WORDS.get(method) ?? null);
   const found = { staging, recorded: true, record: "named" as const, deployMethod: method, skipped: [] as string[] };
 
-  if (method !== "hardlink_activator") {
+  if (method !== "hardlink_activator" && method !== "move_activator") {
     return {
       ...found,
       findings: [
@@ -207,7 +208,7 @@ export function checkVortex(gameDir: string, vortexGameId: string, drive: (path:
               : record.otherMethod
                 ? "Vortex's deployment record names a method ModWrench doesn't know (it knows hard links, symbolic links, symbolic links run as administrator, and moving the files), so it isn't repeated here. "
                 : "Vortex's deployment record doesn't name a method. ") +
-            "ModWrench checks the same-drive rule only for hard links, which is how Vortex deploys to this game when the staging folder is on the game's drive.",
+            "ModWrench checks the same-drive rule only for hard links, which is how Vortex deploys to this game when the staging folder is on the game's drive, and for Vortex's move method, which has the same rule.",
           basis: "install",
           source: VORTEX_DEPLOYMENT,
         },
@@ -224,8 +225,8 @@ export function checkVortex(gameDir: string, vortexGameId: string, drive: (path:
           status: "problem",
           title: "Vortex's staging folder is on another drive from the game",
           detail:
-            "Vortex deploys this game's mods with hard links, and its wiki says the staging folder must be on the same drive as the game's mods folder (its own check says hard links work \"only if mods are installed on the same drive as the game\"). " +
-            "Its deployment record says it used hard links, but the staging folder and the game's Data folder are on different drives now, so it can't deploy with hard links again until they share one.",
+            `Vortex deploys this game's mods with ${words}, and its wiki says the staging folder must be on the same drive as the game's mods folder for that method (its own check says it works "only if mods are installed on the same drive as the game"). ` +
+            `Its deployment record says it used ${words}, but the staging folder and the game's Data folder are on different drives now, so it can't deploy with ${words} again until they share one.`,
           fix: "In Vortex, open Settings, then Mods, and move the staging folder to a folder on the game's drive. Vortex moves the mods there for you.",
           basis: "rule",
           source: VORTEX_DEPLOYMENT,
@@ -248,7 +249,7 @@ export function checkVortex(gameDir: string, vortexGameId: string, drive: (path:
         area: "setup",
         status: "ok",
         title: "Vortex's staging folder is on the game's drive",
-        detail: "Vortex deploys this game's mods with hard links, which need the staging folder on the same drive as the game's mods folder, and it is.",
+        detail: `Vortex deploys this game's mods with ${words}. That method needs the staging folder on the same drive as the game's mods folder, and it is.`,
         basis: "rule",
         source: VORTEX_DEPLOYMENT,
       },
