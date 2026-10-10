@@ -10,6 +10,18 @@ This document is currently maintained by hand. When [release-please](https://git
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-10-08
+
+The workbench learns to answer three questions on its own: "is it safe to
+update?" (Patch Day), "why did my game crash?" (Crash Whisperer) and "is my
+setup ready?" (the Doctors), each with a page for clients that support MCP
+Apps, and Patch Day and the Doctors read Fallout 4 as well as Skyrim. The older
+panels move from MCP-UI to MCP Apps pages, so a client that can't draw a page
+gets the text answer and nothing else. Feedback for the maintainers now has a
+command of its own, which drafts an issue for you to post and sends nothing. None
+of this has been run inside a real MCP client or against a real game install
+yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
+
 ### Added
 - **Patch Day: `mw_patch_day` and the `/mw-patch` slash command — "is it safe to
   update?"** Before or right after a Skyrim Special Edition / Anniversary Edition
@@ -168,7 +180,7 @@ This document is currently maintained by hand. When [release-please](https://git
   Steam Deck, looks at which Steam holds the game (regular or Flatpak), whether
   Proton has made the game's prefix, whether Proton is told to load BepInEx's
   `winhttp` (in the launch options or the prefix's `user.reg`), which app opens
-  `nxm://` links, whether a Steam library sits on an NTFS or exFAT drive, and
+  `nxm://` links, whether a Steam library sits on an NTFS, FAT32 or exFAT drive, and
   folder names that differ only by capital letters.
 
   Every finding says what it rests on, the same way Patch Day and Crash Whisperer
@@ -204,17 +216,85 @@ This document is currently maintained by hand. When [release-please](https://git
 
   **It has not been run against a real install.** The rules come from the pages each
   finding names and were read and summarised by AI models, so a rule can be stated
-  more strongly or more weakly than its page does, and a few facts are inferences
-  that TRUST.md lists: the file names Crash Logger SSE and Trainwreck install under,
-  whether an exFAT drive can hold a Proton prefix, and whether a file the game loads
-  without listing it could be read as a switched-off master. Where its sources
+  more strongly or more weakly than its page does, and a few facts don't come from
+  documentation, which TRUST.md lists: the file names Crash Logger SSE and Trainwreck
+  install under (from their build files, and seen in crash logs players posted),
+  whether an exFAT drive can hold a Proton prefix (FAT32 has Valve's answer; exFAT
+  is ModWrench's inference), and whether a file the game loads without listing it
+  could be read as a switched-off master. Where its sources
   disagree (when a missing master crashes the game, on launch or during play) it says
   "likely" and not when. Tested on constructed installs, including a stand-in Steam,
-  Mod Organizer 2 and Proton prefix, with 264 tests in six files and the Doctors'
-  rules broken on purpose, 43 ways, to confirm a test fails each time. The page was
+  Mod Organizer 2 and Proton prefix, with 297 tests in eight files and the Doctors'
+  rules broken on purpose, 43 ways and then 7 more for Vortex and Fallout 4, to
+  confirm a test fails each time. The page was
   exercised in a real browser against a stand-in for an MCP Apps host, including
   hostile plugin and mod names. None of it has been run inside a real MCP client, on
   Windows or macOS, or against a real game folder.
+
+- **Crash Whisperer and the Doctors point at each other.** When no name stands out in
+  a crash log from a game the Doctors' plugin checks cover, one of Crash Whisperer's
+  next steps is to run the Doctors (`/mw-doctor`), which check the setup problems a
+  crash log may not name: a master that is missing, switched off or loaded late, a
+  load order past the plugin limit, two crash loggers at once. A log whose list of
+  loaded modules shows more than one crash logger gets a note (a documented rule when
+  Crash Logger SSE is one of them, ModWrench's guess for any other pair). The Doctors,
+  for their part, say that Crash Whisperer (`/mw-crash`) reads the log when a crash
+  logger it reads is installed, and every report for a game whose logs Crash Whisperer
+  reads says, among its limits, that files can't show why a game crashed and that
+  Crash Whisperer reads the crash log. The help-packet step now always keeps its place
+  at the end of Crash Whisperer's steps, and a game updated since the crash keeps its
+  Patch Day step however many others there are.
+
+- **Fallout 4 in Patch Day and the Doctors.** `mw_patch_day` reads Fallout 4 and F4SE
+  the way it reads Skyrim and SKSE: the game's version, the F4SE loader and DLL for
+  that version (the GOG build for a GOG copy, from 1.10.980 on), the Address Library file, every plugin
+  in `Data/F4SE/Plugins` (and Mod Organizer 2's), and `f4se.log`, judged by F4SE's own
+  published rules at each release (`f4se-source`): 0.6.23 for 1.10.163, which asks
+  each plugin's own code; 0.7.0 to 0.7.4 for the Next-Gen update to 1.11.137; and
+  0.7.5 on, which count only the 1.11.137 Address Library and game layout, so a plugin
+  that declares only the 1.10.980 ones is held to the versions it lists. The Microsoft
+  Store and Epic copies, which F4SE's loader refuses, are a check that says so. The
+  Setup Doctor's plugin checks now cover Fallout 4 too (its eight base plugins,
+  `Fallout4.ccc`, `plugins.txt` for each store's copy, the Microsoft Store copy's DLC
+  folders beside the game's, and the plugin limits from libloadorder, the library LOOT
+  uses, which let a list with no light plugin switched on hold 255 full plugins rather
+  than 254), with Fallout 4's crash loggers: none, two at once, Buffout 4 on the
+  Anniversary Edition (its NG page says it isn't supported), and Addictol alongside a
+  Buffout 4 build (Addictol's page says not to). Crash Whisperer's pointer to the
+  Doctors covers Fallout 4 logs as well, and for those it is `/mw-doctor fallout4`,
+  since `/mw-doctor` alone checks Skyrim Special Edition. With no game named,
+  `mw_patch_day` checks the one whose executable is in `gamePath`, or else the first
+  installed in a Steam library, Skyrim before Fallout 4, and its answer names the
+  other when both are there; `/mw-patch` takes the game too. Built from F4SE's source
+  and constructed installs; not run against a real one.
+- **The Doctors check Vortex's staging folder.** Vortex deploys mods to Skyrim Special
+  Edition and Fallout 4 with hard links, which work only within one drive, and keeps
+  where its staging folder is in its own database. While it has mods deployed it also
+  writes a deployment record into the game's `Data` folder, and on Windows the Setup
+  Doctor now reads the start of it (the game, the method and the staging folder; any
+  of the file list it takes in is cut off unused) and checks the staging folder: on
+  the game's drive when Vortex uses hard links or its move method (a documented rule
+  from Vortex's wiki), not under Program Files, OneDrive or a user folder (Vortex's
+  own error message says OneDrive can't deal with hard links), and with room on its
+  drive. A record that names a folder that isn't there, or one on another computer,
+  which isn't opened, says so, and a method other than the four ModWrench knows is not
+  repeated. A record with no game in it, as Vortex wrote before 2021, counts as this
+  game's, as it does for Vortex. Without a record, or with one that names another game
+  or doesn't name a staging folder, the report lists the staging folder as something
+  it couldn't check, and says which.
+
+- **`/mw-critique` and `mw_critique`: feedback for the maintainers, posted by
+  you.** Tell your AI client what went wrong, what you'd like or what you think,
+  and it drafts a GitHub issue with what a maintainer needs to reproduce it filled
+  in: ModWrench's version, the connectors that are on, the AI client as it named
+  itself, the operating system and Node's version. The personal details it
+  recognises in your words, and in the name your client gave, are taken out first,
+  as in Crash Whisperer's help posts, before the draft is cut to length. **It
+  sends nothing:** ModWrench makes no network request, and the answer ends with a
+  link that opens the repository's new feedback form on GitHub with the draft
+  filled in, which posts only when you press its button.
+  [TRUST.md](TRUST.md#feedback-what-mw-critique-reads-and-sends) lists what goes
+  in.
 
 ### Changed
 - **The older panels are MCP Apps pages now, and text-only clients no longer
@@ -229,7 +309,9 @@ This document is currently maintained by hand. When [release-please](https://git
   means no pages and no structured data (unless `MODWRENCH_STRUCTURED=always`)
   rather than a stub of about 130 bytes in place of each panel.
   `@modwrench/remote` keeps a session per client, so it decides the same way
-  (see the entry below on remote sessions). The pages
+  (see the entry below on remote sessions). With `MODWRENCH_STRUCTURED=never`
+  no tool points at a page at all, since without its data a page could only
+  repeat the text answer. The pages
   keep the four game skins, make no network requests and keep nothing; see
   [TRUST.md](TRUST.md#the-other-pages). The README's two pictures are
   retaken from the new pages. Like the three newer pages, they were checked in a
@@ -250,7 +332,10 @@ This document is currently maintained by hand. When [release-please](https://git
   the same text answer as before and no HTML. `ui://modwrench/order` is
   retired. The page shows a mod's author when the manager knows it
   (r2modman), shows an entry whose enable state isn't known (Vortex) as `?`
-  rather than ON, shows Vortex's warning, says when a resolved dependency tree
+  rather than ON and, when no state is known, says so instead of counting none
+  as enabled, shows Vortex's warning, shows a Mod Organizer 2 profile's mod
+  folders when it lists no plugins (rather than an empty load order under a
+  count of enabled mods), says when a resolved dependency tree
   couldn't resolve every reference or stopped at its depth or size limit, and
   shows why a load order couldn't be read (that case had no panel before). It
   never receives the folder the load order was read from.
@@ -304,9 +389,12 @@ This document is currently maintained by hand. When [release-please](https://git
   quoted plugin name in relevant-object rows (`("Skyrim.esm")`), which had made
   the game's own master a lead. BepInEx 5: a failed load (`Error loading [X] :
   message`).
-- The Workbench now has 9 tools (52 in total), and there are 7 slash commands.
+- The Workbench now has 9 tools (53 in total, with `mw_critique`), and there are 8 slash commands.
   `/modwrench` mentions the update check, `/mw-crash` now asks for Crash
   Whisperer, and `/mw-doctor` asks for the Doctors.
+- The release workflows stop, publishing nothing, when the repository is private.
+  npm provenance needs a public source repository, and TRUST.md promises that the
+  source is public and that every release can be checked against it.
 - Steam detection on Linux also looks in the Flatpak build's current folder,
   `~/.var/app/com.valvesoftware.Steam/.local/share/Steam`. It looked only in the
   older `data/Steam` folder there, which not every Flatpak install has, so a
@@ -328,6 +416,14 @@ This document is currently maintained by hand. When [release-please](https://git
 - The conflicts panel's Patch prompt button.
 
 ### Fixed
+- **A tool or slash command whose arguments are all optional answers when a client
+  leaves the arguments out.** Before version 1.32.0, the MCP SDK checked a
+  `tools/call` or `prompts/get` request that had no `arguments` field against the
+  tool's argument list and failed it before ModWrench saw it, so a client that
+  called `mw_doctor`, `mw_crash_whisperer` or `/mw-doctor` that way got an
+  "invalid arguments" error instead of an answer. ModWrench now needs SDK 1.32.0
+  or later, which reads a missing `arguments` as none given. A tool or command
+  that needs an argument still says it's missing.
 - **Workbench tools no longer open network paths.** A path argument that named
   another computer or a device (`\\server\share\…`, `//server/share`,
   `\\?\UNC\…`, `\\.\…`) went straight to the filesystem. On Windows, opening one
@@ -432,6 +528,14 @@ This document is currently maintained by hand. When [release-please](https://git
   back, which worked before, now gets that 400, and a client whose session was
   closed gets "Session not found" until it reconnects. The 100-session limit is
   shared by everyone who can reach the server.
+- **`@modwrench/remote` answers a bad request body with a short JSON error.** A
+  body that wasn't JSON, was over the size limit, or used an encoding the
+  server doesn't take got Express's HTML error page, with the stack trace and
+  the server's folder paths, and the same stack went to the server's console.
+  It now gets a JSON-RPC error: `-32700 Parse error` (400) for a body that
+  isn't JSON, `-32600 Request body too large` (413), `-32600 Invalid Request`
+  for the other rejected bodies, and `-32603 Internal server error` (500) for
+  anything else, with no stack trace or path.
 
 ## [0.2.4] — 2026-09-15
 

@@ -67,6 +67,8 @@ export type DoctorReport = {
     steam: "native" | "flatpak" | "custom" | "none";
     mo2: { used: boolean; reason: string; profile?: string; modFolders?: number };
     plugins?: { listed: number; active: number; read: number; unreadable: number; complete: boolean };
+    /** Vortex's deployment record, when it was looked for (Windows): whether it named a staging folder, and the deployment method it names. */
+    vortex?: { record: boolean; deployMethod?: string };
   };
 };
 
@@ -91,6 +93,9 @@ export type DoctorOptions = {
 };
 
 export const SEVERITY: Record<DoctorStatus, number> = { problem: 0, warn: 1, note: 2, ok: 3 };
+
+/** The games the Setup Doctor's plugin checks (masters, plugin limits, crash loggers) cover, by game id. */
+export const PLUGIN_CHECK_GAMES: ReadonlySet<string> = new Set(["skyrimspecialedition", "fallout4"]);
 
 /** "Windows", "Linux", "Steam Deck" or "macOS", for people. */
 export function platformName(platform: DoctorPlatform, steamDeck: boolean): string {

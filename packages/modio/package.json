@@ -1,6 +1,6 @@
 {
   "name": "@modwrench/modio",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "ModWrench \u2014 mod.io MCP server. Search, browse, and inspect mods on mod.io directly from any MCP-compatible AI client.",
   "keywords": [
     "mcp",
@@ -54,9 +54,9 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.24.0",
-    "@modwrench/core": "0.2.4",
-    "@modwrench/ui": "0.2.4",
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "@modwrench/core": "0.3.0",
+    "@modwrench/ui": "0.3.0",
     "zod": "^3.23.8"
   },
   "engines": {

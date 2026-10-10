@@ -3,6 +3,7 @@ import { statSync } from "node:fs";
 import { detectCrashlogType } from "../crashlog/detect.js";
 import { parseCrashlog } from "../crashlog/index.js";
 import { PLAYER_FORM_IDS, type CrashlogParseResult, type CrashlogType } from "../crashlog/types.js";
+import { PLUGIN_CHECK_GAMES } from "../doctor/types.js";
 import { clean } from "../patchday/summary.js";
 import { scanBepInEx, type BepInExFacts } from "./bepinex-scan.js";
 import { runChecks } from "./checks.js";
@@ -26,7 +27,7 @@ import { buildPackets } from "./packet.js";
 import { leadKey, POSSIBLE_AT, rankWithKeys, toFrame, type RankOptions } from "./rank.js";
 import { cleaningDeadline, describeRedaction, redact, REDACTION_KINDS, type RedactOptions, type RedactionKind } from "./redact.js";
 import { PACKET_STEP } from "./summary.js";
-import { basisSentence, plural, safeName } from "./text.js";
+import { basisSentence, doctorsFor, plural, safeName } from "./text.js";
 import type {
   Basis,
   Check,
@@ -325,9 +326,17 @@ function nextStepsFor(a: {
   pluginList: CrashlogParseResult["pluginList"];
   havok: HavokHint | undefined;
 }): string[] {
+  // Up to five steps, then the help-packet step, which always has a place at the end. A game updated since the
+  // crash keeps a place too, for the step that sends it to Patch Day: that is a fact about this install, where the
+  // general steps (the Doctors, the halving) are only worth trying.
+  const patchDay =
+    a.install.checked && a.checks.some((c) => c.id === "game-updated")
+      ? "The game was updated after this crash, so run Patch Day to see which plugins don't match the version you have now."
+      : undefined;
+  const room = patchDay ? 4 : 5;
   const steps: string[] = [];
   const add = (step: string | undefined): void => {
-    if (step && !steps.includes(step) && steps.length < 5) steps.push(step);
+    if (step && !steps.includes(step) && steps.length < room) steps.push(step);
   };
   for (const check of a.checks.filter((c) => c.severity === "problem").slice(0, 2)) add(check.fix);
   // PCGamingWiki's Fallout 4 page: the launcher's Options, Advanced, Weapon Debris switches NVIDIA FleX off.
@@ -400,6 +409,8 @@ function nextStepsFor(a: {
       );
     }
     add("Think back to what changed just before the crashes began (a mod installed, updated or removed, or a game update) and undo that first.");
+    // A setup problem can crash the game without leaving a mod's name in the log, and the Doctors check those from files.
+    if (PLUGIN_CHECK_GAMES.has(a.game.id ?? "")) add(DOCTOR_STEP.replace("(/mw-doctor)", doctorsFor(a.game)));
     const rounds = a.pluginCount && a.pluginCount > 1 ? Math.ceil(Math.log2(a.pluginCount)) : 0;
     add(
       "If that doesn't find it, narrow it down by halves: turn off half of your mods and see whether it still crashes, then keep halving whichever half does." +
@@ -410,12 +421,14 @@ function nextStepsFor(a: {
   if (a.pluginList === "failed") {
     add("The logger couldn't write your plugin list into this log, so add your load order (your mod manager shows it) when you ask for help.");
   }
-  if (a.install.checked && a.checks.some((c) => c.id === "game-updated")) {
-    add("The game was updated after this crash, so run Patch Day to see which plugins don't match the version you have now.");
-  }
-  add(PACKET_STEP);
+  if (patchDay) steps.push(patchDay);
+  steps.push(PACKET_STEP);
   return steps;
 }
+
+/** The step that sends a crash with no clear lead to the Doctors, as it reads for Skyrim Special Edition. Another game is named in it. */
+export const DOCTOR_STEP =
+  "Run the Doctors (/mw-doctor). They check setup problems a crash log may not name: a plugin whose master is missing, switched off or loaded after it, a load order past the plugin limit, and two crash loggers at once.";
 
 /** A log too big to read whole: the file's size and how much of its start and end was read. */
 type CutInfo = { size: number; head: number; tail: number };

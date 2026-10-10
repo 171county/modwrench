@@ -890,13 +890,16 @@ test("a game with no plugin checks gets the location and room checks, and says w
   assert.ok(!r.notChecked.some((n) => /Plugin limits/.test(n.what)));
   assert.ok(r.notChecked.some((n) => /Smart App Control/.test(n.what)), "the Windows-only things it can't see");
   assert.ok(!r.notChecked.some((n) => /Vortex's staging folder/.test(n.what)), "Vortex is for the Bethesda games");
+  // Crash Whisperer reads BepInEx's log for this game, and the report says so in those words.
+  assert.ok(r.limits.some((l) => /After a crash, Crash Whisperer \(\/mw-crash\) reads BepInEx's log and says what it points at\./.test(l)));
 });
 
 test("another Bethesda game says its plugin checks aren't built yet, rather than running Skyrim's rules on it", () => {
   const w = install();
-  makeSteam(w.steam, { game: { appId: "377160", dir: "Fallout 4", name: "Fallout 4" } });
-  const r = run({ gameId: "fallout4" });
-  assert.ok(r.notChecked.some((n) => n.what === "Plugin limits, masters and crash loggers for Fallout 4"));
+  makeSteam(w.steam, { game: { appId: "611670", dir: "SkyrimVR", name: "Skyrim VR" } });
+  const r = run({ gameId: "skyrimvr" });
+  assert.ok(r.notChecked.some((n) => n.what === "Plugin limits, masters and crash loggers for Skyrim VR"));
+  assert.ok(r.notChecked.some((n) => /built for Skyrim Special Edition and Fallout 4 so far/.test(n.why)));
   assert.equal(find(r, "setup.plugin-limit"), undefined);
   assert.ok(r.notChecked.some((n) => /Vortex's staging folder/.test(n.what)));
 });
@@ -904,7 +907,10 @@ test("another Bethesda game says its plugin checks aren't built yet, rather than
 test("a MelonLoader game says its Proton override isn't checked yet", () => {
   const w = install();
   makeSteam(w.steam, { game: { appId: "823500", dir: "BONEWORKS", name: "BONEWORKS" } });
-  assert.ok(run({ gameId: "boneworks" }).notChecked.some((n) => /MelonLoader/.test(n.what)));
+  const r = run({ gameId: "boneworks" });
+  assert.ok(r.notChecked.some((n) => /MelonLoader/.test(n.what)));
+  // Crash Whisperer doesn't read this game's logs, so the report doesn't send anyone there.
+  assert.ok(!r.limits.some((l) => /Crash Whisperer/.test(l)));
 });
 
 test("a game the Doctors don't know is an error that lists the ones they do", () => {
@@ -1178,6 +1184,11 @@ test("the limits of the report always include the read-only promise and how to r
   assert.match(r.limits[0] ?? "", /Everything here is read from files\. Nothing runs the game/);
   assert.ok(r.limits.some((l) => /"your files" were read directly/.test(l)));
   assert.ok(r.limits.some((l) => /Plugins are read by their header only, never loaded/.test(l)));
+  // Why it crashed is Crash Whisperer's question, and the report says where to ask it.
+  assert.ok(
+    r.limits.includes("Files can't show why a game crashed. After a crash, Crash Whisperer (/mw-crash) reads the newest crash log and says what it points at."),
+    r.limits.join("\n")
+  );
 });
 
 test("a clear report says it isn't a promise, and the Windows things it can't see are listed", () => {
@@ -1216,4 +1227,54 @@ test("the order of findings is worst first, and the next steps come from the pro
       ok: r.findings.filter((f) => f.status === "ok").length,
     }
   );
+});
+
+// ─── Vortex's staging folder ─────────────────────────────────────────────────
+
+/** Vortex's deployment record in the game's Data folder, as Vortex writes it, naming `staging`. */
+function vortexRecord(w: World, staging: string, method = "hardlink_activator"): void {
+  const raw = { instance: "6f1c2d3e", version: 1, deploymentMethod: method, gameId: "skyrimse", deploymentTime: 1700000000000, stagingPath: staging, targetPath: dataOf(w), files: [] };
+  writeFileSync(join(dataOf(w), "vortex.deployment.json"), JSON.stringify(raw, undefined, 2));
+}
+
+test("Vortex's deployment record leads to its staging folder: the drive rule, the place and the room are checked", () => {
+  const w = install();
+  const staging = join(sandbox.root, `vortex-${homes}`, "Vortex Mods", "skyrimse");
+  mkdirSync(staging, { recursive: true });
+  vortexRecord(w, staging);
+  const r = run();
+  const f = must(r, "setup.vortex-staging");
+  assert.deepEqual([f.status, f.basis], ["ok", "rule"]);
+  assert.deepEqual(r.looked.vortex, { record: true, deployMethod: "hardlink_activator" });
+  assert.ok(!r.notChecked.some((x) => /Vortex's staging folder/.test(x.what)), "it was checked, so it isn't listed as not checked");
+  // One disk in the test, so the staging drive is the game's drive, said once.
+  assert.match(must(r, "setup.room").detail, /^the game's drive and Vortex's staging drive: [\d.]+ GB free\.$/);
+  assert.match(must(r, "setup.location").detail, /Vortex's staging folder isn't under Program Files/);
+  assert.ok(!JSON.stringify(r).includes(staging), "the staging folder's path isn't in the report");
+});
+
+test("without a deployment record the staging folder is listed as not checked, and why; off Windows it isn't looked for", () => {
+  install();
+  const r = run();
+  assert.deepEqual(r.looked.vortex, { record: false }, "it looked and found none");
+  const entry = r.notChecked.find((x) => /Vortex's staging folder/.test(x.what));
+  assert.match(entry?.why ?? "", /^Vortex names it in the game's Data folder \(vortex\.deployment\.json\) only while it has mods deployed, and that record wasn't there\./);
+  const w = install();
+  vortexRecord(w, join(sandbox.root, "anywhere"));
+  const linux = run({ platform: "linux" });
+  assert.equal(find(linux, "setup.vortex-staging"), undefined);
+  assert.equal(linux.looked.vortex, undefined);
+});
+
+test("a deployment record that doesn't lead to a staging folder is described as it is, not as missing", () => {
+  const why = (r: DoctorReport): string => r.notChecked.find((x) => /Vortex's staging folder/.test(x.what))?.why ?? "";
+  // One with no staging folder in it, as Vortex wrote before March 2020, when it didn't write the game either.
+  const w = install();
+  const raw = { instance: "6f1c2d3e", version: 1, deploymentMethod: "hardlink_activator", files: [] };
+  writeFileSync(join(dataOf(w), "vortex.deployment.json"), JSON.stringify(raw, undefined, 2));
+  assert.match(why(run()), /^Vortex's deployment record in the game's Data folder doesn't name it \(older versions of Vortex didn't write it\)\./);
+  // One for another game, with its fields before the file list as Vortex writes them.
+  writeFileSync(join(dataOf(w), "vortex.deployment.json"), JSON.stringify({ instance: "6f1c2d3e", version: 1, deploymentMethod: "hardlink_activator", gameId: "fallout4", stagingPath: sandbox.root, files: [] }, undefined, 2));
+  assert.match(why(run()), /^The deployment record in the game's Data folder \(vortex\.deployment\.json\) doesn't name this game, so it wasn't used\./);
+  assert.doesNotMatch(why(run()), /wasn't there/);
 });

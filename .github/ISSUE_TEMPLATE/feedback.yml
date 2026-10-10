@@ -1,0 +1,26 @@
+name: Feedback from your AI client
+description: Drafted with ModWrench's /mw-critique (a bug, an idea or anything else), with your setup filled in.
+title: "[feedback] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This form is usually opened by `/mw-critique`, which fills it in from what you told your AI client. Nothing reached GitHub before you opened it, and nothing is posted until you press the button at the bottom. Read it first and take out anything you don't want public.
+  - type: textarea
+    id: feedback
+    attributes:
+      label: What you'd like to say
+      description: What happened and what you expected, or what you wish ModWrench did.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen again
+      description: For a bug, the steps that make it happen. Leave it empty for anything else.
+  - type: textarea
+    id: setup
+    attributes:
+      label: Your setup
+      description: ModWrench's version, the connectors that are on, your AI client, the operating system and Node's version.
+      render: text

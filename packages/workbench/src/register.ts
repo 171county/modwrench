@@ -215,6 +215,8 @@ export function registerWorkbenchTools(server: McpServer): {
               author: m.author,
             })),
             warning: result.warning,
+            // MO2's mod folders, which the page draws when the profile lists no plugins.
+            folders: (result.modFolders ?? []).map((f) => ({ name: f.name, enabled: f.enabled, index: f.modlistIndex })),
           })
         : orderView({ theme: themeForGameId(gameId), ok: false, reason: result.reason });
 
@@ -607,25 +609,25 @@ export function registerWorkbenchTools(server: McpServer): {
     "mw_patch_day",
     {
       title: "Is it safe to update?",
-      description: "Is it safe to update? Right before or after a game patch, reads the game's version, the SKSE build, its Address Library file and every SKSE plugin DLL (game folder and Mod Organizer 2), applies SKSE's own published compatibility rules, and says which plugins would be refused. Verdict is go / check / wait, with a reason per plugin and a note on whether each rule is SKSE's own or inferred. Local and read-only — no network, nothing written or kept. Pass targetVersion (e.g. 1.7.104) to check a patch that isn't installed yet. Skyrim Special Edition / Anniversary Edition only for now. A GO means every check that can be run from files passed; it can't promise the game runs. Use when the user asks \"is it safe to update\", \"Steam updated Skyrim and now it won't start\", \"did SKSE break\", or \"which plugins will break after the patch\".",
+      description: "Is it safe to update? Right before or after a game patch, reads the game's version, the script extender build, its Address Library file and every script extender plugin DLL (game folder and Mod Organizer 2), applies the script extender's own published compatibility rules, and says which plugins would be refused. Covers Skyrim Special Edition and Anniversary Edition (SKSE) and Fallout 4 (F4SE). Verdict is go / check / wait, with a reason per plugin and a note on whether each rule is the script extender's own or inferred. Local and read-only — no network, nothing written or kept. Pass targetVersion (e.g. 1.7.104 for Skyrim, 1.11.240 for Fallout 4) to check a patch that isn't installed yet. A GO means every check that can be run from files passed; it can't promise the game runs. Use when the user asks \"is it safe to update\", \"Steam updated Skyrim and now it won't start\", \"did SKSE break\", \"did F4SE break\", or \"which plugins will break after the patch\".",
       inputSchema: {
         gameId: z
           .string()
           .optional()
           .describe(
-            "Canonical game ID. Default 'skyrimspecialedition', the only one supported so far."
+            "Canonical game ID: 'skyrimspecialedition' or 'fallout4'. Leave it out to check the game whose executable is in gamePath, or else the first one installed in a Steam library (Skyrim Special Edition first); the answer names any other one it found."
           ),
         gamePath: z
           .string()
           .optional()
           .describe(
-            "The install folder (the one holding SkyrimSE.exe), when ModWrench can't find the game on its own — a GOG copy, or a Steam library in an unusual place."
+            "The install folder (the one holding SkyrimSE.exe or Fallout4.exe), when ModWrench can't find the game on its own — a GOG copy, or a Steam library in an unusual place."
           ),
         targetVersion: z
           .string()
           .optional()
           .describe(
-            "A game version to check instead of the installed one, like '1.7.104'. Use it before updating; the number is in the Steam patch notes or on the SKSE site."
+            "A game version to check instead of the installed one, like '1.7.104' (Skyrim) or '1.11.240' (Fallout 4). Use it before updating; the number is in the Steam patch notes or on the SKSE or F4SE site."
           ),
         mo2InstancePath: z
           .string()
@@ -641,7 +643,7 @@ export function registerWorkbenchTools(server: McpServer): {
           .string()
           .optional()
           .describe(
-            "Path to skse64.log if it isn't in the usual Documents/My Games folder. SKSE's own log from the last launch is cross-checked against the predictions."
+            "Path to skse64.log (or f4se.log) if it isn't in the usual Documents/My Games folder. The script extender's own log from the last launch is cross-checked against the predictions."
           ),
       },
       annotations: {
@@ -823,13 +825,13 @@ export function registerWorkbenchTools(server: McpServer): {
     "mw_doctor",
     {
       title: "Is my setup ready?",
-      description: "Is my setup ready? The Doctors: a read-only health check for the boring causes behind many \"my mods keep breaking\" threads, read from files alone. Setup Doctor: whether the game or its mods sit in a folder Windows protects or syncs (Program Files, OneDrive, Downloads, Desktop) or on a drive short of space; and, for Skyrim Special Edition, the plugin list (missing, switched-off or late masters read from each plugin's header, the 254 full plus 4096 light plugin limits, entries for plugins that are gone, Mod Organizer 2 and the game's own plugins.txt disagreeing), clutter in MO2's Overwrite folder, and crash loggers (none, or two that fight). Deck Doctor, on Linux and Steam Deck: which Steam is in use (regular or Flatpak), the game's Proton prefix, BepInEx's winhttp launch override, the nxm:// link handler, whether the library sits on an NTFS or FAT drive, and folder names that differ only by capital letters. Every finding says what it rests on: your files, a documented rule (with its source) or ModWrench's own guess. The report also lists what ModWrench can't see, such as antivirus, pagefile size and MO2's live file view. Local and read-only: no network, no program started, nothing written or kept, and no folder paths in the answer. A clear report isn't a promise the game starts. Use when the user says \"why do my mods keep breaking\", \"is my setup OK\", \"check before I install this list\", \"Wabbajack keeps failing\", or \"mods won't load on my Deck\".",
+      description: "Is my setup ready? The Doctors: a read-only health check for the boring causes behind many \"my mods keep breaking\" threads, read from files alone. Setup Doctor: whether the game or its mods sit in a folder Windows protects or syncs (Program Files, OneDrive, Downloads, Desktop) or on a drive short of space; on Windows, whether Vortex's staging folder is on the game's drive, as its hard links need; and, for Skyrim Special Edition and Fallout 4, the plugin list (missing, switched-off or late masters read from each plugin's header, the plugin limits of 254 full and 4096 light plugins, or 255 full in a Fallout 4 list with no light plugin on, entries for plugins that are gone, Mod Organizer 2 and the game's own plugins.txt disagreeing), clutter in MO2's Overwrite folder, and crash loggers (none, two that fight, or one that doesn't support the game version). Deck Doctor, on Linux and Steam Deck: which Steam is in use (regular or Flatpak), the game's Proton prefix, BepInEx's winhttp launch override, the nxm:// link handler, whether the library sits on an NTFS or FAT drive, and folder names that differ only by capital letters. Every finding says what it rests on: your files, a documented rule (with its source) or ModWrench's own guess. The report also lists what ModWrench can't see, such as antivirus, pagefile size and MO2's live file view. Local and read-only: no network, no program started, nothing written or kept, and no folder paths in the answer. A clear report isn't a promise the game starts. Use when the user says \"why do my mods keep breaking\", \"is my setup OK\", \"check before I install this list\", \"Wabbajack keeps failing\", or \"mods won't load on my Deck\".",
       inputSchema: {
         gameId: z
           .string()
           .optional()
           .describe(
-            "Canonical game ID. Default 'skyrimspecialedition', which has the plugin, master and crash-logger checks; the location, disk and Deck checks cover the other games ModWrench knows too (see mw_detect_environment)."
+            "Canonical game ID. Default 'skyrimspecialedition'. It and 'fallout4' have the plugin, master and crash-logger checks; the location, disk and Deck checks cover the other games ModWrench knows too (see mw_detect_environment)."
           ),
         area: z
           .enum(["all", "setup", "deck"])
@@ -841,7 +843,7 @@ export function registerWorkbenchTools(server: McpServer): {
           .string()
           .optional()
           .describe(
-            "The folder that holds the game's executable (for Skyrim Special Edition, SkyrimSE.exe), not its Data folder, when ModWrench can't find it in a Steam library on its own: a GOG or Epic copy, or an unusual place."
+            "The folder that holds the game's executable (for Skyrim Special Edition, SkyrimSE.exe; for Fallout 4, Fallout4.exe), not its Data folder, when ModWrench can't find it in a Steam library on its own: a GOG or Epic copy, or an unusual place."
           ),
         mo2InstancePath: z
           .string()

@@ -1,6 +1,6 @@
 {
   "name": "@modwrench/workbench",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "ModWrench \u2014 the modder workbench. Atomic MCP tools for environment detection, load-order parsing, crashlog analysis, and known-conflict lookups.",
   "keywords": [
     "mcp",
@@ -41,6 +41,10 @@
     "./detect": {
       "types": "./dist/detect/environment.d.ts",
       "import": "./dist/detect/environment.js"
+    },
+    "./feedback": {
+      "types": "./dist/feedback.d.ts",
+      "import": "./dist/feedback.js"
     }
   },
   "bin": {
@@ -63,9 +67,9 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.24.0",
-    "@modwrench/core": "0.2.4",
-    "@modwrench/ui": "0.2.4",
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "@modwrench/core": "0.3.0",
+    "@modwrench/ui": "0.3.0",
     "js-yaml": "^4.1.0",
     "zod": "^3.23.8"
   },

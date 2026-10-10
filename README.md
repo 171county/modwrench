@@ -38,7 +38,8 @@ a stand-in for an MCP Apps host; no page has been tried in a real client yet.
 structured data goes only to clients that say they can draw pages, because some clients hand
 the model the structured data *instead of* the text, which would turn a ten-line answer into a
 long one. If you want it anyway, for a script or an agent that reads it, set
-`MODWRENCH_STRUCTURED=always`; `MODWRENCH_STRUCTURED=never` sends it to nobody.
+`MODWRENCH_STRUCTURED=always`; `MODWRENCH_STRUCTURED=never` sends it to nobody, and then no
+tool points at a page, since without its data a page could only repeat the text answer.
 `MODWRENCH_UI=off` switches every page off, and with them the structured data, unless
 `MODWRENCH_STRUCTURED=always` asks for it. The pages make no network requests and keep
 nothing; [TRUST.md](TRUST.md#the-patch-day-page) and
@@ -52,18 +53,21 @@ that do. A client whose session was closed gets "Session not found" until it rec
 
 **The Doctors** (`mw_doctor`, or `/mw-doctor`) answer "is my setup ready?", and they are the
 boring half of modding support: a lot of "my mods keep breaking" threads end with a cause that
-isn't a mod. The Setup Doctor looks at where the game and Mod Organizer 2 live (Program Files,
-OneDrive and the other folders Windows protects or syncs), how much room is left on the drive,
-and, for Skyrim Special Edition, the plugin list: plugins whose master is missing, switched off
-or loaded too late, the limit of 254 full and 4,096 light plugins, entries for plugins that are
+isn't a mod. The Setup Doctor looks at where the game, Mod Organizer 2 and Vortex's staging folder
+live (Program Files, OneDrive and the other folders Windows protects or syncs), whether Vortex's
+staging folder is on the game's drive as its hard links need, how much room is left on the drive,
+and, for Skyrim Special Edition and Fallout 4, the plugin list: plugins whose master is missing, switched off
+or loaded too late, the limit of 254 full and 4,096 light plugins (255 full in a Fallout 4 list
+with no light plugin on), entries for plugins that are
 gone, Mod Organizer 2 and the game's own list disagreeing, clutter in MO2's Overwrite folder, and
 crash loggers (none, or two that fight). The Deck Doctor, on Linux and the Steam Deck, looks at
 which Steam holds the game (regular or Flatpak), whether Proton has made the game's prefix,
 BepInEx's `winhttp` launch override, which app opens `nxm://` links, whether a library sits on an
-NTFS or exFAT drive, and folder names that differ only by capital letters. Every finding says
+NTFS, FAT32 or exFAT drive, and folder names that differ only by capital letters. Every finding says
 what it rests on (your files, a documented rule with its source named, or ModWrench's own
 guess), and the report lists what it can't see: antivirus, the pagefile, what MO2's virtual file
-system shows the game while it runs. It is read-only and local: no network, no program started,
+system shows the game while it runs. Why a game crashed is Crash Whisperer's question, and the
+report says so. It is read-only and local: no network, no program started,
 nothing written, no folder path in the answer. A clear report means the checks that can run
 from files passed. It does not mean the game starts, and it says so. It was built from the tools'
 own documentation and tested on constructed installs; it has not been run against a real one.
@@ -88,7 +92,8 @@ load order. A ranking is a lead, never a verdict, and it never calls anything sa
 what the log shows the game was working with (the objects it lists, game files, the kinds of
 object in the registers, Papyrus functions), and when the game stopped inside a library
 other mods need, such as RaceMenu or JContainers, it says not to remove it and points at the
-mod that may have called it, when the log shows one. It reads Crash Logger
+mod that may have called it, when the log shows one. When no name stands out, it suggests the
+Doctors, which check the setup problems a crash log may not name. It reads Crash Logger
 SSE, Buffout 4, NetScriptFramework and BepInEx logs; the setup check covers Skyrim Special
 Edition for now. Reading the log from your disk is the private way to use it: what it
 recognises comes out before anything reaches your AI. A log you paste into the chat, or a
@@ -109,15 +114,15 @@ Four attachments. Install one, some, or all — `@modwrench/cli` composes whiche
 
 **Thunderstore** — browse communities, search mods, read full version history, and resolve dependency trees. No credential needed; the read API is public. *(9 tools)*
 
-**Workbench** — local, on your machine. Find your installed games, mod managers and loaders; read your load order out of MO2, r2modman or Vortex; parse a crash log from Crash Logger SSE, Buffout 4, NetScriptFramework or BepInEx, or have it explained: what happened, which names the log points at and how sure that is, and a help post ready to copy; look a mod up across platforms; check known conflicts; check, before or after a game patch, whether your SKSE plugins will survive it (Skyrim Special Edition and Anniversary Edition for now); and run the Doctors, a read-only health check of the setup behind the crash (plugin masters and limits, where things live, MO2's Overwrite folder, and on Linux and the Steam Deck the Steam, Proton and `nxm://` side). *(9 tools)*
+**Workbench** — local, on your machine. Find your installed games, mod managers and loaders; read your load order out of MO2, r2modman or Vortex; parse a crash log from Crash Logger SSE, Buffout 4, NetScriptFramework or BepInEx, or have it explained: what happened, which names the log points at and how sure that is, and a help post ready to copy; look a mod up across platforms; check known conflicts; check, before or after a game patch, whether your script extender plugins will survive it (SKSE for Skyrim Special Edition and Anniversary Edition, F4SE for Fallout 4); and run the Doctors, a read-only health check of the setup behind the crash (plugin masters and limits, where things live, MO2's Overwrite folder, and on Linux and the Steam Deck the Steam, Proton and `nxm://` side). *(9 tools)*
 
 The conflict check reads two sources: LOOT's masterlist, fetched live for Bethesda games, and a small conflict list bundled inside the package for games LOOT does not cover. **That bundled list ships empty** — all three files contain `[]` — so today it asserts nothing. It is named here because it is a channel that could carry claims about someone's mod in a future release, and `npx` pulls the latest version automatically unless you pin.
 
-Plus two meta tools: one activates a platform mid-session, and one opens the deck, which shows which platforms are connected (a page in clients that support MCP Apps, the connector list as text everywhere else).
+Plus three meta tools: one activates a platform mid-session, one opens the deck, which shows which platforms are connected (a page in clients that support MCP Apps, the connector list as text everywhere else), and one drafts feedback for ModWrench's maintainers as a GitHub issue that you read and post yourself (it sends nothing).
 
-**52 tools. 51 of them read. One writes** — see [The one thing it writes](#the-one-thing-it-writes).
+**53 tools. 52 of them read. One writes** — see [The one thing it writes](#the-one-thing-it-writes).
 
-It also registers **seven slash commands** your MCP client will offer you: `/modwrench` opens the deck, `/mw-find` searches every connected platform at once, `/mw-crash` asks why your game crashed (it reads your newest crash log itself), `/mw-conflicts` checks a game's load order, `/mw-order` reads your load order, `/mw-patch` asks whether a game update is safe, and `/mw-doctor` asks whether your setup is ready. They are shortcuts that call the tools above — they add no capability the tools do not already have.
+It also registers **eight slash commands** your MCP client will offer you: `/modwrench` opens the deck, `/mw-find` searches every connected platform at once, `/mw-crash` asks why your game crashed (it reads your newest crash log itself), `/mw-conflicts` checks a game's load order, `/mw-order` reads your load order, `/mw-patch` asks whether a game update is safe, `/mw-doctor` asks whether your setup is ready, and `/mw-critique` drafts feedback for the maintainers. They are shortcuts that call the tools above — they add no capability the tools do not already have.
 
 ## How to use it
 

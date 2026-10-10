@@ -427,6 +427,14 @@ const SCRIPT = String.raw`
       text += p.complete === false ? '. Some were skipped.' : '.';
       host.appendChild(h('li', { text: text }));
     }
+    var v = looked.vortex;
+    if (v && typeof v === 'object') {
+      host.appendChild(h('li', {
+        text: v.record
+          ? "Vortex: its deployment record in the game's Data folder names the staging folder" + (typeof v.deployMethod === 'string' ? ' (method ' + tidy(v.deployMethod, 40) + ')' : '') + '.'
+          : "Vortex: no deployment record naming a staging folder in the game's Data folder."
+      }));
+    }
     show('where', true);
   }
 

@@ -18,6 +18,9 @@ import {
 // Where the rule comes from is recorded on every result (`basis`), because
 // these are not equally certain and a modder deserves to know which is which:
 //
+//   "f4se-source"   — the same for Fallout 4: F4SE's own published source, applied
+//                     to a game version a published F4SE build was made for (see
+//                     f4se-rules.ts).
 //   "skse-source"   — SKSE's own published source, PluginManager.cpp
 //                     (ianpatt/skse64, checked 2026-10-03), applied to a game
 //                     version a published build was made for: 1.5.97 (SKSE
@@ -33,7 +36,7 @@ import {
 
 export type PluginStatus = "ok" | "broken" | "unclear";
 export type PluginBinding = "independent" | "pinned" | "legacy" | "none";
-export type RuleBasis = "skse-source" | "field-reports" | "inferred";
+export type RuleBasis = "skse-source" | "f4se-source" | "field-reports" | "inferred";
 
 export type RuntimeContext = {
   /** Packed game version being checked: the installed one, or a what-if target. */
@@ -324,6 +327,10 @@ export type Verdict = "go" | "check" | "wait";
 
 export type DecisionInput = {
   gameName: string;
+  /** The script extender, as players call it. Default "SKSE". */
+  extender?: string;
+  /** The script extender refuses this copy of the game outright (a store edition it doesn't support), in words. */
+  unsupported?: string;
   /** The game version being judged, e.g. "1.7.104.0". */
   version: string;
   /** Checking a version the user named rather than the one installed. */
@@ -353,10 +360,20 @@ export type Decision = { verdict: Verdict; headline: string; reasons: string[] }
 
 export function decide(input: DecisionInput): Decision {
   const { skse, addressLibrary: lib, counts, log } = input;
+  const X = input.extender ?? "SKSE";
   const at = input.whatIf
     ? `If you update ${input.gameName} to ${input.version}`
     : `${input.gameName} ${input.version}`;
   const reasons: string[] = [];
+
+  // A copy the script extender refuses outright: nothing it would load can load, before or after an update.
+  if (input.unsupported) {
+    return {
+      verdict: "check",
+      headline: `CHECK — ${at}: ${input.unsupported}, so ${X} plugins can't load on this copy, before or after an update.`,
+      reasons: [input.unsupported],
+    };
+  }
 
   // No script extender at all: SKSE plugins can't load, so a game update has
   // nothing on that side to break.
@@ -366,14 +383,14 @@ export function decide(input: DecisionInput): Decision {
       return {
         verdict: "go",
         headline:
-          `GO — ${at}: no script extender and no SKSE plugins are installed, so a game update has nothing to break on that side. ` +
-          "Mods that aren't SKSE plugins aren't covered by this check.",
+          `GO — ${at}: no script extender and no ${X} plugins are installed, so a game update has nothing to break on that side. ` +
+          `Mods that aren't ${X} plugins aren't covered by this check.`,
         reasons,
       };
     }
     return {
       verdict: "check",
-      headline: `CHECK — ${at}: ${n} SKSE plugin${n === 1 ? " is" : "s are"} installed but the script extender isn't (no ${skse.loader} next to the game), so ${n === 1 ? "it isn't" : "they aren't"} loading now.`,
+      headline: `CHECK — ${at}: ${n} ${X} plugin${n === 1 ? " is" : "s are"} installed but the script extender isn't (no ${skse.loader} next to the game), so ${n === 1 ? "it isn't" : "they aren't"} loading now.`,
       reasons: [`${skse.loader} not found next to the game executable`],
     };
   }
@@ -382,8 +399,8 @@ export function decide(input: DecisionInput): Decision {
     return {
       verdict: "wait",
       headline: input.whatIf
-        ? `WAIT — ${at}: SKSE has no build for it installed (${skse.dll} is missing). SKSE's loader starts only the game version it was built for, so the build for ${input.version} goes in after the update; put in before, it stops SKSE working on the version you have now.`
-        : `WAIT — ${at}: SKSE is installed but has no build for this game version (${skse.dll} is missing). Until one is installed the game won't start with SKSE.`,
+        ? `WAIT — ${at}: ${X} has no build for it installed (${skse.dll} is missing). ${X}'s loader starts only the game version it was built for, so the build for ${input.version} goes in after the update; put in before, it stops ${X} working on the version you have now.`
+        : `WAIT — ${at}: ${X} is installed but has no build for this game version (${skse.dll} is missing). Until one is installed the game won't start with ${X}.`,
       reasons: [`${skse.dll} not found next to the game executable`],
     };
   }
@@ -398,10 +415,10 @@ export function decide(input: DecisionInput): Decision {
   // SKSE starts through its loader, and each loader starts only the game version
   // its build was made for (IdentifyEXE.cpp); a release's loader and DLL carry the same version.
   if (skse.loaderPresent === false) {
-    reasons.push(`${skse.loader} isn't next to the game, and SKSE starts through it`);
+    reasons.push(`${skse.loader} isn't next to the game, and ${X} starts through it`);
   } else if (skse.loaderVersion && skse.dllVersion && skse.loaderVersion !== skse.dllVersion) {
     reasons.push(
-      `${skse.loader} is from SKSE ${skse.loaderVersion} but ${skse.dll} is from SKSE ${skse.dllVersion}, and each SKSE loader starts only the game version its build was made for`
+      `${skse.loader} is from ${X} ${skse.loaderVersion} but ${skse.dll} is from ${X} ${skse.dllVersion}, and each ${X} loader starts only the game version its build was made for`
     );
   }
   if (counts.broken > 0) {
@@ -416,13 +433,13 @@ export function decide(input: DecisionInput): Decision {
   if (input.steamUpdatePending) reasons.push("Steam has a game update waiting");
   // A log from before the last patch describes a different game, so it is not evidence either way.
   if (log && log.fresh && log.disagreements > 0) {
-    reasons.push("SKSE's own log from the last launch disagrees with these predictions");
+    reasons.push(`${X}'s own log from the last launch disagrees with these predictions`);
   } else if (log && log.fresh && log.refusals > 0 && counts.broken === 0) {
-    reasons.push("SKSE's own log from the last launch reports refused plugins");
+    reasons.push(`${X}'s own log from the last launch reports refused plugins`);
   }
   if (input.beyondSource && !(log && log.fresh && log.refusals === 0)) {
     reasons.push(
-      "SKSE hasn't published its source for this game version, so a clean result here is a prediction — launch the game once and re-run to compare against SKSE's own log"
+      `${X} hasn't published its source for this game version, so a clean result here is a prediction — launch the game once and re-run to compare against ${X}'s own log`
     );
   }
 
@@ -431,8 +448,8 @@ export function decide(input: DecisionInput): Decision {
     return {
       verdict: "go",
       headline:
-        `GO — ${at}: SKSE build present, ${lib.pluginsNeedingIt > 0 ? "Address Library present, " : ""}` +
-        `${total === 0 ? "no plugins to check" : total === 1 ? "the 1 plugin passes SKSE's own checks" : `all ${total} plugins pass SKSE's own checks`}. ` +
+        `GO — ${at}: ${X} build present, ${lib.pluginsNeedingIt > 0 ? "Address Library present, " : ""}` +
+        `${total === 0 ? "no plugins to check" : total === 1 ? `the 1 plugin passes ${X}'s own checks` : `all ${total} plugins pass ${X}'s own checks`}. ` +
         "That is what can be checked from files; it can't prove the game runs.",
       reasons,
     };
@@ -473,14 +490,23 @@ export type ConfidenceInput = {
   log: { fresh: boolean; loaded: number; refusals: number; disagreements: number } | null;
   /** The basis of each flagged plugin. */
   flagged: RuleBasis[];
+  /**
+   * The script extender: its name, which published build's rules apply to a game version, and the build that asks a
+   * plugin's own code instead of reading version data. Default SKSE.
+   */
+  extender?: { name: string; sourceFor: (runtime: number) => { build: string; covered: boolean }; queryBuild: string; queryExport: string };
 };
+
+const SKSE_EXTENDER = { name: "SKSE", sourceFor: skseSourceFor, queryBuild: "2.0.20", queryExport: "SKSEPlugin_Query" };
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 
 export function describeConfidence(input: ConfidenceInput): Confidence {
-  const basis: Record<RuleBasis, number> = { "skse-source": 0, "field-reports": 0, inferred: 0 };
+  const basis: Record<RuleBasis, number> = { "skse-source": 0, "f4se-source": 0, "field-reports": 0, inferred: 0 };
   for (const b of input.flagged) basis[b]++;
-  const build = skseSourceFor(parseVersionText(input.version) ?? 0).build;
+  const x = input.extender ?? SKSE_EXTENDER;
+  const X = x.name;
+  const build = x.sourceFor(parseVersionText(input.version) ?? 0).build;
 
   if (input.whatIf) {
     return {
@@ -488,8 +514,8 @@ export function describeConfidence(input: ConfidenceInput): Confidence {
       summary:
         `A what-if, not a fact: this judges the plugins you have now against ${input.version}, and nothing changes until you update. ` +
         (input.beyondSource
-          ? `SKSE hasn't published its source for that version, so it applies the rules of SKSE ${build}, the nearest published build.`
-          : `It uses SKSE ${build}'s own rules.`),
+          ? `${X} hasn't published its source for that version, so it applies the rules of ${X} ${build}, the nearest published build.`
+          : `It uses ${X} ${build}'s own rules.`),
       basis,
     };
   }
@@ -498,7 +524,7 @@ export function describeConfidence(input: ConfidenceInput): Confidence {
     return {
       evidence: "log",
       summary:
-        `Backed by SKSE's own log from a launch after the last patch: ${plural(loaded, "plugin", "plugins")} loaded, ${refusals} refused` +
+        `Backed by ${X}'s own log from a launch after the last patch: ${plural(loaded, "plugin", "plugins")} loaded, ${refusals} refused` +
         (disagreements > 0 ? `, including ${disagreements} the file check had passed` : "") +
         ". That is the strongest evidence there is.",
       basis,
@@ -508,19 +534,19 @@ export function describeConfidence(input: ConfidenceInput): Confidence {
     return {
       evidence: "prediction",
       summary:
-        `A prediction: SKSE hasn't published its source for this game version, so this applies the rules of SKSE ${build}, the nearest published build. ` +
-        "SKSE's own log from a launch is the real answer.",
+        `A prediction: ${X} hasn't published its source for this game version, so this applies the rules of ${X} ${build}, the nearest published build. ` +
+        `${X}'s own log from a launch is the real answer.`,
       basis,
     };
   }
   return {
     evidence: "files",
     summary:
-      `From the files only, using SKSE ${build}'s own rules, the checks SKSE makes at launch. ` +
-      (build === "2.0.20"
-        ? "On this game version SKSE also asks each plugin's own code (SKSEPlugin_Query) whether it accepts the game, which files can't show. "
+      `From the files only, using ${X} ${build}'s own rules, the checks ${X} makes at launch. ` +
+      (build === x.queryBuild
+        ? `On this game version ${X} also asks each plugin's own code (${x.queryExport}) whether it accepts the game, which files can't show. `
         : "") +
-      "SKSE's log from a launch would confirm it.",
+      `${X}'s log from a launch would confirm it.`,
     basis,
   };
 }

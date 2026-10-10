@@ -78,6 +78,34 @@ export function skseVersionData(opts: {
   return b;
 }
 
+/** The 1,116-byte F4SEPluginVersionData struct, field for field (F4SE's PluginAPI.h). */
+export function f4seVersionData(opts: {
+  dataVersion?: number;
+  pluginVersion?: number;
+  name?: string;
+  author?: string;
+  addressIndependence?: number;
+  structureIndependence?: number;
+  compatibleVersions?: number[];
+  seVersionRequired?: number;
+  reservedBreaking?: number;
+  /** Raw bytes for the name field, written as they are (no terminator added). */
+  rawName?: Buffer;
+}): Buffer {
+  const b = Buffer.alloc(1116);
+  b.writeUInt32LE(opts.dataVersion ?? 1, 0x000);
+  b.writeUInt32LE(opts.pluginVersion ?? 0x01000000, 0x004);
+  if (opts.rawName) opts.rawName.copy(b, 0x008, 0, 256);
+  else b.write(opts.name ?? "TestPlugin", 0x008, 255, "latin1");
+  b.write(opts.author ?? "tests", 0x108, 255, "latin1");
+  b.writeUInt32LE(opts.addressIndependence ?? 0, 0x208);
+  b.writeUInt32LE(opts.structureIndependence ?? 0, 0x20c);
+  (opts.compatibleVersions ?? []).slice(0, 16).forEach((v, i) => b.writeUInt32LE(v, 0x210 + i * 4));
+  b.writeUInt32LE(opts.seVersionRequired ?? 0, 0x250);
+  b.writeUInt32LE(opts.reservedBreaking ?? 0, 0x258);
+  return b;
+}
+
 function exportSection(
   baseRva: number,
   dllName: string,

@@ -43,6 +43,10 @@ export type DepsView =
       totalCount: number;
       loadOrder: LoadOrderRow[];
       warning?: string;
+      /** "folders": the profile lists no plugins, so the rows are its mod folders (Mod Organizer 2). */
+      rows?: "folders";
+      /** No entry's enable state is known (Vortex), so the count of enabled entries means nothing. */
+      enabledUnknown?: true;
     }
   | { view: "deps"; kind: "order"; theme: ThemeId; ok: false; reason: string };
 
@@ -87,17 +91,37 @@ function orderRow(row: LoadOrderRow): LoadOrderRow {
 /**
  * A load order for the page, or why it couldn't be read. Sends the first ORDER_ROWS
  * entries with the full counts, and only the fields above (no folder paths).
+ *
+ * `folders`: a Mod Organizer 2 profile's mod folders. They are drawn when the profile
+ * lists no plugins, the case where the manager's own counts are counts of folders, so
+ * the page never shows "nothing in this load order" under a count of enabled mods.
  */
 export function orderView(
   input: { theme?: string } & (
-    | { ok: true; manager: string; profile: string; enabledCount: number; totalCount: number; loadOrder: LoadOrderRow[]; warning?: string }
+    | {
+        ok: true;
+        manager: string;
+        profile: string;
+        enabledCount: number;
+        totalCount: number;
+        loadOrder: LoadOrderRow[];
+        warning?: string;
+        folders?: LoadOrderRow[];
+      }
     | { ok: false; reason: string }
   )
 ): DepsView {
   const theme = themeOf(input.theme);
   if (!input.ok) return { view: "deps", kind: "order", theme, ok: false, reason: str(input.reason) };
-  const all = Array.isArray(input.loadOrder) ? input.loadOrder : [];
+  const plugins = Array.isArray(input.loadOrder) ? input.loadOrder : [];
+  const folders = Array.isArray(input.folders) ? input.folders : [];
+  const asFolders = plugins.length === 0 && folders.length > 0;
+  const all = asFolders ? folders : plugins;
   const warning = text(input.warning);
+  const rows = all.slice(0, ORDER_ROWS).map(orderRow);
+  // Vortex can't say which mods are on: every state is unknown and its count of enabled
+  // mods is 0. Saying "0/N enabled" over a list of question marks would be wrong.
+  const enabledUnknown = all.length > 0 && all.every((m) => m?.enabled !== true && m?.enabled !== false);
   return {
     view: "deps",
     kind: "order",
@@ -107,8 +131,10 @@ export function orderView(
     profile: str(input.profile),
     enabledCount: finite(input.enabledCount) ? input.enabledCount : all.filter((m) => m?.enabled === true).length,
     totalCount: finite(input.totalCount) ? input.totalCount : all.length,
-    loadOrder: all.slice(0, ORDER_ROWS).map(orderRow),
+    loadOrder: rows,
     ...(warning !== undefined ? { warning } : {}),
+    ...(asFolders ? { rows: "folders" as const } : {}),
+    ...(enabledUnknown ? { enabledUnknown: true as const } : {}),
   };
 }
 
@@ -200,15 +226,20 @@ const SCRIPT = String.raw`
     var rows = Array.isArray(data.loadOrder) ? data.loadOrder : [];
     var total = finite(data.totalCount) ? data.totalCount : rows.length;
     var enabled = finite(data.enabledCount) ? data.enabledCount : 0;
-    var title = ['Load order', tidy(data.manager, 40), tidy(data.profile, 80)].filter(Boolean).join(' · ');
-    out.appendChild(head(title, null, enabled + '/' + total + ' enabled'));
+    var folders = data.rows === 'folders';
+    var title = [folders ? 'Mod folders' : 'Load order', tidy(data.manager, 40), tidy(data.profile, 80)].filter(Boolean).join(' · ');
+    var count = data.enabledUnknown === true
+      ? total + (total === 1 ? ' entry' : ' entries') + ', enabled state not known'
+      : enabled + '/' + total + ' enabled';
+    out.appendChild(head(title, null, count));
     var warning = tidy(data.warning, 600);
     if (warning) out.appendChild(note(warning, true));
+    if (folders) out.appendChild(note("This profile lists no plugins, so these are its mod folders."));
     if (!rows.length) {
       out.appendChild(mwSkin.empty('Nothing in this load order', 'The load order is empty.'));
       return;
     }
-    var list = h('ul', { class: 'mw-list', 'aria-label': 'Load order' });
+    var list = h('ul', { class: 'mw-list', 'aria-label': folders ? 'Mod folders' : 'Load order' });
     rows.forEach(function (row, i) {
       var m = row && typeof row === 'object' ? row : {};
       var state = m.enabled === true ? 'on' : m.enabled === false ? 'off' : 'unknown';

@@ -227,6 +227,7 @@ test("a healthy 1.6.1170 install is a GO, and the report says what a GO does and
   assert.deepEqual(r.checked, { version: "1.6.1170.0", source: "installed", installed: "1.6.1170.0" });
 
   assert.deepEqual(r.scriptExtender, {
+    name: "SKSE",
     loaderPresent: true,
     expectedDll: "skse64_1_6_1170.dll",
     dllPresent: true,
@@ -283,6 +284,7 @@ test("after a patch with no SKSE build for the new version: WAIT, and say which 
   assert.match(r.headline, /^WAIT — Skyrim Special Edition 1\.7\.104\.0: SKSE is installed but has no build for this game version \(skse64_1_7_104\.dll is missing\)/);
   assert.deepEqual(r.reasons, ["skse64_1_7_104.dll not found next to the game executable"]);
   assert.deepEqual(r.scriptExtender, {
+    name: "SKSE",
     loaderPresent: true,
     expectedDll: "skse64_1_7_104.dll",
     dllPresent: false,
@@ -823,9 +825,12 @@ test("with no Steam library and no folder, it says what to pass instead of guess
   const r = checkPatchDay();
   assert.equal(r.ok, false);
   if (r.ok) return;
-  assert.match(r.error, /Couldn't find Skyrim Special Edition in any Steam library/);
-  assert.match(r.hint ?? "", /gamePath/);
-  assert.deepEqual(r.supportedGames, ["skyrimspecialedition"]);
+  assert.equal(r.error, "Couldn't find Skyrim Special Edition or Fallout 4 in any Steam library.");
+  assert.equal(r.hint, "If it's a GOG copy or sits somewhere unusual, pass gamePath (the folder that holds SkyrimSE.exe or Fallout4.exe).");
+  // Asked for by name, it looks for that game alone.
+  const named = checkPatchDay({ gameId: "skyrimspecialedition" });
+  assert.equal(named.ok ? "" : named.error, "Couldn't find Skyrim Special Edition in any Steam library.");
+  assert.deepEqual(r.supportedGames, ["skyrimspecialedition", "fallout4"]);
 });
 
 test("Steam's own record of a waiting update turns a GO into a CHECK", () => {
@@ -1350,13 +1355,13 @@ test("readSkseLog: only file names are kept, never folders, even with spaces in 
 // ─── Errors ──────────────────────────────────────────────────────────────────
 
 test("a game Patch Day doesn't cover yet says so and names what it does cover", () => {
-  const r = checkPatchDay({ gameId: "fallout4" });
+  const r = checkPatchDay({ gameId: "skyrimvr" });
   assert.equal(r.ok, false);
   if (r.ok) return;
-  assert.match(r.error, /can't check "fallout4" yet/);
-  assert.match(r.hint ?? "", /Fallout 4 \(F4SE\) is next/);
+  assert.match(r.error, /can't check "skyrimvr" yet/);
+  assert.match(r.hint ?? "", /Skyrim Special Edition and Anniversary Edition with SKSE, and Fallout 4 with F4SE/);
   assert.deepEqual(r.supportedGames, PATCH_DAY_GAMES);
-  assert.deepEqual(PATCH_DAY_GAMES, ["skyrimspecialedition"]);
+  assert.deepEqual(PATCH_DAY_GAMES, ["skyrimspecialedition", "fallout4"]);
 });
 
 test("naming the covered game explicitly works the same as leaving it out", () => {
@@ -1382,8 +1387,12 @@ test("a folder without the game's executable is refused with what to pass", () =
     const r = checkPatchDay({ gamePath });
     assert.equal(r.ok, false, gamePath);
     if (r.ok) continue;
-    assert.equal(r.error, "SkyrimSE.exe isn't in that folder.");
-    assert.equal(r.hint, "gamePath should be the folder that holds SkyrimSE.exe.");
+    assert.equal(r.error, "Neither SkyrimSE.exe nor Fallout4.exe is in that folder.");
+    assert.equal(r.hint, "gamePath should be the folder that holds SkyrimSE.exe or Fallout4.exe.");
+    // Asked for by name, the error names that game's executable alone.
+    const named = checkPatchDay({ gamePath, gameId: "skyrimspecialedition" });
+    assert.equal(named.ok ? "" : named.error, "SkyrimSE.exe isn't in that folder.");
+    assert.equal(named.ok ? "" : named.hint, "gamePath should be the folder that holds SkyrimSE.exe.");
   }
 });
 
@@ -1408,7 +1417,7 @@ test("a healthy install with no log says it is working from the files, and what 
   assert.equal(r.confidence.evidence, "files");
   assert.match(r.confidence.summary, /^From the files only, using SKSE 2\.2\.8's own rules/);
   assert.match(r.confidence.summary, /SKSE's log from a launch would confirm it/);
-  assert.deepEqual(r.confidence.basis, { "skse-source": 0, "field-reports": 0, inferred: 0 });
+  assert.deepEqual(r.confidence.basis, { "skse-source": 0, "f4se-source": 0, "field-reports": 0, inferred: 0 });
 });
 
 test("a log written after the last patch becomes the evidence, and says how many plugins it saw load", () => {
@@ -1460,7 +1469,7 @@ test("the tally of what the flagged plugins rest on matches the plugin lines", (
   put(w.plugins, "legacy.dll", legacyPlugin());
   const r = ok(checkPatchDay({ gamePath: w.gameDir }));
   assert.ok(r.plugins.problems.length >= 3, "the world should have flagged these");
-  const tally = { "skse-source": 0, "field-reports": 0, inferred: 0 };
+  const tally = { "skse-source": 0, "f4se-source": 0, "field-reports": 0, inferred: 0 };
   for (const line of r.plugins.problems) tally[line.basis]++;
   assert.deepEqual(r.confidence.basis, tally);
 });
@@ -1669,12 +1678,12 @@ test("mw_patch_day: a what-if says so in both the text and the report", async ()
 test("mw_patch_day: a run that can't happen is flagged as an error, with the reason and the games it covers", async () => {
   const tool = patchDayTool();
 
-  const unsupported = await tool.handler({ gameId: "fallout4" });
+  const unsupported = await tool.handler({ gameId: "skyrimvr" });
   assert.equal(unsupported.isError, true);
   assert.match(unsupported.content[0]!.text, /^Patch Day couldn't run: /);
-  assert.match(unsupported.content[0]!.text, /Games it covers: skyrimspecialedition\.$/);
+  assert.match(unsupported.content[0]!.text, /Games it covers: skyrimspecialedition, fallout4\.$/);
   assert.equal(unsupported.structuredContent?.ok, false);
-  assert.deepEqual(unsupported.structuredContent?.supportedGames, ["skyrimspecialedition"]);
+  assert.deepEqual(unsupported.structuredContent?.supportedGames, ["skyrimspecialedition", "fallout4"]);
 
   const notAVersion = await tool.handler({ gamePath: healthy().gameDir, targetVersion: "banana" });
   assert.equal(notAVersion.isError, true);

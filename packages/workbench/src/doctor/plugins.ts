@@ -173,12 +173,24 @@ export function readPluginListFile(path: string): ListEntry[] | null | "unreadab
 /** Skyrim Special Edition's own plugins, in the order they load. */
 export const SKYRIM_BASE_PLUGINS = ["Skyrim.esm", "Update.esm", "Dawnguard.esm", "HearthFires.esm", "Dragonborn.esm"];
 
+/** Fallout 4's own plugins, in the order they load (libloadorder's game_settings.rs). */
+export const FALLOUT4_BASE_PLUGINS = [
+  "Fallout4.esm",
+  "DLCRobot.esm",
+  "DLCworkshop01.esm",
+  "DLCCoast.esm",
+  "DLCworkshop02.esm",
+  "DLCworkshop03.esm",
+  "DLCNukaWorld.esm",
+  "DLCUltraHighResolution.esm",
+];
+
 /**
- * The Creation Club plugins, as Skyrim.ccc lists them. Skyrim.ccc sits in the game folder
- * and names every Creation Club file the game should load; the game loads each one that is installed.
+ * The Creation Club plugins, as the game's .ccc file lists them (Skyrim.ccc, Fallout4.ccc). It sits in the game
+ * folder and names every Creation Club file the game should load; the game loads each one that is installed.
  */
-export function readCreationClubList(gameDir: string): string[] {
-  const bytes = readBytes(join(gameDir, "Skyrim.ccc"), 256 * 1024);
+export function readCreationClubList(gameDir: string, file = "Skyrim.ccc"): string[] {
+  const bytes = readBytes(join(gameDir, file), 256 * 1024);
   if (bytes === null) return [];
   const names: string[] = [];
   for (const raw of decodeListText(bytes).split(/\r?\n/)) {

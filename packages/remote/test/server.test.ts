@@ -268,3 +268,31 @@ test("a DELETE the transport refuses leaves the session open, and an empty sessi
     await r.close();
   }
 });
+
+// express.json() rejects such a body before any route runs; Express's own handler would answer
+// with an HTML page holding the stack trace and the server's folder paths.
+test("a body that isn't JSON, or is too large, gets a short JSON-RPC error, not an HTML page with a stack trace", async () => {
+  const server = createRemoteApp().listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/mcp`;
+  const cases: Array<[string, number, number, string]> = [
+    ["{not json", 400, -32700, "Parse error"],
+    [JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: { pad: "a".repeat(200_000) } }), 413, -32600, "Request body too large"],
+  ];
+  try {
+    for (const [body, status, code, message] of cases) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+        body,
+      });
+      assert.equal(res.status, status, message);
+      assert.match(res.headers.get("content-type") ?? "", /^application\/json/, message);
+      const text = await res.text();
+      assert.deepEqual(JSON.parse(text), { jsonrpc: "2.0", error: { code, message }, id: null });
+      assert.doesNotMatch(text, /node_modules|<pre>|\bat \S+ \(/, message);
+    }
+  } finally {
+    await closeServer(server);
+  }
+});
