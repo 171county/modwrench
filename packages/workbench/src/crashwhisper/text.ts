@@ -1,4 +1,5 @@
 import { clean } from "../patchday/summary.js";
+import type { GameFacts } from "./explain.js";
 
 // ─── Small text helpers shared by the answer and the help packets ────────────
 
@@ -20,6 +21,14 @@ export function safeName(value: string, max = 80): string {
 }
 
 export const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+
+/**
+ * How to ask the Doctors about the crash's game. /mw-doctor with nothing after it checks Skyrim Special Edition,
+ * so any other game is named, with the id that makes the Doctors check it: "for Fallout 4 (/mw-doctor fallout4)".
+ */
+export function doctorsFor(game: GameFacts): string {
+  return game.id === "skyrimspecialedition" ? "(/mw-doctor)" : `for ${game.name} (/mw-doctor ${game.id})`;
+}
 
 /** How many of an answer's statements rest on each basis, as a sentence that agrees with its numbers. */
 export function basisSentence(basis: { log: number; install: number; rule: number; guess: number }): string {

@@ -436,6 +436,30 @@ test("the all-clear says only what was checked: the game isn't checked for user 
     judgeLocation([at("game", "D:\\SteamLibrary\\steamapps\\common\\Skyrim Special Edition"), at("mo2", "D:\\Modding\\MO2"), at("mo2-mods", "E:\\mods")], "windows")?.detail,
     "The game isn't under Program Files or a OneDrive folder, and Mod Organizer 2 isn't under Program Files, a OneDrive folder or one of your user folders."
   );
+  // Vortex's staging folder is named when it was looked at, alone or with MO2.
+  assert.equal(
+    judgeLocation([at("game", "D:\\Games\\Skyrim"), at("vortex-staging", "D:\\Vortex Mods\\skyrimse")], "windows")?.detail,
+    "The game isn't under Program Files or a OneDrive folder, and Vortex's staging folder isn't under Program Files, a OneDrive folder or one of your user folders."
+  );
+  assert.equal(
+    judgeLocation([at("mo2", "D:\\Modding\\MO2"), at("vortex-staging", "D:\\Vortex Mods\\skyrimse")], "windows")?.detail,
+    "Mod Organizer 2 and Vortex's staging folder aren't under Program Files, a OneDrive folder or one of your user folders."
+  );
+});
+
+test("Vortex's staging folder in OneDrive cites Vortex's own words about hard links, and says where to move it", () => {
+  const f = judgeLocation([at("game", "D:\\Games\\Skyrim"), at("vortex-staging", "C:\\Users\\Sam\\OneDrive\\Vortex Mods\\skyrimse")], "windows");
+  assert.ok(f);
+  assert.equal(f.status, "warn");
+  assert.deepEqual(f.items, ["Vortex's staging folder: a OneDrive folder"]);
+  // Hard links are Vortex's default, not always its method (the record may name another), so this doesn't say they are how it deploys.
+  assert.match(f.detail, /Vortex's own error message for this case says OneDrive can't deal with hard links, which are Vortex's default way to deploy mods to this game\./);
+  assert.doesNotMatch(f.detail, /how Vortex deploys/);
+  assert.match(f.fix ?? "", /For Vortex's staging folder, choose a new one in Vortex's Settings, under Mods, and Vortex moves the mods there\./);
+  // The default staging folder, under AppData, is in none of the folders Windows protects or syncs.
+  assert.equal(judgeLocation([at("vortex-staging", "C:\\Users\\Sam\\AppData\\Roaming\\Vortex\\skyrimse\\mods")], "windows")?.status, "ok");
+  // MO2 alone gets no Vortex words.
+  assert.doesNotMatch(judgeLocation([at("mo2", "C:\\Users\\Sam\\OneDrive\\MO2")], "windows")?.fix ?? "", /Vortex/);
 });
 
 test("the game itself is only flagged for Program Files and OneDrive, since the user folders are about where mods live", () => {
@@ -581,6 +605,8 @@ test("no crash logger is a note that says how loggers are recognised", () => {
   assert.ok(f);
   assert.deepEqual([f.id, f.status, f.basis], ["setup.crash-logger", "note", "install"]);
   assert.match(f.detail, /usual file names/);
+  assert.match(f.detail, /so after a crash there may be no log for Crash Whisperer \(\/mw-crash\) to read\./);
+  assert.match(f.fix ?? "", /and one Crash Whisperer reads/);
   assert.match(f.source ?? "", /nexusmods\.com\/skyrimspecialedition\/mods\/59818/);
 });
 
@@ -589,6 +615,17 @@ test("one crash logger is fine and is named", () => {
   assert.equal(rest.length, 0);
   assert.equal(f?.status, "ok");
   assert.equal(f?.title, "One crash logger: Crash Logger SSE");
+  assert.equal(f?.detail, "Only one crash logger was found. After a crash, Crash Whisperer (/mw-crash) reads its log.");
+});
+
+test("the one logger is pointed at Crash Whisperer only when Crash Whisperer reads its logs and it can log on this game", () => {
+  const only = (o: Parameters<typeof index>[0], game: [number, number, number, number] | null) =>
+    judgeCrashLoggers(index(o), game).find((f) => f.id === "setup.crash-logger")?.detail ?? "";
+  // Trainwreck's logs are a format Crash Whisperer doesn't read.
+  assert.equal(only({ dlls: ["trainwreck.dll"] }, [1, 6, 1170, 0]), "Only one crash logger was found.");
+  // .NET Script Framework logs on 1.5.97 and not on 1.6, where the Doctors warn instead.
+  assert.match(only({ netScript: true }, [1, 5, 97, 0]), /Crash Whisperer \(\/mw-crash\) reads its log\./);
+  assert.equal(only({ netScript: true }, [1, 6, 1170, 0]), "Only one crash logger was found.");
 });
 
 test("two crash loggers with Crash Logger SSE among them cite its own page; two without it are only a guess", () => {

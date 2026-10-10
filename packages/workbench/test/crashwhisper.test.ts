@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { summarizeCrashWhisper, whisper, type CrashWhisperReport, type CrashWhisperResult } from "../src/crashwhisper/index.js";
+import { DOCTOR_STEP, summarizeCrashWhisper, whisper, type CrashWhisperReport, type CrashWhisperResult } from "../src/crashwhisper/index.js";
+import { PACKET_STEP } from "../src/crashwhisper/summary.js";
 import { VENUES } from "../src/crashwhisper/types.js";
 import { basisSentence } from "../src/crashwhisper/text.js";
 import { readInstallContext } from "../src/crashwhisper/context.js";
@@ -1189,7 +1190,10 @@ test("with no lead, the steps start from what the log shows and size the halving
   assert.deepEqual(r.leads, []);
   assert.match(r.nextSteps[0]!, /^Start with what the log shows the game was handling: textures\\terrain\\tamriel\\skyrim\.dds, Meshes\\Terrain\\Tamriel\\Tamriel\.32\.0\.0\.BTR\./);
   assert.match(r.nextSteps[1]!, /^Think back to what changed just before the crashes began/);
-  assert.match(r.nextSteps[2]!, /narrow it down by halves.*With 300 plugins that is about 9 rounds, so start with the mods you added or changed most recently/);
+  // Before the halving, the Doctors: the setup problems that crash a game without a name in the log.
+  assert.equal(r.nextSteps[2], DOCTOR_STEP);
+  assert.match(r.nextSteps[3]!, /narrow it down by halves.*With 300 plugins that is about 9 rounds, so start with the mods you added or changed most recently/);
+  assert.equal(r.nextSteps.at(-1), PACKET_STEP);
 });
 
 test("with no lead and no files, the first code the log can place is where to start, even when it is no mod", () => {
@@ -1246,4 +1250,192 @@ test("Crash Logger SSE before it wrote the address down: the empty-pointer read 
   const r = run(SSE_RACEMENU);
   assert.match(r.crash.exception?.plain ?? "", /read from address 0x18 \(worked out from the instruction and the registers in the log\), just past 0/);
   assert.match(r.packets.forum.text, /just past 0/);
+});
+
+// ─── Pointers to the Doctors ─────────────────────────────────────────────────
+
+test("two crash loggers in the module list: a note resting on Crash Logger SSE's page, and the Doctors named for Skyrim", () => {
+  const log = SSE.replace(/^(\tCloakAndDaggerFix\.dll[^\n]*\n)/m, "$1\tCrashLogger.dll       0x00007FFAF1C00000\n\ttrainwreck.dll        0x00007FFAF1D00000\n");
+  assert.notEqual(log, SSE, "the module rows went in");
+  const r = run(log);
+  const check = r.checks.find((c) => c.id === "crash-loggers");
+  assert.ok(check, r.checks.map((c) => c.id).join(", "));
+  assert.equal(check.severity, "note");
+  assert.equal(check.basis, "rule");
+  assert.equal(check.title, "More than one crash logger was loaded (Crash Logger SSE, Trainwreck)");
+  assert.match(check.detail, /Crash Logger SSE's page says only one crash logger can be active at a time, NetScriptFramework included\./);
+  assert.match(check.detail, /switched off in its own settings doesn't count, and the log can't show that\./);
+  assert.match(check.fix ?? "", /^Keep one crash logger, and remove the others or switch off their crash logging\. The Doctors \(\/mw-doctor\) list the crash loggers in your install\.$/);
+  assert.match(summarizeCrashWhisper(r), /^- NOTE \[rule\] More than one crash logger was loaded \(Crash Logger SSE, Trainwreck\)\./m);
+  // The lead is still the lead: a logger in the module list isn't on the call stack.
+  assert.equal(r.leads[0]?.name, "CloakAndDaggerFix.dll");
+});
+
+test("one crash logger is no finding, and a pair without Crash Logger SSE is ModWrench's guess", () => {
+  const one = run(SSE.replace(/^(\tCloakAndDaggerFix\.dll[^\n]*\n)/m, "$1\tCrashLogger.dll       0x00007FFAF1C00000\n"));
+  assert.equal(one.checks.find((c) => c.id === "crash-loggers"), undefined);
+  const pair = run(
+    lines(
+      ...NSF_HEAD("0x7FF60DB5DDDA (SkyrimSE.exe+D6DDDA)", "22 Jan 2024 22:14:07.000"),
+      "Probable callstack",
+      "{",
+      "  [0]   0x7FF60DB5DDDA     (SkyrimSE.exe+D6DDDA)          unk_D6DD70+6A",
+      "}",
+      "",
+      "Modules",
+      "{",
+      "  SkyrimSE.exe:                                     0x7FF747E50000",
+      "  NetScriptFramework.Runtime.dll:                   0x7FF88F9F0000",
+      "  trainwreck.dll:                                   0x7FF860BC0000",
+      "}"
+    )
+  );
+  const check = pair.checks.find((c) => c.id === "crash-loggers");
+  assert.ok(check, pair.checks.map((c) => c.id).join(", "));
+  assert.equal(check.basis, "guess");
+  assert.equal(check.title, "More than one crash logger was loaded (Trainwreck, .NET Script Framework)");
+  assert.match(check.detail, /No page says exactly this for this pair, so it is ModWrench's guess\./);
+});
+
+test("a game updated since the crash keeps its Patch Day step when the other steps fill the list", () => {
+  // The same five-step crash as below, on 1.5.97, with the game now on 1.6.1170.
+  installWith(null);
+  const index = (i: number): string => (i < 100 ? i.toString(16).toUpperCase().padStart(2, "0") : `FE ${(i - 100).toString(16).toUpperCase().padStart(3, "0")}`);
+  const rows = Array.from({ length: 300 }, (_, i) => `  [${index(i)}] Plugin ${i}.esp`);
+  const r = run(
+    lines(
+      ...NSF_HEAD("0x7FF71ED8D780 (SkyrimSE.exe+A0D780)", "12 Mar 2024 14:00:52.000"),
+      "Probable callstack",
+      "{",
+      "  [0]   0x7FF71ED8D780     (SkyrimSE.exe+A0D780)          hkbClipGenerator::unk_A0D770+10",
+      "}",
+      "",
+      "Stack",
+      "{",
+      '  [SP+198]  0x2DA0E173ED8      (char*) "meshes\\actors\\character\\behaviors\\0_master.hkx"',
+      "}",
+      "",
+      "Game plugins (300)",
+      "{",
+      ...rows,
+      "}"
+    ),
+    { checkInstall: true }
+  );
+  assert.equal(r.install.checked, true);
+  assert.ok(r.checks.some((c) => c.id === "game-updated"));
+  assert.equal(r.nextSteps.length, 6, r.nextSteps.join("\n"));
+  assert.match(r.nextSteps[4]!, /^The game was updated after this crash, so run Patch Day/);
+  assert.equal(r.nextSteps[5], PACKET_STEP);
+  // It took the place of the last general step, the halving.
+  assert.ok(!r.nextSteps.some((s) => /narrow it down by halves/.test(s)));
+  assert.ok(r.nextSteps.includes(DOCTOR_STEP));
+});
+
+test("the Doctors step is only for a crash no name stands out in, on a game their plugin checks cover", () => {
+  // A strong lead: turn it off first, no Doctors.
+  assert.ok(!run(SSE).nextSteps.includes(DOCTOR_STEP));
+  // BepInEx: the Doctors' plugin checks are for Bethesda plugins.
+  assert.ok(!run(BEPINEX).nextSteps.includes(DOCTOR_STEP));
+});
+
+test("with five steps already, the help-packet step still comes last", () => {
+  // No lead, a game file on the stack, Havok's animation code on top and a 300-plugin list: five steps before the packet.
+  const index = (i: number): string => (i < 100 ? i.toString(16).toUpperCase().padStart(2, "0") : `FE ${(i - 100).toString(16).toUpperCase().padStart(3, "0")}`);
+  const rows = Array.from({ length: 300 }, (_, i) => `  [${index(i)}] Plugin ${i}.esp`);
+  const r = run(
+    lines(
+      ...NSF_HEAD("0x7FF71ED8D780 (SkyrimSE.exe+A0D780)", "12 Mar 2024 14:00:52.000"),
+      "Probable callstack",
+      "{",
+      "  [0]   0x7FF71ED8D780     (SkyrimSE.exe+A0D780)          hkbClipGenerator::unk_A0D770+10",
+      "  [1]   0x7FF71ED8E62E     (SkyrimSE.exe+A0E62E)          hkbClipGenerator::unk_A0E620+E",
+      "}",
+      "",
+      "Stack",
+      "{",
+      '  [SP+198]  0x2DA0E173ED8      (char*) "meshes\\actors\\character\\behaviors\\0_master.hkx"',
+      "}",
+      "",
+      "Game plugins (300)",
+      "{",
+      ...rows,
+      "}"
+    )
+  );
+  assert.equal(r.leads.length, 0);
+  assert.equal(r.nextSteps.length, 6, r.nextSteps.join("\n"));
+  assert.match(r.nextSteps[0]!, /^Start with what the log shows the game was handling/);
+  assert.match(r.nextSteps[1]!, /^The log shows the game in Havok's animation code/);
+  assert.ok(r.nextSteps.includes(DOCTOR_STEP));
+  assert.match(r.nextSteps[4]!, /narrow it down by halves/);
+  assert.equal(r.nextSteps[5], PACKET_STEP);
+  assert.match(summarizeCrashWhisper(r), /^6\. To ask for help, ask for a help packet/m);
+});
+
+test("Fallout 4: two crash loggers in a Buffout 4 log are ModWrench's guess, and a crash with no lead gets the Doctors step for Fallout 4", () => {
+  const r = run(
+    lines(
+      "Fallout 4 v1.10.984",
+      "Buffout 4 v1.36.0",
+      "",
+      'Unhandled exception "EXCEPTION_ACCESS_VIOLATION" at 0x7FF6F34995BE Fallout4.exe+16B95BE',
+      "",
+      "PROBABLE CALL STACK:",
+      "\t[0] 0x7FF6F34995BE Fallout4.exe+16B95BE",
+      "",
+      "MODULES:",
+      "\tFallout4.exe            0x7FF6F1E00000",
+      "\tBuffout4.dll            0x7FFB6F2D0000",
+      "\tAddictolCrashLogger.dll 0x7FFB6F3D0000",
+      ""
+    )
+  );
+  assert.equal(r.crash.game.id, "fallout4");
+  const check = r.checks.find((c) => c.id === "crash-loggers");
+  assert.ok(check, r.checks.map((c) => c.id).join(", "));
+  assert.equal(check.basis, "guess");
+  assert.equal(check.title, "More than one crash logger was loaded (Buffout 4, Addictol Crash Logger)");
+  // /mw-doctor with nothing after it checks Skyrim Special Edition, so both pointers name Fallout 4 and pass its id.
+  assert.match(check.fix ?? "", /The Doctors for Fallout 4 \(\/mw-doctor fallout4\) list the crash loggers in your install\.$/);
+  assert.ok(
+    r.nextSteps.some((s) => /^Run the Doctors for Fallout 4 \(\/mw-doctor fallout4\)\. They check setup problems a crash log may not name:/.test(s)),
+    r.nextSteps.join("\n")
+  );
+  assert.ok(!r.nextSteps.includes(DOCTOR_STEP));
+});
+
+test("Fallout 4: Buffout 4 AE's crash logger writes a Buffout 4 log that is read, and its CrashLoggerAE.dll counts as a crash logger", () => {
+  // The lines CrashLoggerAE's CrashHandler.cpp writes, cut down.
+  const r = run(
+    lines(
+      "Fallout 4 v1.11.191",
+      "Buffout 4 v1.7.1 Feb  7 2026 17:58:06",
+      "",
+      'Unhandled exception "EXCEPTION_ACCESS_VIOLATION" at 0x7FF6F34995BE Fallout4.exe+16B95BE\tmov rax, [rcx+0x08]',
+      "Exception Flags: 0x00000000",
+      "Number of Parameters: 2",
+      "Access Violation: Tried to read memory at 0x000000000008",
+      "",
+      "PROBABLE CALL STACK:",
+      "\t[0] 0x7FF6F34995BE Fallout4.exe+16B95BE\tmov rax, [rcx+0x08]",
+      "",
+      "MODULES:",
+      "\tFallout4.exe            0x7FF6F1E00000",
+      "\tCrashLoggerAE.dll       0x7FFB6F2D0000",
+      "\tAddictolCrashLogger.dll 0x7FFB6F3D0000",
+      "",
+      "PLUGINS:",
+      "\tLight: 0\tRegular: 1\tTotal: 1",
+      "\t[00] Fallout4.esm",
+      ""
+    )
+  );
+  assert.equal(r.crash.format, "buffout4");
+  assert.equal(r.crash.game.id, "fallout4");
+  assert.match(r.crash.logger ?? "", /^Buffout 4 v1\.7\.1 /);
+  assert.equal(r.crash.frames[0]?.module, "Fallout4.exe");
+  const check = r.checks.find((c) => c.id === "crash-loggers");
+  assert.ok(check, r.checks.map((c) => c.id).join(", "));
+  assert.equal(check.title, "More than one crash logger was loaded (Buffout 4 AE's Crash Logger, Addictol Crash Logger)");
 });

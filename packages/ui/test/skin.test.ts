@@ -83,14 +83,17 @@ test("the frame has the brand, the page's label (escaped), a swatch for each ski
   assert.match(html, /<pre id="mw-plain" class="mw-plain" hidden><\/pre>/);
 });
 
-test("the footer carries each skin's tagline and says the answer goes to the AI and the page sends nothing", () => {
+test("the footer carries each skin's tagline and says the answer goes to the AI and the page makes no network request", () => {
   const footer = /<footer[^>]*>([\s\S]*?)<\/footer>/.exec(renderTestPage())![1]!;
   for (const id of THEME_IDS) {
     const tagline = THEMES[id].tagline.replace(/&/g, "&amp;").replace(/'/g, "&#39;");
     assert.ok(footer.includes(`<span class="mw-tag" data-for="${id}">${tagline}</span>`), id);
   }
-  assert.match(footer, /goes to the AI you're talking to; this page sends nothing anywhere and keeps nothing\./);
-  assert.doesNotMatch(footer, /nothing leaves|ModWrench sends nothing/i);
+  assert.match(footer, /goes to the AI you're talking to; this page makes no network request and keeps nothing\./);
+  // Some pages have buttons that ask the host to put a message in the chat or open a link,
+  // and some of the tools behind them call mod platforms, so the footer claims neither
+  // "sends nothing" nor "nothing leaves".
+  assert.doesNotMatch(footer, /nothing leaves|sends nothing/i);
 });
 
 test("the skins are keyed on data-game, leaving data-theme to the host's light or dark", () => {

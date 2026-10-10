@@ -119,19 +119,22 @@ export function buildOrderPrompt(): PromptResult {
   );
 }
 
-/** `/mw-patch [version]` — is it safe to update? */
-export function buildPatchPrompt(version?: string): PromptResult {
+/** `/mw-patch [version] [game]` — is it safe to update? */
+export function buildPatchPrompt(version?: string, game?: string): PromptResult {
   const v = version?.trim();
+  const g = game?.trim();
   const target = v
     ? ` Check against game version ${v}: pass targetVersion ${JSON.stringify(v)} so it judges that version, not the installed one.`
     : "";
+  const forGame = g ? ` Pass gameId ${JSON.stringify(g)}.` : "";
   return user(
     "Is it safe to update my game? Run `mw_patch_day` and lead with the verdict " +
       "(go / check / wait) in one line. Then list only what's broken or unclear — " +
-      "the plugin, why, and whether the reason is SKSE's own rule or inferred — and " +
+      "the plugin, why, and whether the reason is the script extender's own rule or inferred — and " +
       "what I'd have to do about each. Don't call it safe: a go only means the " +
       "file checks passed." +
-      target
+      target +
+      forGame
   );
 }
 
@@ -149,6 +152,19 @@ export function buildDoctorPrompt(game?: string): PromptResult {
   );
 }
 
+/** `/mw-critique [about]` — feedback for the maintainers, drafted here and posted by you. */
+export function buildCritiquePrompt(about?: string): PromptResult {
+  const said = about?.trim();
+  const ask =
+    "I want to give the ModWrench maintainers some feedback. Help me turn it into a GitHub issue. " +
+    "If it isn't clear yet, ask me at most two short questions: what happened and what I expected (or what I wish " +
+    "ModWrench did), and for a bug, how to make it happen again. Then call `mw_critique` with the kind (bug, idea " +
+    "or other), a short title and my words. Keep my words mine; don't add file paths, log contents, my name or " +
+    "anything personal unless I ask (for a crash log, Crash Whisperer's help post is the place). Show me the draft " +
+    "and the link it returns, and say plainly that nothing is posted until I open the link and press Create.";
+  return user(said ? `${ask}\n\nWhat I want to say:\n${said}` : ask);
+}
+
 // ─── Prompt catalog + registration ───────────────────────────────────────────
 
 /** Canonical prompt names, in menu order. Kept in sync with registerPrompts. */
@@ -160,6 +176,7 @@ export const PROMPT_NAMES = [
   "mw-order",
   "mw-patch",
   "mw-doctor",
+  "mw-critique",
 ] as const;
 
 export const PROMPT_COUNT = PROMPT_NAMES.length;
@@ -226,16 +243,22 @@ export function registerPrompts(server: McpServer): { promptCount: number } {
 
   server.prompt(
     "mw-patch",
-    "Is it safe to update? Reads your game version, SKSE and every plugin, and says which ones SKSE would refuse after the patch — before it lands or after. Local and read-only.",
+    "Is it safe to update? Reads your game version, the script extender (SKSE for Skyrim, F4SE for Fallout 4) and every plugin, and says which ones it would refuse after the patch — before it lands or after. Local and read-only.",
     {
       version: z
         .string()
         .optional()
         .describe(
-          "A game version to check before you update, like 1.7.104. Leave it empty to check what's installed now."
+          "A game version to check before you update, like 1.7.104 for Skyrim or 1.11.240 for Fallout 4. Leave it empty to check what's installed now."
+        ),
+      game: z
+        .string()
+        .optional()
+        .describe(
+          "skyrimspecialedition or fallout4. Leave it empty to check the one ModWrench finds installed (Skyrim Special Edition first, if both are)."
         ),
     },
-    ({ version }) => buildPatchPrompt(version)
+    ({ version, game }) => buildPatchPrompt(version, game)
   );
 
   server.prompt(
@@ -246,10 +269,22 @@ export function registerPrompts(server: McpServer): { promptCount: number } {
         .string()
         .optional()
         .describe(
-          "Canonical game id (e.g. skyrimspecialedition, lethalcompany). Leave it empty to check Skyrim Special Edition, which has the most checks."
+          "Canonical game id (e.g. skyrimspecialedition, fallout4, lethalcompany). Leave it empty to check Skyrim Special Edition; Fallout 4 has the same plugin checks."
         ),
     },
     ({ game }) => buildDoctorPrompt(game)
+  );
+
+  server.prompt(
+    "mw-critique",
+    "Tell the ModWrench maintainers what worked, what didn't, or what you wish it did. Drafts a GitHub issue with your setup filled in (ModWrench's version, your AI client, your system), for you to read and post yourself. Nothing is sent.",
+    {
+      about: z
+        .string()
+        .optional()
+        .describe("What you'd like to say, in your own words. Leave it empty and you'll be asked."),
+    },
+    ({ about }) => buildCritiquePrompt(about)
   );
 
   return { promptCount: PROMPT_COUNT };

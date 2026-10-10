@@ -160,6 +160,10 @@ const SECRET_SHAPES: RegExp[] = [
   /https?:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9/_-]{20,}/gi,
   /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g,
   /\bAIza[0-9A-Za-z_-]{35}\b/g,
+  // A Thunderstore service-account token: "tss_", 30 random letters and digits, and a 6-character checksum
+  // (Thunderstore's own token code builds it this way). Nexus Mods documents no shape for its API keys,
+  // so those are caught by their label or as long mixed tokens, as before.
+  /\btss_[A-Za-z0-9]{36}\b/g,
   // A Telegram bot token: a numeric bot id, a colon and about 35 characters.
   /(?<![\w:])\d{8,10}:[A-Za-z0-9_-]{34,40}\b/g,
   // A JWT: three base64url runs, the first starting "eyJ" (a JSON object). Anchoring on that keeps long .NET names out.
@@ -436,7 +440,7 @@ const VAR_ANY = new RegExp(String.raw`${VAR_START}${VAR_ROOT}${SEP}(?=\S)[^\r\n]
 // Each is a superset of what the rules it guards need to match, and only decides whether a line is worth running them on.
 
 const SHAPE_HINT =
-  /gh[pousr]_|github_pat_|glpat-|npm_|sk-|[sr]k_|whsec_|xox|hooks\.slack|AKIA|ASIA|AIza|\d:[A-Za-z0-9_-]{34}|eyJ|\.[A-Za-z0-9_-]{6}\.|bearer|webhooks/i;
+  /gh[pousr]_|github_pat_|glpat-|npm_|sk-|[sr]k_|whsec_|xox|hooks\.slack|AKIA|ASIA|AIza|tss_|\d:[A-Za-z0-9_-]{34}|eyJ|\.[A-Za-z0-9_-]{6}\.|bearer|webhooks/i;
 const SECRET_HINT = /token|secret|key|pass|pwd|pw|credential|bearer|cookie|authorization|connection|webhook|dsn/i;
 const QUERY_HINT = /[?&;][A-Za-z_-]+=/;
 const HEX_HINT = /[0-9A-Fa-f]{32}/;
@@ -578,8 +582,11 @@ export function cleaningDeadline(options: RedactOptions = {}): number {
   return options.deadline ?? performance.now() + (options.budgetMs ?? DEFAULT_BUDGET_MS);
 }
 
-/** Remove what identifies the person. Text in, text and a count of what was removed out. */
-export function redact(input: string, options: RedactOptions = {}): { text: string; report: RedactionReport } {
+/**
+ * Remove what identifies the person. Text in, text and a count of what was removed out. `learned` is the names the text's
+ * labelled lines gave, for a caller that cleans several pieces and wants them gone from every piece; it is never shown.
+ */
+export function redact(input: string, options: RedactOptions = {}): { text: string; report: RedactionReport; learned: { users: string[]; machines: string[] } } {
   const byKind = emptyCounts();
   let cutLines = 0;
   let skippedLines = 0;
@@ -825,7 +832,7 @@ export function redact(input: string, options: RedactOptions = {}): { text: stri
   if (aside.length > 0) text = text.replace(/\u0001(\d+)\u0002/g, (_m, i: string) => aside[Number(i)] ?? "");
 
   const total = REDACTION_KINDS.reduce((sum, kind) => sum + byKind[kind], 0);
-  return { text, report: { total, byKind, leftover, cutLines, skippedLines } };
+  return { text, report: { total, byKind, leftover, cutLines, skippedLines }, learned: { users: learned.user, machines: learned.machine } };
 }
 
 /** Redact and keep only the text, for the many small strings that don't need a report. */
@@ -843,12 +850,17 @@ const NOUN: Record<RedactionKind, [string, string]> = {
   id: ["account ID", "account IDs"],
 };
 
-/** One plain sentence on what was removed, for the answer and the page. */
-export function describeRedaction(report: Omit<RedactionReport, "skippedLines"> & { skippedLines?: number }): string {
-  const parts = REDACTION_KINDS.filter((kind) => report.byKind[kind] > 0).map((kind) => {
-    const n = report.byKind[kind];
+/** What was removed, counted by kind in plain words: ["2 folder paths", "1 email address"]. Never what it was. */
+export function removedParts(byKind: Record<RedactionKind, number>): string[] {
+  return REDACTION_KINDS.filter((kind) => byKind[kind] > 0).map((kind) => {
+    const n = byKind[kind];
     return `${n} ${NOUN[kind][n === 1 ? 0 : 1]}`;
   });
+}
+
+/** One plain sentence on what was removed, for the answer and the page. */
+export function describeRedaction(report: Omit<RedactionReport, "skippedLines"> & { skippedLines?: number }): string {
+  const parts = removedParts(report.byKind);
   let text =
     parts.length === 0
       ? "Nothing personal was recognised, so nothing was removed. That isn't a promise there is nothing: read it before you post it."

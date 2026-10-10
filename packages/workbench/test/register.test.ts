@@ -109,8 +109,8 @@ test("mw_doctor's arguments say what gamePath must hold and what the answer does
   const server = new MockMcpServer();
   registerWorkbenchTools(server as unknown as never);
   const schema = server.tools.get("mw_doctor")!.schema as Record<string, { description?: string }>;
-  // For Skyrim SE a gamePath without SkyrimSE.exe is reported as not the game's folder (doctor/index.ts).
-  assert.match(schema.gamePath!.description!, /the game's executable \(for Skyrim Special Edition, SkyrimSE\.exe\), not its Data folder/);
+  // For Skyrim SE and Fallout 4 a gamePath without the game's executable is reported as not the game's folder (doctor/index.ts).
+  assert.match(schema.gamePath!.description!, /the game's executable \(for Skyrim Special Edition, SkyrimSE\.exe; for Fallout 4, Fallout4\.exe\), not its Data folder/);
   // Without MO2, the plugin checks read the game's own plugins.txt and say so; they don't stop.
   assert.match(schema.mo2InstancePath!.description!, /the answer says the plugin checks looked at the game's own plugins\.txt instead/);
   assert.doesNotMatch(schema.mo2InstancePath!.description!, /couldn't see it/);
@@ -393,6 +393,19 @@ test("a handler that hits an error it didn't plan for answers in one sentence, w
     checked++;
   }
   assert.equal(checked, 8);
+});
+
+test("through the real SDK, a tool whose arguments are all optional answers a call that leaves arguments out", async () => {
+  // `arguments` is optional in tools/call, and some clients leave it out for a tool called
+  // with nothing. SDK 1.32.0 reads that as {}; before it the call failed validation with
+  // "Invalid arguments", which is why the packages now ask for ^1.32.0.
+  const { client, close } = await connected();
+  try {
+    const r = (await client.callTool({ name: "mw_doctor" })) as CallResult;
+    assert.match(textOf(r), /^Doctor: /, textOf(r));
+  } finally {
+    await close();
+  }
 });
 
 test("through the real SDK, a locked MO2 file gives a plain error, not the path and user name Node put in its message", async () => {
