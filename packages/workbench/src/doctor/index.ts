@@ -1,9 +1,11 @@
 import { isAbsolute, relative, resolve, sep } from "node:path";
+import { CRASH_LOG_GAMES } from "../crashwhisper/find.js";
 import { KNOWN_GAMES, findGameById, type GameDef } from "../detect/games.js";
 import { detectOs, detectSteamDeck } from "../detect/os.js";
 import { readFileVersion } from "../patchday/pe.js";
 import { runDeckChecks } from "./deck.js";
 import { Budget, isDir, isFile, resolveCI } from "./fsutil.js";
+import { PLUGIN_GAMES } from "./games.js";
 import { createGuard } from "./guard.js";
 import { judgeCrashLoggers } from "./loggers.js";
 import { judgeLocation, judgeMyGames, judgeRoom, type Place, type Room } from "./location.js";
@@ -11,6 +13,7 @@ import { discoverMo2, type Mo2Facts } from "./mo2facts.js";
 import { judgeOverwrite, scanOverwrite } from "./overwrite.js";
 import { checkPlugins } from "./setup-plugins.js";
 import { discoverSteam, type SteamFacts } from "./steam.js";
+import { VORTEX_GAME_IDS, checkVortex, type VortexCheck } from "./vortex.js";
 import {
   SEVERITY,
   platformName,
@@ -32,12 +35,10 @@ export type { DoctorFinding, DoctorOptions, DoctorReport, DoctorResult, DoctorEr
 // Local and read-only: no network, no process started, nothing written or kept.
 // What it can't see is listed in the report rather than skipped over.
 
-/** The games the Doctors know about. Plugin checks exist for Skyrim Special Edition so far. */
+/** The games the Doctors know about. Plugin checks exist for Skyrim Special Edition and Fallout 4 (games.ts). */
 export const DOCTOR_GAMES: string[] = KNOWN_GAMES.map((g) => g.gameId);
 
 const SKYRIM_SE = "skyrimspecialedition";
-/** Skyrim SE's game folder is the one that holds this, as Patch Day and MO2 (GameSkyrimSE's binaryName) both know it. */
-const SKYRIM_SE_EXE = "SkyrimSE.exe";
 
 /** Is `child` the same folder as `parent`, or somewhere below it? */
 function isInside(child: string, parent: string): boolean {
@@ -49,8 +50,11 @@ function fail(error: string, hint?: string): DoctorError {
   return { ok: false, error, ...(hint ? { hint } : {}), supportedGames: DOCTOR_GAMES };
 }
 
+/** What came of looking for Vortex's deployment record: its state, or why it wasn't looked at. */
+type VortexState = VortexCheck["record"] | "no-game" | "stopped";
+
 /** What ModWrench can't see from here, for this game on this system. */
-function notChecked(platform: DoctorPlatform, def: GameDef, ranSetup: boolean, ranDeck: boolean, mo2: Mo2Facts): NotChecked[] {
+function notChecked(platform: DoctorPlatform, def: GameDef, ranSetup: boolean, ranDeck: boolean, mo2: Mo2Facts, vortex: VortexState): NotChecked[] {
   const out: NotChecked[] = [];
   if (platform === "windows" && ranSetup) {
     out.push(
@@ -64,10 +68,21 @@ function notChecked(platform: DoctorPlatform, def: GameDef, ranSetup: boolean, r
       },
       { what: "Whether nxm:// links open your mod manager", why: "Windows keeps that in the registry." }
     );
-    if (def.family === "bethesda") {
+    // Vortex's deployment record names the staging folder while it has mods deployed; without one, it is in Vortex's database.
+    if (def.family === "bethesda" && vortex !== "named") {
+      const database = "Otherwise it is in Vortex's own database, which ModWrench doesn't open.";
+      const names = "Vortex names it in the game's Data folder (vortex.deployment.json) while it has mods deployed";
+      const WHY: Record<Exclude<VortexState, "named">, string> = {
+        none: `Vortex names it in the game's Data folder (vortex.deployment.json) only while it has mods deployed, and that record wasn't there. ${database}`,
+        unreadable: `${names}, and that record is there but couldn't be opened. ${database}`,
+        "other-game": `The deployment record in the game's Data folder (vortex.deployment.json) doesn't name this game, so it wasn't used. ${database}`,
+        "no-staging": `Vortex's deployment record in the game's Data folder doesn't name it (older versions of Vortex didn't write it). ${database}`,
+        "no-game": `${names}, but the game's folder wasn't found, so that record wasn't looked for. ${database}`,
+        stopped: `${names}, but the check stopped before it read that record. ${database}`,
+      };
       out.push({
         what: "Vortex's staging folder, and whether it is on the same drive as the game",
-        why: "Vortex keeps that in a database ModWrench can't read yet.",
+        why: VORTEX_GAME_IDS[def.gameId] === undefined ? "Vortex keeps that in a database ModWrench can't read yet." : WHY[vortex],
       });
     }
   }
@@ -88,10 +103,10 @@ function notChecked(platform: DoctorPlatform, def: GameDef, ranSetup: boolean, r
       { what: "Whether Flatpak apps have the folder permissions they need", why: "Permission overrides live in Flatpak's own configuration." }
     );
   }
-  if (def.family === "bethesda" && def.gameId !== SKYRIM_SE) {
+  if (def.family === "bethesda" && PLUGIN_GAMES[def.gameId] === undefined) {
     out.push({
       what: `Plugin limits, masters and crash loggers for ${def.displayName}`,
-      why: "The plugin checks are built for Skyrim Special Edition so far.",
+      why: "The plugin checks are built for Skyrim Special Edition and Fallout 4 so far.",
     });
   }
   if (def.loaderChecks.some((c) => c.loader === "melonloader")) {
@@ -128,9 +143,11 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
   if (options.gamePath !== undefined && options.gamePath.trim() !== "") {
     const given = resolve(options.gamePath);
     // The plugin checks read Data and plugins.txt from this folder, so a folder that isn't the game's own (its Data
-    // folder, the library above it) would read as a game with nothing installed. Skyrim SE's folder is known by its
-    // executable. The other games don't have theirs on record yet, so for them any folder is taken as given.
-    const exe = def.gameId === SKYRIM_SE ? resolveCI(given, SKYRIM_SE_EXE) : null;
+    // folder, the library above it) would read as a game with nothing installed. A game with plugin checks is known by
+    // its executable (SkyrimSE.exe, Fallout4.exe, as Patch Day and MO2 know them). The other games don't have theirs
+    // on record yet, so for them any folder is taken as given.
+    const known = PLUGIN_GAMES[def.gameId];
+    const exe = known !== undefined ? resolveCI(given, known.exe) : null;
     if (!isDir(given)) {
       findings.push({
         id: "setup.game",
@@ -141,14 +158,14 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
         fix: "Give the folder that holds the game's executable.",
         basis: "install",
       });
-    } else if (def.gameId === SKYRIM_SE && (exe === null || !isFile(exe))) {
+    } else if (known !== undefined && (exe === null || !isFile(exe))) {
       findings.push({
         id: "setup.game",
         area: gameArea,
         status: "problem",
         title: "That folder isn't the game's folder",
-        detail: `gamePath points at a folder with no ${SKYRIM_SE_EXE} in it, so it isn't the game's own folder, and nothing in it was checked as the game.`,
-        fix: `Give the folder that holds ${SKYRIM_SE_EXE}: the game's own folder, not its Data folder or the library folder above it.`,
+        detail: `gamePath points at a folder with no ${known.exe} in it, so it isn't the game's own folder, and nothing in it was checked as the game.`,
+        fix: `Give the folder that holds ${known.exe}: the game's own folder, not its Data folder or the library folder above it.`,
         basis: "install",
       });
     } else {
@@ -186,7 +203,7 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
     // checks would otherwise judge the game's own list as if it were the one MO2 plays. (A step that stopped is listed already.)
     const asked = options.mo2InstancePath !== undefined || options.profileName !== undefined;
     if (read !== undefined && !read.used && (asked || read.missed === true)) {
-      const pluginChecks = def.gameId === SKYRIM_SE && gameDir !== null;
+      const pluginChecks = PLUGIN_GAMES[def.gameId] !== undefined && gameDir !== null;
       findings.push({
         id: "setup.mo2",
         area: "setup",
@@ -201,6 +218,14 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
     }
   }
 
+  // Vortex's staging folder, from its deployment record in the Data folder (Windows, where Vortex runs).
+  const vortexId = VORTEX_GAME_IDS[def.gameId];
+  let vortex: VortexCheck | undefined;
+  if (ranSetup && platform === "windows" && gameDir !== null && vortexId !== undefined) {
+    const dir = gameDir;
+    vortex = step("Vortex's staging folder", () => checkVortex(dir, vortexId));
+  }
+
   let looked: DoctorReport["looked"]["plugins"];
   /** What wasn't read or wasn't read all the way, in words. Anything here keeps the verdict off "clear". */
   const skipped: string[] = [];
@@ -208,12 +233,13 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
 
   if (ranSetup) {
     // Where it lives and how much room is left.
-    step("Where the game and Mod Organizer 2 live", () => {
+    step("Where the game and its mod folders live", () => {
       const places: Place[] = [];
       if (gameDir !== null) places.push({ what: "game", path: gameDir });
       if (mo2.instance !== undefined) places.push({ what: "mo2", path: mo2.instance });
       // The mods folder is its own place only when it isn't inside the instance: people with a big list keep it elsewhere.
       if (mo2.modsDir && (mo2.instance === undefined || !isInside(mo2.modsDir, mo2.instance))) places.push({ what: "mo2-mods", path: mo2.modsDir });
+      if (vortex?.staging) places.push({ what: "vortex-staging", path: vortex.staging });
       const location = judgeLocation(places, platform);
       if (location !== null) findings.push(location);
     });
@@ -222,13 +248,20 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
       const rooms: Room[] = [];
       if (gameDir !== null) rooms.push({ label: "the game's drive", path: gameDir });
       if (mo2.modsDir) rooms.push({ label: "MO2's mods drive", path: mo2.modsDir });
+      if (vortex?.staging) rooms.push({ label: "Vortex's staging drive", path: vortex.staging });
       const room = judgeRoom(rooms);
       if (room !== null) findings.push(room);
     });
 
-    if (def.gameId === SKYRIM_SE && gameDir !== null) {
+    if (vortex !== undefined) {
+      findings.push(...vortex.findings);
+      skipped.push(...vortex.skipped);
+    }
+
+    const pluginGame = PLUGIN_GAMES[def.gameId];
+    if (pluginGame !== undefined && gameDir !== null) {
       const dir = gameDir;
-      const check = step("The plugin list", () => checkPlugins({ gameDir: dir, platform, mo2, libraries, appId: def.steamAppId, budget }));
+      const check = step("The plugin list", () => checkPlugins({ gameDir: dir, platform, mo2, libraries, appId: def.steamAppId, budget, game: pluginGame }));
       if (check !== undefined) {
         findings.push(...check.findings);
         looked = check.plugins;
@@ -248,13 +281,13 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
 
       if (check !== undefined) {
         step("Crash loggers", () => {
-          const exe = resolveCI(dir, SKYRIM_SE_EXE);
-          findings.push(...judgeCrashLoggers(check.index, exe !== null ? readFileVersion(exe) : null));
+          const exe = resolveCI(dir, pluginGame.exe);
+          findings.push(...judgeCrashLoggers(check.index, exe !== null ? readFileVersion(exe) : null, pluginGame.id));
         });
       }
 
       step("The My Games folder", () => {
-        const myGames = judgeMyGames(platform, ["Skyrim Special Edition", "Skyrim Special Edition GOG", "Skyrim Special Edition EPIC"]);
+        const myGames = judgeMyGames(platform, pluginGame.myGames);
         if (myGames !== null) findings.push(myGames);
       });
     }
@@ -318,6 +351,12 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
     "Everything here is read from files. Nothing runs the game, so a clear report isn't a promise that it starts.",
     'Each finding says what it rests on: "your files" were read directly, a "documented rule" applies a rule from another tool\'s own documentation (the source is named), and "ModWrench\'s guess" is a rule of thumb.',
   ];
+  // Why it crashed is Crash Whisperer's question, for the games whose logs it reads.
+  if (CRASH_LOG_GAMES.includes(def.gameId)) {
+    limits.push(
+      `Files can't show why a game crashed. After a crash, Crash Whisperer (/mw-crash) reads ${def.family === "bethesda" ? "the newest crash log" : "BepInEx's log"} and says what it points at.`
+    );
+  }
   if (mo2.used) limits.push("Mod Organizer 2's virtual file system exists only while MO2 runs, so the plugin checks read MO2's profile and mod folders on disk instead.");
   if (pluginsChecked && !mo2.used) {
     limits.push(
@@ -325,7 +364,7 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
         (options.mo2InstancePath === undefined ? " If you play through Mod Organizer 2, pass mo2InstancePath (the folder that holds ModOrganizer.ini)." : "")
     );
   }
-  if (def.gameId === SKYRIM_SE && ranSetup) {
+  if (PLUGIN_GAMES[def.gameId] !== undefined && ranSetup) {
     limits.push("Plugins are read by their header only, never loaded. Crash loggers are recognised by their usual file names, so one that ships under another name isn't seen.");
   }
   if (!complete) limits.push(`Some folders or plugins were skipped (${skipped.join("; ")}), so the checks that needed them don't cover everything.`);
@@ -344,7 +383,7 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
     headline,
     counts,
     findings: ordered,
-    notChecked: [...stopped, ...notChecked(platform, def, ranSetup, ranDeck, mo2)],
+    notChecked: [...stopped, ...notChecked(platform, def, ranSetup, ranDeck, mo2, vortex?.record ?? (gameDir === null ? "no-game" : "stopped"))],
     nextSteps,
     limits,
     looked: {
@@ -357,6 +396,7 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
         ...(mo2.used ? { modFolders: enabledFolders } : {}),
       },
       ...(looked !== undefined ? { plugins: looked } : {}),
+      ...(vortex !== undefined ? { vortex: { record: vortex.recorded, ...(vortex.deployMethod !== null ? { deployMethod: vortex.deployMethod } : {}) } } : {}),
     },
   };
 }

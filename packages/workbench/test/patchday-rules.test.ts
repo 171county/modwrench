@@ -1059,8 +1059,8 @@ test("confidence: a what-if is a prediction even when a log was read, and names 
 
 test("confidence: the basis counts say what the flagged plugins' reasons rest on", () => {
   const bases: RuleBasis[] = ["skse-source", "inferred", "skse-source", "field-reports", "inferred", "inferred"];
-  assert.deepEqual(sure({ flagged: bases }).basis, { "skse-source": 2, "field-reports": 1, inferred: 3 });
-  assert.deepEqual(sure().basis, { "skse-source": 0, "field-reports": 0, inferred: 0 });
+  assert.deepEqual(sure({ flagged: bases }).basis, { "skse-source": 2, "f4se-source": 0, "field-reports": 1, inferred: 3 });
+  assert.deepEqual(sure().basis, { "skse-source": 0, "f4se-source": 0, "field-reports": 0, inferred: 0 });
 });
 
 test("confidence: no sentence calls anything safe", () => {

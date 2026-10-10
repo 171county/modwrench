@@ -10,7 +10,9 @@
 // rather than the SDK's McpServer type, so this package needs no SDK of its own.
 
 import { log } from "@modwrench/core";
-import { MCP_APP_MIME, MCP_APPS_EXTENSION_ID, appResourceMeta, appToolMeta } from "./app.js";
+import { MCP_APP_MIME, MCP_APPS_EXTENSION_ID, appResourceMeta, appToolMeta, panelsDisabled, structuredMode } from "./app.js";
+
+export { structuredMode, type StructuredMode } from "./app.js";
 
 /** One MCP Apps page as the server registers it. */
 export type AppPageDef = {
@@ -43,11 +45,12 @@ const html = new Map<string, string>();
 
 /**
  * Register a page once per server and return the `_meta` a tool carries to point at it,
- * or undefined when no page is on offer: MODWRENCH_UI=off, a server without
- * registerResource, or a registration that throws (already connected without resource
- * handlers, a duplicate from another copy of this module). Idempotent per server: the
- * second and later calls for the same URI on the same server return fresh meta without
- * registering again. A failure is not remembered, so a later call may try again.
+ * or undefined when no page is on offer: MODWRENCH_UI=off, MODWRENCH_STRUCTURED=never,
+ * a server without registerResource, or a registration that throws (already connected
+ * without resource handlers, a duplicate from another copy of this module). Idempotent
+ * per server: the second and later calls for the same URI on the same server return
+ * fresh meta without registering again. A failure is not remembered, so a later call
+ * may try again.
  */
 export function registerAppPage(server: object, page: AppPageDef): Record<string, unknown> | undefined {
   const meta = appToolMeta(page.uri);
@@ -90,22 +93,15 @@ export function registerAppPage(server: object, page: AppPageDef): Record<string
 // text. Sending the report to every client would make a short answer into a large
 // one for exactly the clients that read it that way, so by default it goes only to
 // a client that has said it can draw pages, and only while the tool has a page for it
-// to draw (not with MODWRENCH_UI=off, and not when the page couldn't be registered).
-// Everyone else gets the text.
+// to draw (not with MODWRENCH_UI=off, checked on every answer, and not when the page
+// couldn't be registered). Everyone else gets the text.
 //
 //   MODWRENCH_STRUCTURED=always   send it to every client (for scripts and agents that read it)
-//   MODWRENCH_STRUCTURED=never    send it to none
+//   MODWRENCH_STRUCTURED=never    send it to none, and point at no page (see appToolMeta)
 //   anything else                 send it to clients that can draw pages, when there is a page
-
-export type StructuredMode = "auto" | "always" | "never";
-
-const ALWAYS = new Set(["always", "on", "1", "true", "yes"]);
-const NEVER = new Set(["never", "off", "0", "false", "no", "none"]);
-
-export function structuredMode(value: string | undefined = process.env.MODWRENCH_STRUCTURED): StructuredMode {
-  const v = value?.trim().toLowerCase() ?? "";
-  return ALWAYS.has(v) ? "always" : NEVER.has(v) ? "never" : "auto";
-}
+//
+// The mode is read in app.ts, because appToolMeta needs it too; structuredMode is
+// re-exported above.
 
 /** Has the connected client said it can draw MCP Apps pages? False when it hasn't, and when there is no way to tell. */
 export function clientDrawsPages(server: unknown): boolean {
@@ -119,10 +115,14 @@ export function clientDrawsPages(server: unknown): boolean {
   }
 }
 
-/** `page`: whether the tool's page was registered, so there is something to draw the report. */
+/**
+ * `page`: whether the tool's page was registered, so there is something to draw the report.
+ * MODWRENCH_UI=off is checked here too, so turning pages off while the server runs stops the
+ * data at once, even for a tool that registered its page before.
+ */
 export function wantsStructured(server: unknown, page: boolean): boolean {
   const mode = structuredMode();
-  return mode === "always" || (mode === "auto" && page && clientDrawsPages(server));
+  return mode === "always" || (mode === "auto" && page && !panelsDisabled() && clientDrawsPages(server));
 }
 
 /**

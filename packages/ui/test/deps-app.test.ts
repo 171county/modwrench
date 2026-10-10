@@ -93,6 +93,40 @@ test("orderView: a load order that was read, with only the fields the page draws
   );
 });
 
+test("orderView: a Mod Organizer 2 profile with no plugins sends its mod folders, marked as folders", () => {
+  const folders: LoadOrderRow[] = [
+    { name: "Textures A", enabled: true, index: 0 },
+    { name: "Textures B", enabled: true, index: 1 },
+    { name: "Old Mod", enabled: false, index: 2 },
+  ];
+  const view = orderView({ ok: true, manager: "mo2", profile: "Default", enabledCount: 2, totalCount: 3, loadOrder: [], folders });
+  assert.deepEqual(view, {
+    view: "deps",
+    kind: "order",
+    theme: "skyrim",
+    ok: true,
+    manager: "mo2",
+    profile: "Default",
+    enabledCount: 2,
+    totalCount: 3,
+    loadOrder: folders,
+    rows: "folders",
+  });
+  // With plugins listed, the plugins are the load order and the folders aren't sent.
+  const withPlugins = orderView({ ok: true, manager: "mo2", profile: "Default", enabledCount: 1, totalCount: 1, loadOrder: [{ name: "A.esp", enabled: true, index: 0 }], folders });
+  assert.ok(!("rows" in withPlugins));
+  assert.deepEqual((withPlugins as { loadOrder: LoadOrderRow[] }).loadOrder.map((r) => r.name), ["A.esp"]);
+});
+
+test("orderView: when no entry's enable state is known (Vortex), the view says so instead of trusting a count of 0", () => {
+  const unknown = orderView({ ok: true, manager: "vortex", profile: "(unknown)", enabledCount: 0, totalCount: 2, loadOrder: [{ name: "A", enabled: null }, { name: "B", enabled: null }] });
+  assert.equal((unknown as { enabledUnknown?: true }).enabledUnknown, true);
+  const known = orderView({ ok: true, manager: "mo2", profile: "Default", enabledCount: 1, totalCount: 2, loadOrder: ROWS });
+  assert.ok(!("enabledUnknown" in known), "one known state is enough to count");
+  const empty = orderView({ ok: true, manager: "r2modman", profile: "Default", enabledCount: 0, totalCount: 0, loadOrder: [] });
+  assert.ok(!("enabledUnknown" in empty), "an empty list has nothing to be unsure of");
+});
+
 test("orderView: a load order that couldn't be read is the reason alone", () => {
   assert.deepEqual(orderView({ theme: "lethal", ok: false, reason: "Unknown gameId \"x\"." }), {
     view: "deps",
@@ -242,6 +276,30 @@ test("an entry whose enable state isn't known is shown as unknown, not as on", a
   const row = byClass(page.el("deps-out"), "mw-lrow")[0]!;
   assert.equal(textOf(byClass(row, "mw-flag")[0]!), "?");
   assert.notEqual(byClass(row, "mw-dot")[0]!.attrs.class, "mw-dot on");
+});
+
+test("a Vortex list, where no state is known, doesn't claim none are enabled", async () => {
+  const rows: LoadOrderRow[] = ["A", "B", "C"].map((name) => ({ name, enabled: null }));
+  const page = await shown(orderView({ ok: true, manager: "vortex", profile: "(unknown)", enabledCount: 0, totalCount: 3, loadOrder: rows }));
+  const out = page.el("deps-out");
+  assert.equal(textOf(byClass(out, "mw-sec-h")[0]!), "Load order · vortex · (unknown)3 entries, enabled state not known");
+  assert.doesNotMatch(drawn(page)!, /0\/3 enabled/);
+  const one = await shown(orderView({ ok: true, manager: "vortex", profile: "(unknown)", enabledCount: 0, totalCount: 1, loadOrder: [{ name: "A", enabled: null }] }));
+  assert.match(drawn(one)!, /1 entry, enabled state not known/);
+});
+
+test("a Mod Organizer 2 profile with no plugins shows its mod folders, not an empty load order", async () => {
+  const folders: LoadOrderRow[] = [
+    { name: "Textures A", enabled: true, index: 0 },
+    { name: "Old Mod", enabled: false, index: 1 },
+  ];
+  const page = await shown(orderView({ ok: true, manager: "mo2", profile: "Default", enabledCount: 1, totalCount: 2, loadOrder: [], folders }));
+  const out = page.el("deps-out");
+  assert.equal(textOf(byClass(out, "mw-sec-h")[0]!), "Mod folders · mo2 · Default1/2 enabled");
+  assert.deepEqual(byClass(out, "mw-deps-note").map(textOf), ["This profile lists no plugins, so these are its mod folders."]);
+  assert.deepEqual(byClass(out, "mw-lname").map(textOf), ["Textures A", "Old Mod"]);
+  assert.deepEqual(byClass(out, "mw-flag").map(textOf), ["ON", "OFF"]);
+  assert.doesNotMatch(drawn(page)!, /Nothing in this load order|The load order is empty/);
 });
 
 test("Vortex's warning is shown under the head", async () => {

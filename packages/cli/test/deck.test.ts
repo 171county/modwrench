@@ -174,7 +174,7 @@ test("MODWRENCH_UI=off: no page, no address on the tool and no structured data, 
   }
 });
 
-test("MODWRENCH_STRUCTURED=always sends the deck to every client, and never sends it to none", async () => {
+test("MODWRENCH_STRUCTURED=always sends the deck to every client, and never sends it to none and offers no page", async () => {
   const envs: Array<Record<string, string>> = [{ MODWRENCH_STRUCTURED: "always" }, { MODWRENCH_STRUCTURED: "always", MODWRENCH_UI: "off" }];
   for (const env of envs) {
     const { result } = await run(PLAIN, env);
@@ -183,7 +183,9 @@ test("MODWRENCH_STRUCTURED=always sends the deck to every client, and never send
   }
   const { server, result } = await run(DRAWS_PAGES, { MODWRENCH_STRUCTURED: "never" });
   assert.deepEqual(result, TEXT_ONLY);
-  assert.ok(server.tools.get("mw_deck")!.config._meta, "the page is still on offer");
+  // A page that could never be sent its data could only repeat the text, so none is offered.
+  assert.equal(server.tools.get("mw_deck")!.config._meta, undefined, "no page is on offer");
+  assert.equal(server.resources.size, 0);
 });
 
 test("a page that can't be registered leaves mw_deck a plain tool with the same text", async () => {

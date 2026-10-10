@@ -20,6 +20,11 @@ const CONNECTOR_META: Record<string, { name: string; tool: string }> = {
   workbench: { name: "Workbench", tool: "mw_detect_environment" },
 };
 
+/** A connector's name for people ("Nexus Mods"), or its id when it has none. */
+export function connectorName(id: string): string {
+  return CONNECTOR_META[id]?.name ?? id;
+}
+
 const FLAGSHIP_GAMES = [
   { id: "skyrim", name: "Skyrim SE", note: "Nexus \u00b7 Bethesda" },
   { id: "fallout", name: "Fallout 4", note: "Nexus \u00b7 Bethesda" },

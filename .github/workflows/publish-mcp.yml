@@ -13,6 +13,14 @@ jobs:
       contents: read
 
     steps:
+      # The registry entry points at npm packages whose provenance and TRUST.md need this
+      # repository to be public (see release.yml).
+      - name: Refuse to publish from a private repository
+        if: ${{ github.event.repository.private }}
+        run: |
+          echo "::error::This repository is private. Make it public before publishing ModWrench anywhere (see release.yml)."
+          exit 1
+
       - name: Checkout code
         uses: actions/checkout@v5
 

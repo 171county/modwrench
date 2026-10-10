@@ -425,14 +425,40 @@ test("drive: a library on NTFS that doesn't hold the game is only a note", () =>
   assert.match(f.detail, /^A Steam library sits on ntfs3\./);
 });
 
-test("drive: exFAT or FAT is a guess, with the symlink point called an inference and the runtime issue as its source", () => {
-  for (const type of ["exfat", "vfat"]) {
+test("drive: exFAT is a guess, with the symlink point called an inference and the runtime issue as its source", () => {
+  const f = driveFinding(facts([HOME_LIB, CARD_LIB], CARD_LIB), parseMounts(MOUNTS("exfat")));
+  assert.ok(f);
+  assert.deepEqual([f.status, f.basis], ["warn", "guess"]);
+  assert.match(f.detail, /exFAT can't hold the symlinks a Proton prefix uses\. That it won't work is an inference; no Valve page says it about exFAT\./);
+  assert.match(f.source ?? "", /steam-runtime\/issues\/434/);
+  assert.doesNotMatch(f.detail, /Valve's Proton wiki|FAT32|either/);
+});
+
+test("drive: exFAT next to FAT32 says 'either', after Valve's FAT32 answer", () => {
+  const mounts = parseMounts(
+    [
+      "/dev/nvme0n1p8 / ext4 rw 0 0",
+      "/dev/nvme0n1p9 /home ext4 rw 0 0",
+      "/dev/mmcblk0p1 /run/media/deck/Games vfat rw 0 0",
+      "/dev/sdb1 /run/media/deck/stick exfat rw 0 0",
+    ].join("\n")
+  );
+  const stick = "/run/media/deck/stick/SteamLibrary/steamapps";
+  const f = driveFinding(facts([HOME_LIB, CARD_LIB, stick], CARD_LIB), mounts);
+  assert.ok(f);
+  assert.equal(f.basis, "rule");
+  assert.match(f.detail, /Valve has said Proton won't support FAT32[^.]*\. exFAT can't hold the symlinks a Proton prefix uses either\./);
+  assert.match(f.source ?? "", /Proton\/issues\/2439/);
+});
+
+test("drive: FAT32 is a documented rule, with Valve's answer on Proton's tracker as its source", () => {
+  for (const type of ["vfat", "msdos", "fat"]) {
     const f = driveFinding(facts([HOME_LIB, CARD_LIB], CARD_LIB), parseMounts(MOUNTS(type)));
     assert.ok(f, type);
-    assert.deepEqual([f.status, f.basis], ["warn", "guess"], type);
-    assert.match(f.detail, /That is an inference; no Valve page says it\./, type);
-    assert.match(f.source ?? "", /steam-runtime\/issues\/434/, type);
-    assert.doesNotMatch(f.detail, /Valve's Proton wiki/, type);
+    assert.deepEqual([f.status, f.basis], ["warn", "rule"], type);
+    assert.match(f.detail, /Valve has said Proton won't support FAT32, because it can't hold symlinks and caps a file at 4 GB\./, type);
+    assert.match(f.source ?? "", /Proton\/issues\/2439/, type);
+    assert.doesNotMatch(f.detail, /inference/, type);
   }
 });
 
@@ -442,7 +468,7 @@ test("drive: two risky libraries are counted and named together", () => {
   assert.ok(f);
   assert.match(f.detail, /^2 Steam libraries \(including the one with this game\) sit on ntfs3 and exfat\./);
   assert.equal(f.basis, "rule", "one of them is NTFS, which has a source");
-  assert.match(f.detail, /exFAT and FAT drives can't hold the symlinks/);
+  assert.match(f.detail, /exFAT can't hold the symlinks/);
 });
 
 test("drive: a mount point with a space in it, written the way /proc/mounts escapes it, still matches", () => {
