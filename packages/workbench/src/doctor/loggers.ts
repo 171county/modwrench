@@ -107,8 +107,9 @@ function netScriptTooOld(game: FileVersion | null): game is FileVersion {
 }
 
 // ─── Fallout 4 ───────────────────────────────────────────────────────────────
-// Buffout 4 and Buffout 4 NG install Buffout4.dll; Buffout 4 AE (MiniBuff) installs Buffout4AE.dll or MiniBuffAE.dll;
-// Addictol's crash logger is AddictolCrashLogger.dll, separate from Addictol itself (Addictol.dll), all in F4SE\Plugins.
+// Buffout 4 and Buffout 4 NG install Buffout4.dll; Buffout 4 AE's crash logger is CrashLoggerAE.dll, separate from
+// Buffout 4 AE itself (Buffout4AE.dll, at first MiniBuffAE.dll), which only patches the game; Addictol's crash logger
+// is AddictolCrashLogger.dll, separate from Addictol itself (Addictol.dll), all in F4SE\Plugins.
 // Two facts from the mods' own pages are worth a line: Buffout 4 NG's page says it doesn't support the Anniversary
 // Edition (game 1.11 and later), and Addictol's page lists the Buffout 4 builds among the mods that shouldn't be
 // enabled alongside it (its own code stops with an error when it finds one, unless that check is switched off).
@@ -145,7 +146,7 @@ function judgeFallout4Loggers(index: Index, game: FileVersion | null): DoctorFin
       status: "note",
       title: "No crash logger found",
       detail:
-        "None of Buffout 4, Buffout 4 AE (MiniBuff) or Addictol's crash logger was found among F4SE's plugins, so after a crash there may be no log for Crash Whisperer (/mw-crash) to read. " +
+        "None of Buffout 4, Buffout 4 AE's crash logger or Addictol's crash logger was found among F4SE's plugins, so after a crash there may be no log for Crash Whisperer (/mw-crash) to read. " +
         "Loggers are recognised by their usual file names; one that ships under another name isn't.",
       fix: "Buffout 4 NG writes crash logs on 1.10.163 and 1.10.984, and Crash Whisperer reads them; for the Anniversary Edition (1.11 and later), its page points to Addictol.",
       basis: "install",

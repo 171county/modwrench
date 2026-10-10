@@ -1399,3 +1399,38 @@ test("Fallout 4: two crash loggers in a Buffout 4 log are ModWrench's guess, and
   assert.match(check.fix ?? "", /The Doctors \(\/mw-doctor\) list the crash loggers in your install\.$/);
   assert.ok(r.nextSteps.includes(DOCTOR_STEP), r.nextSteps.join("\n"));
 });
+
+test("Fallout 4: Buffout 4 AE's crash logger writes a Buffout 4 log that is read, and its CrashLoggerAE.dll counts as a crash logger", () => {
+  // The lines CrashLoggerAE's CrashHandler.cpp writes, cut down.
+  const r = run(
+    lines(
+      "Fallout 4 v1.11.191",
+      "Buffout 4 v1.7.1 Feb  7 2026 17:58:06",
+      "",
+      'Unhandled exception "EXCEPTION_ACCESS_VIOLATION" at 0x7FF6F34995BE Fallout4.exe+16B95BE\tmov rax, [rcx+0x08]',
+      "Exception Flags: 0x00000000",
+      "Number of Parameters: 2",
+      "Access Violation: Tried to read memory at 0x000000000008",
+      "",
+      "PROBABLE CALL STACK:",
+      "\t[0] 0x7FF6F34995BE Fallout4.exe+16B95BE\tmov rax, [rcx+0x08]",
+      "",
+      "MODULES:",
+      "\tFallout4.exe            0x7FF6F1E00000",
+      "\tCrashLoggerAE.dll       0x7FFB6F2D0000",
+      "\tAddictolCrashLogger.dll 0x7FFB6F3D0000",
+      "",
+      "PLUGINS:",
+      "\tLight: 0\tRegular: 1\tTotal: 1",
+      "\t[00] Fallout4.esm",
+      ""
+    )
+  );
+  assert.equal(r.crash.format, "buffout4");
+  assert.equal(r.crash.game.id, "fallout4");
+  assert.match(r.crash.logger ?? "", /^Buffout 4 v1\.7\.1 /);
+  assert.equal(r.crash.frames[0]?.module, "Fallout4.exe");
+  const check = r.checks.find((c) => c.id === "crash-loggers");
+  assert.ok(check, r.checks.map((c) => c.id).join(", "));
+  assert.equal(check.title, "More than one crash logger was loaded (Buffout 4 AE's Crash Logger, Addictol Crash Logger)");
+});

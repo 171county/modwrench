@@ -7,7 +7,10 @@
 //   trainwreck.dll                  Trainwreck: its author's API header; seen in a real log
 //   NetScriptFramework.Runtime.dll  .NET Script Framework, which sits in Data\DLLPlugins; seen in a real log
 //   Buffout4.dll                    Buffout 4 and Buffout 4 NG: their CMake files
-//   Buffout4AE.dll, MiniBuffAE.dll  Buffout 4 AE (MiniBuff): its build file; Addictol's source checks both names
+//   CrashLoggerAE.dll               Buffout 4 AE's crash logger: its build file. Its source writes Buffout 4 NG's lines
+//                                   ("Fallout 4 v…", then "Buffout 4 v…") to crash-*.log in F4SE's log folder, so Crash
+//                                   Whisperer reads it; no real log of it has been checked. Buffout 4 AE's own DLL
+//                                   (Buffout4AE.dll, at first MiniBuffAE.dll) only patches the game
 //   AddictolCrashLogger.dll         Addictol's crash logger: its build files
 // A logger that ships under another name isn't recognised, and whatever uses this says so.
 
@@ -29,8 +32,7 @@ export const CRASH_LOGGERS: readonly CrashLogger[] = [
   { name: "Trainwreck", game: "skyrimspecialedition", dll: "trainwreck.dll", folder: "plugins", readable: false },
   { name: ".NET Script Framework", game: "skyrimspecialedition", dll: "NetScriptFramework.Runtime.dll", folder: "dllplugins", readable: true },
   { name: "Buffout 4", game: "fallout4", dll: "Buffout4.dll", folder: "plugins", readable: true },
-  { name: "Buffout 4 AE (MiniBuff)", game: "fallout4", dll: "Buffout4AE.dll", folder: "plugins", readable: false },
-  { name: "Buffout 4 AE (MiniBuff)", game: "fallout4", dll: "MiniBuffAE.dll", folder: "plugins", readable: false },
+  { name: "Buffout 4 AE's Crash Logger", game: "fallout4", dll: "CrashLoggerAE.dll", folder: "plugins", readable: true },
   { name: "Addictol Crash Logger", game: "fallout4", dll: "AddictolCrashLogger.dll", folder: "plugins", readable: false },
 ];
 
