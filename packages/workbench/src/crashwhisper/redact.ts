@@ -582,8 +582,11 @@ export function cleaningDeadline(options: RedactOptions = {}): number {
   return options.deadline ?? performance.now() + (options.budgetMs ?? DEFAULT_BUDGET_MS);
 }
 
-/** Remove what identifies the person. Text in, text and a count of what was removed out. */
-export function redact(input: string, options: RedactOptions = {}): { text: string; report: RedactionReport } {
+/**
+ * Remove what identifies the person. Text in, text and a count of what was removed out. `learned` is the names the text's
+ * labelled lines gave, for a caller that cleans several pieces and wants them gone from every piece; it is never shown.
+ */
+export function redact(input: string, options: RedactOptions = {}): { text: string; report: RedactionReport; learned: { users: string[]; machines: string[] } } {
   const byKind = emptyCounts();
   let cutLines = 0;
   let skippedLines = 0;
@@ -829,7 +832,7 @@ export function redact(input: string, options: RedactOptions = {}): { text: stri
   if (aside.length > 0) text = text.replace(/\u0001(\d+)\u0002/g, (_m, i: string) => aside[Number(i)] ?? "");
 
   const total = REDACTION_KINDS.reduce((sum, kind) => sum + byKind[kind], 0);
-  return { text, report: { total, byKind, leftover, cutLines, skippedLines } };
+  return { text, report: { total, byKind, leftover, cutLines, skippedLines }, learned: { users: learned.user, machines: learned.machine } };
 }
 
 /** Redact and keep only the text, for the many small strings that don't need a report. */
