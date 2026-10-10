@@ -261,11 +261,12 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   than 254), with Fallout 4's crash loggers: none, two at once, Buffout 4 on the
   Anniversary Edition (its NG page says it isn't supported), and Addictol alongside a
   Buffout 4 build (Addictol's page says not to). Crash Whisperer's pointer to the
-  Doctors covers Fallout 4 logs as well. With no game named, `mw_patch_day` checks the
-  one whose executable is in `gamePath`, or else the first installed in a Steam
-  library, Skyrim before Fallout 4, and its answer names the other when both are
-  there; `/mw-patch` takes the game too. Built from F4SE's source and constructed
-  installs; not run against a real one.
+  Doctors covers Fallout 4 logs as well, and for those it is `/mw-doctor fallout4`,
+  since `/mw-doctor` alone checks Skyrim Special Edition. With no game named,
+  `mw_patch_day` checks the one whose executable is in `gamePath`, or else the first
+  installed in a Steam library, Skyrim before Fallout 4, and its answer names the
+  other when both are there; `/mw-patch` takes the game too. Built from F4SE's source
+  and constructed installs; not run against a real one.
 - **The Doctors check Vortex's staging folder.** Vortex deploys mods to Skyrim Special
   Edition and Fallout 4 with hard links, which work only within one drive, and keeps
   where its staging folder is in its own database. While it has mods deployed it also

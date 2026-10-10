@@ -1373,7 +1373,7 @@ test("with five steps already, the help-packet step still comes last", () => {
   assert.match(summarizeCrashWhisper(r), /^6\. To ask for help, ask for a help packet/m);
 });
 
-test("Fallout 4: two crash loggers in a Buffout 4 log are ModWrench's guess, and a crash with no lead gets the Doctors step", () => {
+test("Fallout 4: two crash loggers in a Buffout 4 log are ModWrench's guess, and a crash with no lead gets the Doctors step for Fallout 4", () => {
   const r = run(
     lines(
       "Fallout 4 v1.10.984",
@@ -1396,8 +1396,13 @@ test("Fallout 4: two crash loggers in a Buffout 4 log are ModWrench's guess, and
   assert.ok(check, r.checks.map((c) => c.id).join(", "));
   assert.equal(check.basis, "guess");
   assert.equal(check.title, "More than one crash logger was loaded (Buffout 4, Addictol Crash Logger)");
-  assert.match(check.fix ?? "", /The Doctors \(\/mw-doctor\) list the crash loggers in your install\.$/);
-  assert.ok(r.nextSteps.includes(DOCTOR_STEP), r.nextSteps.join("\n"));
+  // /mw-doctor with nothing after it checks Skyrim Special Edition, so both pointers name Fallout 4 and pass its id.
+  assert.match(check.fix ?? "", /The Doctors for Fallout 4 \(\/mw-doctor fallout4\) list the crash loggers in your install\.$/);
+  assert.ok(
+    r.nextSteps.some((s) => /^Run the Doctors for Fallout 4 \(\/mw-doctor fallout4\)\. They check setup problems a crash log may not name:/.test(s)),
+    r.nextSteps.join("\n")
+  );
+  assert.ok(!r.nextSteps.includes(DOCTOR_STEP));
 });
 
 test("Fallout 4: Buffout 4 AE's crash logger writes a Buffout 4 log that is read, and its CrashLoggerAE.dll counts as a crash logger", () => {

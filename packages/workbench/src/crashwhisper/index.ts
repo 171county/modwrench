@@ -27,7 +27,7 @@ import { buildPackets } from "./packet.js";
 import { leadKey, POSSIBLE_AT, rankWithKeys, toFrame, type RankOptions } from "./rank.js";
 import { cleaningDeadline, describeRedaction, redact, REDACTION_KINDS, type RedactOptions, type RedactionKind } from "./redact.js";
 import { PACKET_STEP } from "./summary.js";
-import { basisSentence, plural, safeName } from "./text.js";
+import { basisSentence, doctorsFor, plural, safeName } from "./text.js";
 import type {
   Basis,
   Check,
@@ -410,7 +410,7 @@ function nextStepsFor(a: {
     }
     add("Think back to what changed just before the crashes began (a mod installed, updated or removed, or a game update) and undo that first.");
     // A setup problem can crash the game without leaving a mod's name in the log, and the Doctors check those from files.
-    if (PLUGIN_CHECK_GAMES.has(a.game.id ?? "")) add(DOCTOR_STEP);
+    if (PLUGIN_CHECK_GAMES.has(a.game.id ?? "")) add(DOCTOR_STEP.replace("(/mw-doctor)", doctorsFor(a.game)));
     const rounds = a.pluginCount && a.pluginCount > 1 ? Math.ceil(Math.log2(a.pluginCount)) : 0;
     add(
       "If that doesn't find it, narrow it down by halves: turn off half of your mods and see whether it still crashes, then keep halving whichever half does." +
@@ -426,7 +426,7 @@ function nextStepsFor(a: {
   return steps;
 }
 
-/** The step that sends a crash with no clear lead to the Doctors. */
+/** The step that sends a crash with no clear lead to the Doctors, as it reads for Skyrim Special Edition. Another game is named in it. */
 export const DOCTOR_STEP =
   "Run the Doctors (/mw-doctor). They check setup problems a crash log may not name: a plugin whose master is missing, switched off or loaded after it, a load order past the plugin limit, and two crash loggers at once.";
 
