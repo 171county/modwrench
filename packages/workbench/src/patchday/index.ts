@@ -13,7 +13,7 @@ import { parseVdf } from "../detect/vdf.js";
 import { findMo2InstanceForGame, mo2Folder, readMo2LoadOrder } from "../loadorder/mo2.js";
 import { isNetworkPath } from "../localpath.js";
 import { inspectF4sePlugin } from "./f4se.js";
-import { assessF4sePlugin, f4seSourceFor, needsF4seAddressLibrary } from "./f4se-rules.js";
+import { assessF4sePlugin, F4_1_10_980, f4seSourceFor, needsF4seAddressLibrary } from "./f4se-rules.js";
 import { readFileVersion, readFirstBytes, type FileVersion } from "./pe.js";
 import {
   formatPacked,
@@ -104,7 +104,7 @@ type Extender = {
   nextPatchNote: string;
   /** Copies of the game it refuses, by a file only that store puts in the game folder, and its own words. */
   unsupported: ReadonlyArray<{ file: string; words: string }>;
-  /** GOG copies need a DLL with this suffix, or none. */
+  /** GOG copies need a DLL with this suffix, or none. F4SE's applies from game 1.10.980 on (F4SE 0.7.0). */
   gogSuffix: string;
 };
 
@@ -829,9 +829,10 @@ function runPatchDay(options: PatchDayOptions, found?: (install: PatchDayInstall
     // Unreadable folder: treated as empty, and the verdict will say the script extender isn't there.
   }
   const lowerFiles = new Set(gameFiles.map((f) => f.toLowerCase()));
-  // F4SE's loader starts a GOG build of its DLL for a GOG copy, which it tells by the GOG Galaxy library the game uses;
-  // the library sitting in the game folder stands in for that here.
-  const gog = x.gogSuffix !== "" && lowerFiles.has("galaxy64.dll");
+  // From 0.7.0 (game 1.10.980) on, F4SE's loader starts a GOG build of its DLL for a GOG copy, which it tells by the GOG
+  // Galaxy library the game uses; the library sitting in the game folder stands in for that here. 0.6.23, for 1.10.163,
+  // starts the same DLL for every copy. The version checked decides, so a what-if to a later version expects the GOG build.
+  const gog = x.gogSuffix !== "" && runtime >= F4_1_10_980 && lowerFiles.has("galaxy64.dll");
   const expectedDll = `${game.dllPrefix}_${major}_${minor}_${build}${gog ? x.gogSuffix : ""}.dll`;
   const dllPattern = new RegExp(`^${game.dllPrefix}_\\d+_\\d+_\\d+${x.gogSuffix !== "" ? `(?:${x.gogSuffix})?` : ""}\\.dll$`, "i");
   const dllsInstalled = gameFiles.filter((f) => dllPattern.test(f)).sort();

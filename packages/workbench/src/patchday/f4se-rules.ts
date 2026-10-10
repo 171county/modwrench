@@ -35,7 +35,8 @@ export const F4_1_11_159 = packVersion(1, 11, 159);
 /**
  * Each game version F4SE has published a build for, and the build whose rules apply to it (F4SE's tags and
  * f4se.silverlock.org). Where a version had more than one (0.7.0 and 0.7.1 for 1.10.980; 0.7.2 and the 0.7.3 beta
- * for 1.10.984), the newest that isn't a beta is listed; 0.7.0 to 0.7.4 all check plugins the same way.
+ * for 1.10.984), the newest that isn't a beta is listed. 0.7.0, a developer test build, looked for the Address
+ * Library under Data\SKSE\Plugins\versionlib-*.bin and 0.7.1 fixed it, so 1.10.980 is judged by 0.7.1.
  */
 const BUILDS: ReadonlyArray<{ runtime: number; build: string }> = [
   { runtime: packVersion(1, 10, 163), build: "0.6.23" },

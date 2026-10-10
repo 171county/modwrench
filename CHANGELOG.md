@@ -247,7 +247,7 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
 
 - **Fallout 4 in Patch Day and the Doctors.** `mw_patch_day` reads Fallout 4 and F4SE
   the way it reads Skyrim and SKSE: the game's version, the F4SE loader and DLL for
-  that version (the GOG build for a GOG copy), the Address Library file, every plugin
+  that version (the GOG build for a GOG copy, from 1.10.980 on), the Address Library file, every plugin
   in `Data/F4SE/Plugins` (and Mod Organizer 2's), and `f4se.log`, judged by F4SE's own
   published rules at each release (`f4se-source`): 0.6.23 for 1.10.163, which asks
   each plugin's own code; 0.7.0 to 0.7.4 for the Next-Gen update to 1.11.137; and

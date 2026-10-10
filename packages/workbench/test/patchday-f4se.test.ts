@@ -313,6 +313,19 @@ test("a GOG copy needs F4SE's GOG build of the DLL", () => {
   assert.deepEqual(fixed.scriptExtender.dllsInstalled, ["f4se_1_11_240.dll", "f4se_1_11_240_gog.dll"]);
 });
 
+test("a GOG copy of 1.10.163 uses F4SE 0.6.23's one DLL, since only F4SE 0.7.0 and later have a GOG build", () => {
+  const w = fallout4({ game: [1, 10, 163], library: false, files: ["Galaxy64.dll"] });
+  writeFileSync(join(w.gameDir, "f4se_loader.exe"), buildPe({ version: [0, 0, 6, 23] }));
+  writeFileSync(join(w.gameDir, "f4se_1_10_163.dll"), buildPe({ version: [0, 0, 6, 23] }));
+  writeFileSync(join(w.plugins, "Classic.dll"), buildPe({ exports: [{ name: "F4SEPlugin_Query" }, { name: "F4SEPlugin_Load" }] }));
+  const r = run(w);
+  assert.equal(r.scriptExtender.expectedDll, "f4se_1_10_163.dll");
+  assert.equal(r.verdict, "go", r.headline);
+  // Checked ahead to a version that F4SE 0.7.x serves, the GOG build is expected again.
+  const ahead = run(w, { targetVersion: "1.11.240" });
+  assert.equal(ahead.scriptExtender.expectedDll, "f4se_1_11_240_gog.dll");
+});
+
 test("the Microsoft Store and Epic copies, which F4SE's loader refuses, are a CHECK that says so", () => {
   for (const [file, words] of [
     ["appxmanifest.xml", /F4SE doesn't support the Microsoft Store \(Game Pass\) version of Fallout 4: its loader refuses it, so F4SE plugins can't load on this copy/],
