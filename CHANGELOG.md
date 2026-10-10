@@ -272,13 +272,15 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   writes a deployment record into the game's `Data` folder, and on Windows the Setup
   Doctor now reads the start of it (the game, the method and the staging folder; any
   of the file list it takes in is cut off unused) and checks the staging folder: on
-  the game's drive when Vortex uses hard links (a documented rule from Vortex's wiki),
-  not under Program Files, OneDrive or a user folder (Vortex's own error message says
-  OneDrive can't deal with hard links), and with room on its drive. A record that
-  names a folder that isn't there, or one on another computer, which isn't opened,
-  says so, and a method other than the four ModWrench knows is not repeated. Without a
-  record, or with one that doesn't name this game or a staging folder, the report
-  lists the staging folder as something it couldn't check, and says which.
+  the game's drive when Vortex uses hard links or its move method (a documented rule
+  from Vortex's wiki), not under Program Files, OneDrive or a user folder (Vortex's
+  own error message says OneDrive can't deal with hard links), and with room on its
+  drive. A record that names a folder that isn't there, or one on another computer,
+  which isn't opened, says so, and a method other than the four ModWrench knows is not
+  repeated. A record with no game in it, as Vortex wrote before 2021, counts as this
+  game's, as it does for Vortex. Without a record, or with one that names another game
+  or doesn't name a staging folder, the report lists the staging folder as something
+  it couldn't check, and says which.
 
 - **`/mw-critique` and `mw_critique`: feedback for the maintainers, posted by
   you.** Tell your AI client what went wrong, what you'd like or what you think,

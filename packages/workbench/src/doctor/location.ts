@@ -92,7 +92,7 @@ export function judgeLocation(places: readonly Place[], platform: DoctorPlatform
   }
   if (flagged.some((f) => f.place.what === "vortex-staging" && f.spots.includes("onedrive"))) {
     // Vortex's own error text for this case (util/nativeErrors.ts in its source).
-    sentences.push("Vortex's own error message for this case says OneDrive can't deal with hard links, which is how Vortex deploys mods to this game.");
+    sentences.push("Vortex's own error message for this case says OneDrive can't deal with hard links, which are Vortex's default way to deploy mods to this game.");
   }
   return {
     id: "setup.location",
