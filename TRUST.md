@@ -324,7 +324,7 @@ What has not been checked: these five pages were exercised in a real browser aga
 
 ## Feedback: what /mw-critique reads and sends
 
-`/mw-critique` and its tool, `mw_critique`, turn what you want to tell the maintainers into a GitHub issue for you to post. **It sends nothing.** ModWrench makes no network request for it: the answer is text your AI client shows you, ending in a link. The link opens GitHub's form for the repository's feedback template in your browser, with the draft filled in through the query parameters GitHub documents for issue forms. GitHub gets the draft only if you open the link and press the form's button, from your browser and as you, the way any issue is posted.
+`/mw-critique` and its tool, `mw_critique`, turn what you want to tell the maintainers into a GitHub issue for you to post. **It sends nothing.** ModWrench makes no network request for it: the answer is text your AI client shows you, ending in a link. The link opens GitHub's form for the repository's feedback template in your browser, with the draft filled in through the query parameters GitHub documents for issue forms. The draft is in the link's address, so opening the link hands it to GitHub to fill in the form; nothing is posted until you press the form's button, from your browser and as you, the way any issue is posted.
 
 What goes into the draft:
 

@@ -112,7 +112,7 @@ test("a client name, a title or a step can't add lines of their own", () => {
     steps: ["one\ntwo"],
   });
   assert.equal(d.title.split("\n").length, 1);
-  assert.equal(d.setup[1], "AI client: client Your setup: - ModWrench 9.9.9 1 2, as it named itself");
+  assert.equal(d.setup[1], "AI client: client Your setup: - ModWrench 9.9.9 12, as it named itself");
   assert.deepEqual(d.steps, ["one two"]);
   const text = summarizeFeedback(d);
   assert.equal(text.match(/^Your setup:$/gm)?.length, 1);
@@ -130,7 +130,7 @@ test("the title: a tag it already has is replaced, a missing one comes from the 
 test("the answer: nothing sent, what was taken out, the draft in full, and the link last", () => {
   const d = draftFeedback({ ...BASE, kind: "idea", title: "Fallout 4 for Patch Day", feedback: "Please add it." });
   const text = summarizeFeedback(d);
-  assert.match(text, /^Feedback draft for ModWrench\. Nothing has been sent: ModWrench made no network request, and GitHub gets this only if you open the link below and press its Create button\.$/m);
+  assert.match(text, /^Feedback draft for ModWrench\. Nothing has been sent: ModWrench made no network request\. The draft is in the link below, so opening it hands the draft to GitHub to fill in the form, and nothing is posted until you press its Create button\.$/m);
   assert.match(text, /^Nothing personal was recognised in the draft\. That isn't a promise there is nothing: read it before you post it\.$/m);
   assert.match(text, /^Title: \[idea\] Fallout 4 for Patch Day$/m);
   assert.match(text, /^What you'd like to say:\nPlease add it\.$/m);
@@ -171,6 +171,35 @@ test("the client's name and version are cleaned like the player's words", () => 
   assert.ok(d.removed.length > 0, "what was taken out is counted");
 });
 
+test("a name that a labelled line in one part gives is taken out of every part, as it would be from one log", () => {
+  // "Account name: ..." in the text teaches the cleaning the name; the title, a step and the client's words have it too.
+  const d = draftFeedback({
+    ...BASE,
+    client: { name: "claude-code for xXDragonXx", version: "2.1.3" },
+    title: "xXDragonXx can't log in to Nexus",
+    feedback: "Nexus connection fails.\nAccount name: xXDragonXx\nThat's me.",
+    steps: ["Sign in as xXDragonXx", "Run /mw-find"],
+  });
+  assert.doesNotMatch(JSON.stringify(d), /dragon/i);
+  assert.equal(d.title, "[bug] REDACTED-USER can't log in to Nexus");
+  assert.deepEqual(d.steps, ["Sign in as REDACTED-USER", "Run /mw-find"]);
+  assert.equal(d.feedback, "Nexus connection fails.\nAccount name: REDACTED-USER\nThat's me.");
+  assert.equal(d.setup[1], "AI client: claude-code for REDACTED-USER 2.1.3, as it named itself");
+  assert.deepEqual(d.removed, ["4 user names"], "each place is counted once");
+});
+
+test("an invisible character inside an address in the title or a step doesn't hide the address from the cleaning", () => {
+  // Turned into a space, a zero-width space or a byte-order mark would split the address, and no rule would know it.
+  const d = draftFeedback({
+    ...BASE,
+    title: "Mail dragon.slayer\u200b@example.com",
+    steps: ["Write to dragon.slayer\u200b@example.com", "Or to dragon.slayer\ufeff@example.com"],
+  });
+  assert.equal(d.title, "[bug] Mail REDACTED-EMAIL");
+  assert.deepEqual(d.steps, ["Write to REDACTED-EMAIL", "Or to REDACTED-EMAIL"]);
+  assert.doesNotMatch(d.url, /slayer/);
+});
+
 test("when the cleaning runs out of time, what it didn't reach is left out, and the answer says so", () => {
   const d = draftFeedback({
     ...BASE,
@@ -191,13 +220,17 @@ test("when the cleaning runs out of time, what it didn't reach is left out, and 
 
 test("past 64 KB the text stops at a line's end, so a key across that point isn't left in part, and the draft says it was cut", () => {
   // Eleven long folder paths, each of which the cleaning shrinks to a few characters, then a key across character 65,536.
+  // The lines may end in "\r" or U+2028 rather than "\n": the cut finds their end all the same.
   const path = `C:\\Users\\Someone\\${"a".repeat(5880)}`;
-  let text = `${Array.from({ length: 11 }, () => path).join("\n")}\n`;
-  text += `${"x".repeat(65_536 - text.length - 10)} ghp_${"A1b2C3d4E5".repeat(4)} and the rest`;
-  const d = draftFeedback({ ...BASE, feedback: text });
-  assert.ok(d.feedback.length < 4000, "short enough that the draft's own cut didn't remove it");
-  assert.doesNotMatch(d.feedback, /ghp_|A1b2/);
-  assert.equal(d.cut, true);
+  for (const lineBreak of ["\n", "\r", "\u2028"]) {
+    let text = `${Array.from({ length: 11 }, () => path).join(lineBreak)}${lineBreak}`;
+    text += `${"x".repeat(65_536 - text.length - 10)} ghp_${"A1b2C3d4E5".repeat(4)} and the rest`;
+    const d = draftFeedback({ ...BASE, feedback: text });
+    assert.ok(d.feedback.length < 4000, "short enough that the draft's own cut didn't remove it");
+    assert.doesNotMatch(d.feedback, /ghp_|A1b2/, JSON.stringify(lineBreak));
+    assert.doesNotMatch(d.url, /ghp_|A1b2/, JSON.stringify(lineBreak));
+    assert.equal(d.cut, true);
+  }
   // One line too long for the cleaning, which cuts it itself, is a cut too.
   assert.equal(draftFeedback({ ...BASE, feedback: `C:\\Users\\Someone\\${"b".repeat(6500)} and then more words` }).cut, true);
 });
