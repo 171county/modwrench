@@ -197,8 +197,20 @@ function fallout4(o: { game?: [number, number, number]; f4se?: boolean; library?
   }
   if (o.library !== false) writeFileSync(join(plugins, `version-${a}-${b}-${c}-0.bin`), Buffer.alloc(8));
   for (const f of o.files ?? []) writeFileSync(join(gameDir, f), "");
+  // Where Proton keeps Documents, which the check reads only on Linux and the Steam Deck: a test that
+  // writes this log runs its check withPlatform("linux"), so it passes on Windows and macOS too.
   const log = join(steamapps, "compatdata", "377160", "pfx", "drive_c", "users", "steamuser", "Documents", "My Games", "Fallout4", "F4SE", "f4se.log");
   return { gameDir, plugins, steamapps, log };
+}
+
+function withPlatform<T>(platform: NodeJS.Platform, fn: () => T): T {
+  const real = process.platform;
+  Object.defineProperty(process, "platform", { value: platform, configurable: true });
+  try {
+    return fn();
+  } finally {
+    Object.defineProperty(process, "platform", { value: real, configurable: true });
+  }
 }
 
 const plugin = (w: F4World, file: string, version: Parameters<typeof f4seVersionData>[0]): void =>
@@ -350,7 +362,7 @@ test("f4se.log from after the last patch is read: refusals, and a refusal the fi
   );
   const later = new Date(Date.now() + 60_000);
   utimesSync(w.log, later, later);
-  const r = run(w);
+  const r = withPlatform("linux", () => run(w));
   assert.equal(r.log?.found, true);
   assert.equal(r.log?.fresh, true);
   assert.deepEqual(r.log?.refusals, ["Old.dll: disabled, incompatible with current version of the game", "Good.dll: disabled, address library needs to be updated"]);
@@ -378,7 +390,7 @@ test("an F4SE 0.6.23 log, which names each plugin by its full path and writes no
   );
   const later = new Date(Date.now() + 60_000);
   utimesSync(w.log, later, later);
-  const r = run(w);
+  const r = withPlatform("linux", () => run(w));
   assert.equal(r.log?.pluginsLoaded, 1);
   assert.deepEqual(r.log?.refusals, ["Picky.dll: reported as incompatible during query"]);
   assert.ok(!JSON.stringify(r).includes("Jane"), "no folder from the log reaches the report");
@@ -407,7 +419,7 @@ test("F4SE 0.6.23's other refusals: a DLL that couldn't load, whatever its reaso
   );
   const later = new Date(Date.now() + 60_000);
   utimesSync(w.log, later, later);
-  const r = run(w);
+  const r = withPlatform("linux", () => run(w));
   assert.deepEqual(r.log?.refusals, [
     "Needy.dll: couldn't load plugin (error 126)",
     "Plain.dll: couldn't load plugin (error 193)",
