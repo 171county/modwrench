@@ -6,6 +6,7 @@ import type { BepInExFacts, LoadProblem } from "./bepinex-scan.js";
 import { sameVersion, versionParts, type InstallContext } from "./context.js";
 import { classifyModule, splitModule, type GameFacts } from "./explain.js";
 import { GENERIC_SOURCE, leadKey, matchPlugin } from "./rank.js";
+import { doctorsFor } from "./text.js";
 import type { Check, Lead, SystemFacts } from "./types.js";
 
 // ─── The setup checks ────────────────────────────────────────────────────────
@@ -138,7 +139,7 @@ export function runChecks(input: CheckInput): Check[] {
   const loggers = bethesda ? loggersNamed(input.modules) : [];
   if (loggers.length >= 2) {
     const sse = loggers.includes("Crash Logger SSE");
-    const doctor = PLUGIN_CHECK_GAMES.has(input.game.id ?? "") ? " The Doctors (/mw-doctor) list the crash loggers in your install." : "";
+    const doctor = PLUGIN_CHECK_GAMES.has(input.game.id ?? "") ? ` The Doctors ${doctorsFor(input.game)} list the crash loggers in your install.` : "";
     checks.push({
       id: "crash-loggers",
       severity: "note",
