@@ -171,7 +171,7 @@ test("crash loggers: none is a note naming Fallout 4's loggers and where Crash W
   pluginsTxt(w, []);
   const f = must(run(w), "setup.crash-logger");
   assert.equal(f.status, "note");
-  assert.match(f.detail, /^None of Buffout 4, Buffout 4 AE \(MiniBuff\) or Addictol's crash logger was found among F4SE's plugins, so after a crash there may be no log for Crash Whisperer \(\/mw-crash\) to read\./);
+  assert.match(f.detail, /^None of Buffout 4, Buffout 4 AE's crash logger or Addictol's crash logger was found among F4SE's plugins, so after a crash there may be no log for Crash Whisperer \(\/mw-crash\) to read\./);
   assert.match(f.source ?? "", /nexusmods\.com\/fallout4\/mods\/64880/);
 });
 
@@ -195,18 +195,49 @@ test("crash loggers: Buffout 4 on 1.10.984 is fine and points at Crash Whisperer
 
 test("crash loggers: Addictol with a Buffout 4 build is a problem from Addictol's own page", () => {
   const w = fallout4();
-  f4sePlugins(w, "Addictol.dll", "AddictolCrashLogger.dll", "Buffout4AE.dll");
+  f4sePlugins(w, "Addictol.dll", "AddictolCrashLogger.dll", "Buffout4AE.dll", "CrashLoggerAE.dll");
   pluginsTxt(w, []);
   const r = run(w);
   const f = must(r, "setup.crash-logger-addictol");
   assert.deepEqual([f.status, f.basis], ["problem", "rule"]);
   assert.match(f.source ?? "", /nexusmods\.com\/fallout4\/mods\/84214/);
   assert.deepEqual(f.items, ["Addictol.dll", "Buffout4AE.dll"]);
-  // Two crash loggers as well: Buffout 4 AE and Addictol's own.
+  // Two crash loggers as well: Buffout 4 AE's and Addictol's own.
   const two = must(r, "setup.crash-logger");
   assert.deepEqual([two.status, two.basis], ["warn", "guess"]);
-  assert.deepEqual(two.items, ["Buffout 4 AE (MiniBuff)", "Addictol Crash Logger"]);
+  assert.deepEqual(two.items, ["Buffout 4 AE's Crash Logger", "Addictol Crash Logger"]);
   assert.match(summarizeDoctor(r), /Addictol and Buffout 4 are both installed \[documented rule\]/);
+});
+
+test("crash loggers: Buffout 4 AE's crash logger is CrashLoggerAE.dll, and Crash Whisperer reads its log", () => {
+  const w = fallout4();
+  f4sePlugins(w, "CrashLoggerAE.dll");
+  pluginsTxt(w, []);
+  const f = must(run(w), "setup.crash-logger");
+  assert.equal(f.status, "ok");
+  assert.equal(f.title, "One crash logger: Buffout 4 AE's Crash Logger");
+  assert.equal(f.detail, "Only one crash logger was found. After a crash, Crash Whisperer (/mw-crash) reads its log.");
+});
+
+test("crash loggers: Buffout 4 AE's own DLL only patches the game, so Buffout4AE.dll or MiniBuffAE.dll alone is no crash logger", () => {
+  for (const dll of ["Buffout4AE.dll", "MiniBuffAE.dll"]) {
+    const w = fallout4();
+    f4sePlugins(w, dll);
+    pluginsTxt(w, []);
+    const f = must(run(w), "setup.crash-logger");
+    assert.deepEqual([f.status, f.title], ["note", "No crash logger found"], dll);
+  }
+});
+
+test("crash loggers: Buffout 4 AE's crash logger left beside Addictol's is two loggers, though Addictol's own check doesn't name it", () => {
+  const w = fallout4();
+  f4sePlugins(w, "Addictol.dll", "AddictolCrashLogger.dll", "CrashLoggerAE.dll");
+  pluginsTxt(w, []);
+  const r = run(w);
+  const two = must(r, "setup.crash-logger");
+  assert.deepEqual([two.status, two.basis], ["warn", "guess"]);
+  assert.deepEqual(two.items, ["Buffout 4 AE's Crash Logger", "Addictol Crash Logger"]);
+  assert.equal(r.findings.find((x) => x.id === "setup.crash-logger-addictol"), undefined);
 });
 
 test("Fallout 4's My Games folder in OneDrive is found by its own name", () => {
