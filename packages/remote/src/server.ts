@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -156,6 +156,19 @@ export function createRemoteApp(options: RemoteAppOptions = {}) {
       log("error", "remote.request_failed", { message: err instanceof Error ? err.message : String(err) });
       if (!res.headersSent) rpcError(res, 500, -32603, "Internal server error");
     }
+  });
+
+  // express.json() rejects a body that isn't JSON, or is too large, before any route runs.
+  // Express's own handler would answer with an HTML page holding the stack trace and the
+  // server's folder paths; this answers with a short JSON-RPC error instead.
+  app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+    if (res.headersSent) return next(err);
+    const { type, status } = (err ?? {}) as { type?: string; status?: number };
+    if (type === "entity.parse.failed") return void rpcError(res, 400, -32700, "Parse error");
+    if (type === "entity.too.large") return void rpcError(res, 413, -32600, "Request body too large");
+    if (typeof status === "number" && status >= 400 && status < 500) return void rpcError(res, status, -32600, "Invalid Request");
+    log("error", "remote.request_failed", { message: err instanceof Error ? err.message : String(err) });
+    rpcError(res, 500, -32603, "Internal server error");
   });
 
   return app;
