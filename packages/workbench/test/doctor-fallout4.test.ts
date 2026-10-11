@@ -219,6 +219,23 @@ test("crash loggers: Buffout 4 AE's crash logger is CrashLoggerAE.dll, and Crash
   assert.equal(f.detail, "Only one crash logger was found. After a crash, Crash Whisperer (/mw-crash) reads its log.");
 });
 
+test("crash loggers: Buffout 4 AE's crash logger before 1.11.137 is a version its own page says it doesn't support", () => {
+  const ng = fallout4([1, 10, 984, 0]);
+  f4sePlugins(ng, "CrashLoggerAE.dll");
+  pluginsTxt(ng, []);
+  const r = run(ng);
+  const old = must(r, "setup.crash-logger-old");
+  assert.deepEqual([old.status, old.basis], ["warn", "rule"]);
+  assert.match(old.detail, /^The game is 1\.10\.984\. Buffout 4 AE's crash logger says it is made for 1\.11\.137 and later/);
+  assert.match(old.source ?? "", /github\.com\/TheGamerX20\/CrashLoggerAE/);
+  assert.equal(must(r, "setup.crash-logger").detail, "Only one crash logger was found.", "no pointer to a log it can't be counted on to write");
+
+  const ae = fallout4([1, 11, 137, 0]);
+  f4sePlugins(ae, "CrashLoggerAE.dll");
+  pluginsTxt(ae, []);
+  assert.equal(run(ae).findings.find((x) => x.id === "setup.crash-logger-old"), undefined);
+});
+
 test("crash loggers: Buffout 4 AE's own DLL only patches the game, so Buffout4AE.dll or MiniBuffAE.dll alone is no crash logger", () => {
   for (const dll of ["Buffout4AE.dll", "MiniBuffAE.dll"]) {
     const w = fallout4();
