@@ -169,6 +169,14 @@ Note the key here is `mcpServers`, which is *not* what VS Code uses:
 
 Restart your client. Thunderstore and the local Workbench tools work immediately — no account, no key.
 
+**Which clients get which tools.** Every setup above has your AI client start ModWrench as a
+program on your own computer. That is what lets Crash Whisperer, the Doctors, Patch Day and the
+load-order tools read your game folders. A client that can only reach MCP servers over the
+internet, such as a connector you add by URL in a web app, can't start a program on your
+computer, so those tools aren't there for it. The optional HTTP server, `@modwrench/remote`, is
+for that case, and it carries only the public Thunderstore tools: it holds no credential and
+reads no files ([TRUST.md](TRUST.md) says why).
+
 ### Connecting Nexus and mod.io
 
 These two need a credential:

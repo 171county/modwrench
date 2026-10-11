@@ -4,7 +4,7 @@ All notable changes to ModWrench will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once a 1.0 is published.
 
-This document is currently maintained by hand. When [release-please](https://github.com/googleapis/release-please) is set up alongside the npm publish pipeline, it will take over generating changelog entries from conventional commits.
+This document is maintained by hand.
 
 ---
 
