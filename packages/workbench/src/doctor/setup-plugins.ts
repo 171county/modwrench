@@ -276,7 +276,7 @@ function cap<T>(list: readonly T[], max: number): { shown: T[]; more: number } {
   return { shown: list.slice(0, max), more: Math.max(0, list.length - max) };
 }
 
-function masterFindings(rows: readonly Row[], index: Index, withMods: boolean): DoctorFinding[] {
+function masterFindings(rows: readonly Row[], index: Index, withMods: boolean, cccUnread: string | null): DoctorFinding[] {
   const position = new Map<string, number>();
   loadOrder(rows).forEach((r, i) => position.set(r.lower, i));
   const byName = new Map(rows.map((r) => [r.lower, r] as const));
@@ -329,11 +329,12 @@ function masterFindings(rows: readonly Row[], index: Index, withMods: boolean): 
     out.push({
       id: "setup.masters-off",
       area: "setup",
-      status: "problem",
+      status: cccUnread === null ? "problem" : "warn",
       title: "Plugins whose masters are switched off",
       detail:
         `${plural(affected(off), "plugin needs", "plugins need")} a master that is installed but isn't switched on in your list. ` +
-        "A plugin loaded without its master is likely to crash the game, on launch or later.",
+        "A plugin loaded without its master is likely to crash the game, on launch or later." +
+        (cccUnread === null ? "" : ` ${cccUnread.charAt(0).toUpperCase()}${cccUnread.slice(1)}, and it may switch the master on.`),
       fix: "Switch the master on, or switch off the plugin that needs it.",
       basis: "install",
       source: LOAD_ORDER_SOURCE,
@@ -419,7 +420,9 @@ export function checkPlugins(input: PluginCheckInput): PluginCheck {
     return { findings, index, skipped: index.skipped };
   }
 
-  const implicitNames = [...new Set([...game.base, ...readCreationClubList(gameDir, game.ccc)])];
+  const ccc = readCreationClubList(gameDir, game.ccc);
+  const cccUnread = ccc === "unreadable" ? `${game.ccc} couldn't be opened, so the Creation Club plugins it switches on weren't counted` : null;
+  const implicitNames = [...new Set([...game.base, ...(ccc === "unreadable" ? [] : ccc)])];
   const implicitLower = new Set(implicitNames.map((n) => n.toLowerCase()));
 
   const rows: Row[] = [];
@@ -449,8 +452,12 @@ export function checkPlugins(input: PluginCheckInput): PluginCheck {
   }
 
   const listed = rows.filter((r) => !r.implicit);
-  const complete = index.complete && unread === 0;
-  const skipped = [...index.skipped, ...(unread > 0 ? ["the time allowed ran out before every plugin was opened"] : [])];
+  const complete = index.complete && unread === 0 && cccUnread === null;
+  const skipped = [
+    ...index.skipped,
+    ...(unread > 0 ? ["the time allowed ran out before every plugin was opened"] : []),
+    ...(cccUnread === null ? [] : [cccUnread]),
+  ];
   const looked = {
     listed: list.length,
     active: rows.length,
@@ -484,7 +491,7 @@ export function checkPlugins(input: PluginCheckInput): PluginCheck {
   const located = rows.filter((r) => r.found).length;
   // A plugin whose header couldn't be opened or read to its end may be full or light; one that isn't a plugin at all is neither.
   const unknown = rows.filter((r) => r.problem === "unreadable" || r.problem === "truncated" || r.problem === "too-large").length;
-  if ((unread > 0 || unknown > 0 || !index.complete) && full <= game.fullLimit(light > 0) && light <= LIGHT_LIMIT) {
+  if ((unread > 0 || unknown > 0 || !index.complete || cccUnread !== null) && full <= game.fullLimit(light > 0) && light <= LIGHT_LIMIT) {
     // Whether a plugin is light is in its header. With some headers or folders unread the counts are only a floor,
     // and "within the limits" would claim more than was looked at. Over the limit already is still certain: past the
     // higher full limit, or past the lower one with a light plugin already counted.
@@ -498,6 +505,7 @@ export function checkPlugins(input: PluginCheckInput): PluginCheck {
     }
     if (unknown > 0) gaps.push(`${unknown} ${unknown === 1 ? "plugin's header" : "plugins' headers"} couldn't be read`);
     if (!index.complete) gaps.push(`plugins in folders that weren't read aren't counted (${index.skipped.join("; ")})`);
+    if (cccUnread !== null) gaps.push(cccUnread);
     const gapText = gaps.join("; ");
     findings.push({
       id: "setup.plugin-limit",
@@ -521,7 +529,7 @@ export function checkPlugins(input: PluginCheckInput): PluginCheck {
     findings.push(limitFinding(full, light, implicitCount, game));
   }
 
-  findings.push(...masterFindings(rows, index, mo2.used));
+  findings.push(...masterFindings(rows, index, mo2.used, cccUnread));
   if (findings.every((f) => !f.id.startsWith("setup.masters"))) {
     // "In order" is only said of plugins that were read: with none read there is nothing it could rest on.
     const fine = complete && looked.read > 0;
