@@ -296,6 +296,12 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   filled in, which posts only when you press its button.
   [TRUST.md](TRUST.md#feedback-what-mw-critique-reads-and-sends) lists what goes
   in.
+- **The server tells your AI client which tool answers which question.** With 53
+  tools to choose from, `@modwrench/cli` now sends MCP's `instructions` when a
+  client connects: "why did my game crash" is `mw_crash_whisperer`, "is my setup
+  OK" is `mw_doctor`, "is it safe to update" is `mw_patch_day`, and endorsing a
+  mod waits for the user's yes. A client may give these to the model or ignore
+  them; a test checks that every tool they name exists.
 
 ### Changed
 - **The older panels are MCP Apps pages now, and text-only clients no longer
