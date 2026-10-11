@@ -14,6 +14,7 @@ import { MetaCatalog, type PlatformDef } from "./catalog.js";
 import { registerPrompts } from "./prompts.js";
 import { registerDeckTool } from "./deck.js";
 import { registerCritiqueTool } from "./critique.js";
+import { SERVER_INSTRUCTIONS } from "./instructions.js";
 
 // ─── Subcommand dispatch ─────────────────────────────────────────────────────
 // Must run before the MCP boot block below. Two routes today:
@@ -206,6 +207,7 @@ const server = new McpServer(
     // auto-declares this, but we state it explicitly so the handshake is
     // self-documenting.
     capabilities: { tools: { listChanged: true }, prompts: {} },
+    instructions: SERVER_INSTRUCTIONS,
   }
 );
 
