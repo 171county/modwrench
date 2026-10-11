@@ -1,5 +1,7 @@
 import { CRASH_LOGGERS } from "../crashlog/loggers.js";
+import { F4_1_11_137 } from "../patchday/f4se-rules.js";
 import type { FileVersion } from "../patchday/pe.js";
+import { packVersion } from "../patchday/skse.js";
 import type { Index } from "./setup-plugins.js";
 import type { DoctorFinding } from "./types.js";
 
@@ -18,6 +20,7 @@ const CRASH_LOGGER_SSE = "https://www.nexusmods.com/skyrimspecialedition/mods/59
 const NET_SCRIPT_FRAMEWORK = "https://www.nexusmods.com/skyrimspecialedition/mods/21294";
 const BUFFOUT4_NG = "https://www.nexusmods.com/fallout4/mods/64880";
 const ADDICTOL = "https://www.nexusmods.com/fallout4/mods/84214";
+const CRASH_LOGGER_AE = "https://github.com/TheGamerX20/CrashLoggerAE";
 
 export function installedLoggers(index: Index, game = "skyrimspecialedition"): string[] {
   const out: string[] = [];
@@ -110,8 +113,9 @@ function netScriptTooOld(game: FileVersion | null): game is FileVersion {
 // Buffout 4 and Buffout 4 NG install Buffout4.dll; Buffout 4 AE's crash logger is CrashLoggerAE.dll, separate from
 // Buffout 4 AE itself (Buffout4AE.dll, at first MiniBuffAE.dll), which only patches the game; Addictol's crash logger
 // is AddictolCrashLogger.dll, separate from Addictol itself (Addictol.dll), all in F4SE\Plugins.
-// Two facts from the mods' own pages are worth a line: Buffout 4 NG's page says it doesn't support the Anniversary
-// Edition (game 1.11 and later), and Addictol's page lists the Buffout 4 builds among the mods that shouldn't be
+// Three facts from the mods' own pages are worth a line: Buffout 4 NG's page says it doesn't support the Anniversary
+// Edition (game 1.11 and later), Buffout 4 AE's crash logger says it is ported to 1.11.137 and later and supports only
+// the Anniversary Editions (its README), and Addictol's page lists the Buffout 4 builds among the mods that shouldn't be
 // enabled alongside it (its own code stops with an error when it finds one, unless that check is switched off).
 
 const BUFFOUTS = ["buffout4.dll", "buffout4ae.dll", "minibuffae.dll"];
@@ -121,6 +125,7 @@ function judgeFallout4Loggers(index: Index, game: FileVersion | null): DoctorFin
   const out: DoctorFinding[] = [];
   const anniversary = game !== null && game[0] === 1 && game[1] >= 11;
   const buffoutOnAnniversary = anniversary && index.skseDlls.has("buffout4.dll");
+  const aeLoggerTooOld = game !== null && index.skseDlls.has("crashloggerae.dll") && packVersion(game[0], game[1], game[2]) < F4_1_11_137;
 
   const withAddictol = BUFFOUTS.filter((dll) => index.skseDlls.has(dll));
   if (index.skseDlls.has("addictol.dll") && withAddictol.length > 0) {
@@ -172,7 +177,7 @@ function judgeFallout4Loggers(index: Index, game: FileVersion | null): DoctorFin
       area: "setup",
       status: "ok",
       title: `One crash logger: ${only}`,
-      detail: `Only one crash logger was found.${readable(only) && !buffoutOnAnniversary ? " After a crash, Crash Whisperer (/mw-crash) reads its log." : ""}`,
+      detail: `Only one crash logger was found.${readable(only) && !buffoutOnAnniversary && !aeLoggerTooOld ? " After a crash, Crash Whisperer (/mw-crash) reads its log." : ""}`,
       basis: "install",
     });
   }
@@ -187,6 +192,19 @@ function judgeFallout4Loggers(index: Index, game: FileVersion | null): DoctorFin
       fix: "Buffout 4 NG's page points to Addictol for the latest version of Fallout 4.",
       basis: "rule",
       source: BUFFOUT4_NG,
+    });
+  }
+
+  if (aeLoggerTooOld) {
+    out.push({
+      id: "setup.crash-logger-old",
+      area: "setup",
+      status: "warn",
+      title: "Buffout 4 AE's crash logger doesn't support this game version",
+      detail: `The game is ${game![0]}.${game![1]}.${game![2]}. Buffout 4 AE's crash logger says it is made for 1.11.137 and later, the Anniversary Editions only, so it can't be counted on to log crashes on this version.`,
+      fix: "Buffout 4 NG writes crash logs on 1.10.163 and 1.10.984, and Crash Whisperer reads them.",
+      basis: "rule",
+      source: CRASH_LOGGER_AE,
     });
   }
   return out;
