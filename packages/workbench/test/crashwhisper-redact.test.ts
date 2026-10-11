@@ -190,6 +190,20 @@ test("Steam and Windows account identifiers", () => {
   assert.equal(run("SID S-1-5-21-1234567890-987654321-1122334455-1001").text, "SID REDACTED-ID");
 });
 
+test("the Steam account number in a userdata folder goes, whether or not the path has a drive", () => {
+  const relative = run(String.raw`reading Steam\userdata\52079950\config\localconfig.vdf`);
+  assert.equal(relative.text, String.raw`reading Steam\userdata\REDACTED-ID\config\localconfig.vdf`);
+  assert.equal(relative.report.byKind.id, 1);
+  assert.equal(run("steam/userdata/52079950/760/screenshots").text, "steam/userdata/REDACTED-ID/760/screenshots");
+  assert.equal(run(String.raw`userdata\52079950`).text, String.raw`userdata\REDACTED-ID`);
+  // With a drive the whole folder path goes, once, as before.
+  const rooted = run(String.raw`C:\Program Files (x86)\Steam\userdata\52079950\config\localconfig.vdf`);
+  assert.equal(rooted.text, String.raw`REDACTED-PATH\localconfig.vdf`);
+  assert.equal(rooted.report.byKind.id, 0);
+  // A number that is not the folder after userdata stays.
+  assert.equal(run(String.raw`userdata2\52079950\x`).text, String.raw`userdata2\52079950\x`);
+});
+
 // ─── Secrets ─────────────────────────────────────────────────────────────────
 
 test("keys, tokens and passwords in the usual shapes", () => {

@@ -1025,6 +1025,28 @@ test("a plugins.txt that is there but can't be opened is reported as unreadable,
   });
 });
 
+test("a Skyrim.ccc that can't be opened leaves the Creation Club plugins uncounted, so a master it may switch on isn't called a certain problem", (t) => {
+  const w = install();
+  plugin(w, "ccBGSSSE001-Fish.esm", { master: true, masters: ["Skyrim.esm"] });
+  const ccc = join(w.gameDir, "Skyrim.ccc");
+  writeFileSync(ccc, "ccBGSSSE001-Fish.esm\r\n");
+  plugin(w, "UsesFish.esp", { masters: ["Skyrim.esm", "ccBGSSSE001-Fish.esm"] });
+  winList("*UsesFish.esp");
+  putRel(dataOf(w), "SKSE/Plugins/CrashLogger.dll", "x");
+  assert.equal(must(run(), "setup.masters").status, "ok", "readable, the list switches the master on");
+  whileLocked(t, ccc, () => {
+    const r = run();
+    const off = must(r, "setup.masters-off");
+    assert.equal(off.status, "warn");
+    assert.match(off.detail, /Skyrim\.ccc couldn't be opened/);
+    assert.equal(must(r, "setup.plugin-limit").title, "Plugin count not fully checked");
+    assert.match(must(r, "setup.plugin-limit").detail, /Skyrim\.ccc couldn't be opened/);
+    assert.equal(r.looked.plugins?.complete, false);
+    assert.notEqual(r.verdict, "clear");
+    assert.ok(!JSON.stringify(r).includes(sandbox.root));
+  });
+});
+
 test("an MO2 profile whose plugins.txt can't be opened is a warning that MO2 wasn't read, not a clear run on the game's own list", (t) => {
   const w = install();
   winList();

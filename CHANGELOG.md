@@ -4,7 +4,7 @@ All notable changes to ModWrench will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once a 1.0 is published.
 
-This document is currently maintained by hand. When [release-please](https://github.com/googleapis/release-please) is set up alongside the npm publish pipeline, it will take over generating changelog entries from conventional commits.
+This document is maintained by hand.
 
 ---
 
@@ -259,10 +259,11 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   folders beside the game's, and the plugin limits from libloadorder, the library LOOT
   uses, which let a list with no light plugin switched on hold 255 full plugins rather
   than 254), with Fallout 4's crash loggers: none, two at once, Buffout 4 on the
-  Anniversary Edition (its NG page says it isn't supported), and Addictol alongside a
-  Buffout 4 build (Addictol's page says not to). Crash Whisperer's pointer to the
-  Doctors covers Fallout 4 logs as well, and for those it is `/mw-doctor fallout4`,
-  since `/mw-doctor` alone checks Skyrim Special Edition. With no game named,
+  Anniversary Edition (its NG page says it isn't supported), Buffout 4 AE's crash
+  logger before 1.11.137 (its own page says it is made for 1.11.137 and later), and
+  Addictol alongside a Buffout 4 build (Addictol's page says not to). Crash
+  Whisperer's pointer to the Doctors covers Fallout 4 logs as well, and for those it
+  is `/mw-doctor fallout4`, since `/mw-doctor` alone checks Skyrim Special Edition. With no game named,
   `mw_patch_day` checks the one whose executable is in `gamePath`, or else the first
   installed in a Steam library, Skyrim before Fallout 4, and its answer names the
   other when both are there; `/mw-patch` takes the game too. Built from F4SE's source
@@ -295,6 +296,12 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   filled in, which posts only when you press its button.
   [TRUST.md](TRUST.md#feedback-what-mw-critique-reads-and-sends) lists what goes
   in.
+- **The server tells your AI client which tool answers which question.** With 53
+  tools to choose from, `@modwrench/cli` now sends MCP's `instructions` when a
+  client connects: "why did my game crash" is `mw_crash_whisperer`, "is my setup
+  OK" is `mw_doctor`, "is it safe to update" is `mw_patch_day`, and endorsing a
+  mod waits for the user's yes. A client may give these to the model or ignore
+  them; a test checks that every tool they name exists.
 
 ### Changed
 - **The older panels are MCP Apps pages now, and text-only clients no longer

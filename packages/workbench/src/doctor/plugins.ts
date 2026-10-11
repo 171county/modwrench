@@ -1,5 +1,5 @@
 import { closeSync, openSync, readSync } from "node:fs";
-import { decodeListText, decodeWindows1252, readBytes, readFileBytes } from "./fsutil.js";
+import { decodeListText, decodeWindows1252, readFileBytes } from "./fsutil.js";
 import { join } from "node:path";
 
 // ─── Reading a plugin's header, and the lists that name plugins ──────────────
@@ -188,10 +188,12 @@ export const FALLOUT4_BASE_PLUGINS = [
 /**
  * The Creation Club plugins, as the game's .ccc file lists them (Skyrim.ccc, Fallout4.ccc). It sits in the game
  * folder and names every Creation Club file the game should load; the game loads each one that is installed.
+ * "unreadable" when the file is there but couldn't be opened: what it switches on is then unknown, not nothing.
  */
-export function readCreationClubList(gameDir: string, file = "Skyrim.ccc"): string[] {
-  const bytes = readBytes(join(gameDir, file), 256 * 1024);
-  if (bytes === null) return [];
+export function readCreationClubList(gameDir: string, file = "Skyrim.ccc"): string[] | "unreadable" {
+  const bytes = readFileBytes(join(gameDir, file), 256 * 1024);
+  if (bytes === "missing") return [];
+  if (bytes === "unreadable") return bytes;
   const names: string[] = [];
   for (const raw of decodeListText(bytes).split(/\r?\n/)) {
     const line = raw.trim();

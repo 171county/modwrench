@@ -270,3 +270,18 @@ test("Skyrim.ccc names the Creation Club plugins; anything that isn't a plugin l
   writeFileSync(join(dir, "Skyrim.ccc"), ["# not a plugin", "ccBGSSSE001-Fish.esm", "", "  ccQDRSSE001-SurvivalMode.esl  ", "readme", "ccFSVSSE001-Backpacks.esm"].join("\r\n"));
   assert.deepEqual(readCreationClubList(dir), ["ccBGSSSE001-Fish.esm", "ccQDRSSE001-SurvivalMode.esl", "ccFSVSSE001-Backpacks.esm"]);
 });
+
+test("a Skyrim.ccc that is there but can't be opened is 'unreadable', not an empty list", (t) => {
+  const dir = join(TMP, "ccc-locked");
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, "Skyrim.ccc");
+  writeFileSync(file, "ccBGSSSE001-Fish.esm\r\n");
+  const release = lockAway(file);
+  if (release === null) return t.skip("this system reads it anyway (running as root?)");
+  try {
+    assert.equal(readCreationClubList(dir), "unreadable");
+  } finally {
+    release();
+  }
+  assert.deepEqual(readCreationClubList(dir), ["ccBGSSSE001-Fish.esm"], "and once it is let go, it reads");
+});
