@@ -31,7 +31,7 @@ Each package lives in `packages/`. `core` holds the shared credential, logging a
 
 ## Pull requests
 
-1. **Open an issue first** for anything non-trivial, so a PR doesn't land somewhere the project isn't going.
+1. **Open an issue first** for anything non-trivial, so a PR doesn't land somewhere the project isn't going. [ROADMAP.md](ROADMAP.md) says where it is going.
 2. **One PR, one concern.**
 3. **Tests for new behaviour.** If the suite doesn't already cover it, add a test.
 4. **Sign your commits** — see below.
