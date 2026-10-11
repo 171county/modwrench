@@ -312,6 +312,9 @@ const ID_LABEL =
   /\b((?:(?:account|user|player|steam|discord|xbox|epic|machine|device|hardware|install(?:ation)?)[_ -]?(?:id|uid|guid|uuid)|uuid|xuid|steamid(?:64)?|accountid|userid|playerid|discordid|device[_ -]?unique[_ -]?identifier|serial(?:[_ -]?number)?|product[_ -]?key|volume[_ -]?serial(?:[_ -]?number)?|(?:cpu|processor)[_ -]?id|bios[_ -]?serial)(?:["'])?(?:[ \t]*[:=][ \t]*["']?|[ \t]+(?=[A-Za-z0-9{}_-]{8})))([A-Za-z0-9{}_-]{6,64})/gi;
 // A long id after a word that says whose it is: "user 123456789012345678 joined".
 const WORD_THEN_SNOWFLAKE = /\b((?:user|member|player|account|discord|steam|owner|author|sender|recipient|guild)(?:[_ -]?id)?[ \t:=#]+)(\d{17,19})(?!\d)/gi;
+// Steam keeps each account's files in userdata/<account number>/. A path with a drive loses that folder to the path rules;
+// a relative one ("Steam\userdata\52079950\config") would keep it, so the number goes on its own.
+const STEAM_USERDATA = /(\buserdata[\\/]+)(\d{1,20})(?![\w.-])/gi;
 // ─── Network ─────────────────────────────────────────────────────────────────
 
 // A dotted number, with the port after it when it has one ("203.0.113.5:2456" is replaced whole: a port is not an address).
@@ -455,6 +458,7 @@ const DYNAMIC_HINT =
 const STEAM_HINT = /U:1:|STEAM_|S-1-|<@/;
 const ID_HINT = /id|serial|key/i;
 const LONG_DIGITS_HINT = /\d{17}/;
+const USERDATA_HINT = /userdata/i;
 const NAME_HINT = /name|logged|user=/i;
 const DEFAULT_MACHINE_HINT = /(?:DESKTOP|LAPTOP|WIN)-/;
 
@@ -723,6 +727,7 @@ export function redact(input: string, options: RedactOptions = {}): { text: stri
     if (maybe(DYNAMIC_HINT)) out = out.replace(DYNAMIC_HOST, () => mark("network"));
 
     out = out.replace(STEAM_ID64, () => mark("id"));
+    if (maybe(USERDATA_HINT)) out = out.replace(STEAM_USERDATA, (_m, lead: string) => `${lead}${mark("id")}`);
     if (maybe(STEAM_HINT)) {
       out = out.replace(STEAM3_ID, () => mark("id"));
       out = out.replace(STEAM2_ID, () => mark("id"));
