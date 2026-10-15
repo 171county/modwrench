@@ -99,6 +99,11 @@ test("a value is read the way QSettings reads it: quotes dropped, backslashes do
   assert.equal(modsOf(list), null);
 });
 
+test("a .. is folded before anything is looked for, as Windows and Wine fold it, so it can step back past a folder that isn't there", () => {
+  const dir = instance((d) => `mod_directory=${ini(join(d, "gone"))}/../back`, ["mods", "back"]);
+  assert.equal(same(modsOf(dir)), same(join(dir, "back")));
+});
+
 test("past its first 512 KB ModOrganizer.ini isn't read, by any of the three, so MO2's default stands", () => {
   const dir = instance((d) => `mod_directory=${ini(join(d, "late"))}`, ["mods", "late"], { general: () => `\n[Geometry]\nblob=${"x".repeat(600 * 1024)}` });
   assert.equal(same(modsOf(dir)), same(join(dir, "mods")));

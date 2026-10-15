@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { isAbsolute, join, parse, resolve } from "node:path";
+import { isAbsolute, join, normalize, parse, resolve } from "node:path";
 import { homedir } from "node:os";
 import { pathExists } from "../detect/os.js";
 import { isDir, readText, resolveCI } from "../doctor/fsutil.js";
@@ -223,6 +223,8 @@ export function mo2Folder(
     path = join(instancePath, path);
   }
   if (isNetworkPath(path)) return null;
+  // Windows, and Wine, fold "." and ".." before they look, so a ".." can step back past a folder that isn't there.
+  path = normalize(path);
   const root = parse(path).root;
   const found = resolveCI(root, ...path.slice(root.length).split(/[\\/]/).filter((part) => part !== ""));
   return found !== null && isDir(found) ? found : null;
