@@ -553,6 +553,23 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   isn't JSON, `-32600 Request body too large` (413), `-32600 Invalid Request`
   for the other rejected bodies, and `-32603 Internal server error` (500) for
   anything else, with no stack trace or path.
+- **`@modwrench/remote` checks which web page a request came from.** The
+  transport specification says a server must check the `Origin` header a
+  browser adds, and answer 403 to one it doesn't accept, so that a web site
+  can't reach the server through your browser (DNS rebinding); it wasn't
+  checked. A request from a page is now answered only when the page is on the
+  same computer and the server listens on `127.0.0.1`, `localhost` or `::1`, or
+  when `MODWRENCH_ALLOWED_ORIGINS` (comma-separated, exact origins such as
+  `https://app.example.com`) lists it, in place of that default. Any other gets
+  403 `Invalid Origin` before its body is read or a session is looked at. A
+  request with no `Origin`, which is what programs other than browsers send, is
+  answered as before, and the `Host` check (`MODWRENCH_ALLOWED_HOSTS`) still
+  applies. A client that sends an `Origin` the server doesn't accept, which
+  worked in 0.2.4, now gets that 403 until its origin is listed. Claude's custom
+  connectors have been reported to send one (`https://claude.ai`, and once
+  `https://claude.ai/`), so a server they use needs
+  `MODWRENCH_ALLOWED_ORIGINS=https://claude.ai,https://claude.ai/`. `GET /mcp`
+  still gets 405, now with the `Allow: POST, DELETE` header HTTP requires.
 - **`mw_detect_environment` finds MelonLoader for BONEWORKS.** It looked for
   `MelonLoader/MelonLoader.dll` in Steam's install folder for the game, but the
   game sits one folder down (`BONEWORKS\BONEWORKS`), and MelonLoader goes beside

@@ -10,17 +10,18 @@ function parsePort(value: string | undefined): number {
   return parsed;
 }
 
-function parseAllowedHosts(value: string | undefined): string[] | undefined {
+function parseList(value: string | undefined): string[] | undefined {
   if (!value) return undefined;
-  const hosts = value
+  const entries = value
     .split(",")
-    .map((host) => host.trim())
-    .filter((host) => host.length > 0);
-  return hosts.length > 0 ? hosts : undefined;
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+  return entries.length > 0 ? entries : undefined;
 }
 
 await startRemoteServer({
   host: process.env.MODWRENCH_REMOTE_HOST ?? "127.0.0.1",
   port: parsePort(process.env.MODWRENCH_REMOTE_PORT ?? process.env.PORT),
-  allowedHosts: parseAllowedHosts(process.env.MODWRENCH_ALLOWED_HOSTS),
+  allowedHosts: parseList(process.env.MODWRENCH_ALLOWED_HOSTS),
+  allowedOrigins: parseList(process.env.MODWRENCH_ALLOWED_ORIGINS),
 });
