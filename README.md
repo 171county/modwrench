@@ -178,8 +178,13 @@ for that case, and it carries only the public Thunderstore tools: it holds no cr
 reads no files ([TRUST.md](TRUST.md) says why). It has to run somewhere the web app can reach:
 it listens on `127.0.0.1` port 3000 unless `MODWRENCH_REMOTE_HOST` and `MODWRENCH_REMOTE_PORT`
 (or `PORT`) say otherwise, and behind a tunnel or proxy `MODWRENCH_ALLOWED_HOSTS` must list
-the public hostname (comma-separated), or every request is refused with "Invalid Host". On a
-server others can reach, its limit of 100 sessions is shared with anyone who connects
+the public hostname (comma-separated), or every request is refused with "Invalid Host". A
+request a browser sends from a web page is refused with "Invalid Origin" unless the page is on
+the same computer and the server listens on `127.0.0.1`, `localhost` or `::1`, or
+`MODWRENCH_ALLOWED_ORIGINS` lists the page's origin exactly (comma-separated, such as
+`https://app.example.com`; the list replaces that default). A request with no origin, which is
+what programs other than browsers send, isn't affected. On a server others can reach, its
+limit of 100 sessions is shared with anyone who connects
 ([TRUST.md](TRUST.md#there-is-no-modwrench-service)).
 
 ### Connecting Nexus and mod.io

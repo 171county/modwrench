@@ -1,7 +1,9 @@
+import { spawn } from "node:child_process";
 import { once } from "node:events";
-import type { Server } from "node:http";
+import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
@@ -308,5 +310,127 @@ test("a body that isn't JSON, or is too large, gets a short JSON-RPC error, not 
     }
   } finally {
     await closeServer(server);
+  }
+});
+
+/** POSTs an initialize, naming the page it came from when there is one, as a browser does. */
+const initializeFrom = (endpoint: string, origin?: string) =>
+  fetch(endpoint, {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", ...(origin ? { origin } : {}) },
+    body: JSON.stringify(INITIALIZE),
+  });
+
+const EVIL = "http://evil.example";
+
+// A browser names the page a request came from in Origin, and the page can't change it, so a page
+// on another site, or one that has pointed its own name at this computer (DNS rebinding), is
+// refused before its body is read or a session looked at. Programs other than browsers send no Origin.
+test("a request from a page on another site gets 403 on POST, GET and DELETE, and opens or ends no session", async () => {
+  const r = await remote({ maxSessions: 1 });
+  const json = { "content-type": "application/json", accept: "application/json, text/event-stream" };
+  const from = (origin: string, method: string, headers: Record<string, string>, body?: string) =>
+    fetch(r.endpoint, { method, headers: { ...headers, origin }, body });
+  try {
+    const session = (await r.post(INITIALIZE)).headers.get("mcp-session-id");
+    assert.ok(session, "a request with no Origin is answered");
+    const refused = [
+      await from(EVIL, "POST", json, JSON.stringify(INITIALIZE)),
+      await from(EVIL, "POST", { ...json, "mcp-session-id": session }, JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" })),
+      await from(EVIL, "POST", json, "{not json"),
+      await from(EVIL, "GET", { accept: "text/event-stream", "mcp-session-id": session }),
+      await from(EVIL, "DELETE", { "mcp-session-id": session }),
+    ];
+    for (const res of refused) {
+      assert.equal(res.status, 403);
+      assert.equal(res.headers.get("mcp-session-id"), null);
+      assert.deepEqual(await res.json(), { jsonrpc: "2.0", error: { code: -32000, message: `Invalid Origin: ${EVIL}` }, id: null });
+    }
+    // Only one session may be open, so a session opened by the refused initialize would have
+    // closed this one; so would the refused DELETE.
+    assert.equal((await r.post({ jsonrpc: "2.0", id: 3, method: "tools/list" }, session)).status, 200);
+  } finally {
+    await r.close();
+  }
+});
+
+test("by default a page on this computer may connect only while the server listens on this computer alone", async () => {
+  const local = await remote();
+  try {
+    for (const origin of ["http://localhost:6274", "http://127.0.0.1:5173", "http://[::1]:8080", "https://localhost"]) {
+      assert.equal((await initializeFrom(local.endpoint, origin)).status, 200, origin);
+    }
+    for (const origin of [EVIL, "http://localhost.evil.example", "null"]) {
+      assert.equal((await initializeFrom(local.endpoint, origin)).status, 403, origin);
+    }
+  } finally {
+    await local.close();
+  }
+
+  // Listening on every interface, "localhost" is whichever computer the browser runs on.
+  const open = await remote({ host: "0.0.0.0", allowedHosts: ["127.0.0.1"] });
+  try {
+    assert.equal((await initializeFrom(open.endpoint, "http://localhost:6274")).status, 403);
+    assert.equal((await initializeFrom(open.endpoint)).status, 200);
+  } finally {
+    await open.close();
+  }
+});
+
+test("allowedOrigins replaces the default with exactly the pages listed, and the Host check still applies", async () => {
+  const r = await remote({ allowedOrigins: ["https://app.example"] });
+  try {
+    assert.equal((await initializeFrom(r.endpoint, "https://app.example")).status, 200);
+    assert.equal((await initializeFrom(r.endpoint, "https://app.example:8443")).status, 403);
+    assert.equal((await initializeFrom(r.endpoint, "http://localhost:6274")).status, 403);
+    assert.equal((await initializeFrom(r.endpoint)).status, 200);
+  } finally {
+    await r.close();
+  }
+
+  const wrongHost = await remote({ allowedHosts: ["mcp.example"], allowedOrigins: ["https://app.example"] });
+  try {
+    const res = await initializeFrom(wrongHost.endpoint, "https://app.example");
+    assert.equal(res.status, 403);
+    assert.match(JSON.stringify(await res.json()), /Invalid Host: 127\.0\.0\.1/);
+  } finally {
+    await wrongHost.close();
+  }
+});
+
+const ENTRY = fileURLToPath(new URL("../src/index.ts", import.meta.url));
+
+test("MODWRENCH_ALLOWED_ORIGINS is read as a comma-separated list and reaches the server", { timeout: 60_000 }, async () => {
+  // The entry point refuses port 0, so find a free port first.
+  const probe = createServer().listen(0, "127.0.0.1");
+  await once(probe, "listening");
+  const port = (probe.address() as AddressInfo).port;
+  await closeServer(probe);
+
+  const child = spawn(process.execPath, ["--import", "tsx", ENTRY], {
+    env: {
+      ...process.env,
+      MODWRENCH_REMOTE_HOST: "127.0.0.1",
+      MODWRENCH_REMOTE_PORT: String(port),
+      MODWRENCH_ALLOWED_HOSTS: "",
+      MODWRENCH_ALLOWED_ORIGINS: " https://a.example, ,https://b.example ",
+    },
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+  try {
+    await new Promise<void>((resolve, reject) => {
+      let stderr = "";
+      child.stderr.on("data", (d) => {
+        stderr += d;
+        if (stderr.includes("remote.started")) resolve();
+      });
+      child.once("exit", (code) => reject(new Error(`the server exited (${code}): ${stderr}`)));
+    });
+    const endpoint = `http://127.0.0.1:${port}/mcp`;
+    assert.equal((await initializeFrom(endpoint, "https://a.example")).status, 200);
+    assert.equal((await initializeFrom(endpoint, "https://b.example")).status, 200);
+    assert.equal((await initializeFrom(endpoint, "http://localhost:6274")).status, 403);
+  } finally {
+    child.kill();
   }
 });

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { NextFunction, Request, Response } from "express";
+import express, { type NextFunction, type Request, type Response } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -15,6 +15,14 @@ export const REMOTE_TOOL_COUNT = 9;
 export type RemoteAppOptions = {
   host?: string;
   allowedHosts?: string[];
+  /**
+   * The web pages whose requests are answered, each an origin exactly as a browser sends it
+   * (scheme, host and port); a request from any other page gets 403. Default: a page on this
+   * computer (`localhost`, `127.0.0.1` or `[::1]`, any port) while `host` is `127.0.0.1`,
+   * `localhost` or `::1`, and no page otherwise. A request with no Origin header, as programs
+   * other than browsers send, is always answered.
+   */
+  allowedOrigins?: string[];
   /** How long a client's session may go unused before it is closed. Default 24 hours. */
   sessionIdleMs?: number;
   /** How many sessions may be open at once; opening one more closes the least recently used. Default 100. */
@@ -45,6 +53,17 @@ const NO_SESSION = "Bad Request: Mcp-Session-Id header is required (send initial
 
 function rpcError(res: Response, status: number, code: number, message: string): void {
   res.status(status).json({ jsonrpc: "2.0", error: { code, message }, id: null });
+}
+
+// The names a page on this computer has in its address, written as the SDK's Host check writes them.
+const LOOPBACK = ["localhost", "127.0.0.1", "[::1]"];
+
+function originAllowed(origin: string, options: RemoteAppOptions): boolean {
+  if (options.allowedOrigins) return options.allowedOrigins.includes(origin);
+  // Only while the server listens on this computer alone is a page on "localhost" one on the
+  // same computer; listening on every interface, it is whichever computer the browser runs on.
+  if (!["127.0.0.1", "localhost", "::1"].includes(options.host ?? "127.0.0.1")) return false;
+  return URL.canParse(origin) && LOOPBACK.includes(new URL(origin).hostname);
 }
 
 export function createRemoteApp(options: RemoteAppOptions = {}) {
@@ -172,7 +191,17 @@ export function createRemoteApp(options: RemoteAppOptions = {}) {
     rpcError(res, 500, -32603, "Internal server error");
   });
 
-  return app;
+  // A browser names the page a request came from in its Origin header, and the page can't change
+  // it. A request from a page that isn't allowed, such as one on another site that has pointed its
+  // own name at this computer (DNS rebinding), gets 403 here. This wraps the SDK's app, which reads
+  // the body before anything added to it runs, so the refusal comes before the Host check, the body
+  // and any session. Programs other than browsers send no Origin and pass.
+  const checkOrigin = (req: Request, res: Response, next: NextFunction) => {
+    const origin = req.header("origin");
+    if (!origin || originAllowed(origin, options)) return next();
+    rpcError(res, 403, -32000, `Invalid Origin: ${origin}`);
+  };
+  return express().use(checkOrigin, app);
 }
 
 export async function startRemoteServer(
@@ -183,6 +212,7 @@ export async function startRemoteServer(
   const app = createRemoteApp({
     host,
     allowedHosts: options.allowedHosts,
+    allowedOrigins: options.allowedOrigins,
     sessionIdleMs: options.sessionIdleMs,
     maxSessions: options.maxSessions,
   });
