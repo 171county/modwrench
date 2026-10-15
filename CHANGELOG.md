@@ -548,6 +548,13 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   isn't JSON, `-32600 Request body too large` (413), `-32600 Invalid Request`
   for the other rejected bodies, and `-32603 Internal server error` (500) for
   anything else, with no stack trace or path.
+- **`mw_detect_environment` finds MelonLoader for BONEWORKS.** It looked for
+  `MelonLoader/MelonLoader.dll` in Steam's install folder for the game, but the
+  game sits one folder down (`BONEWORKS\BONEWORKS`), and MelonLoader goes beside
+  it; from 0.6 on, its build for a game like this one is in `MelonLoader/net6`.
+  So a Steam copy with MelonLoader read as having no loader. Both layouts are
+  now looked for in the game's own folder. An install r2modman manages still
+  reads as none, because r2modman keeps MelonLoader in its profile.
 
 ## [0.2.4] — 2026-09-15
 

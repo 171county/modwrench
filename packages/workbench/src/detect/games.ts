@@ -234,8 +234,14 @@ export const KNOWN_GAMES: GameDef[] = [
     steamAppId: "823500",
     displayName: "BONEWORKS",
     family: "unity-coop",
+    // MelonLoader goes beside the game's executable (it takes the folder the running game is in), which is one folder
+    // down in Steam's install folder. From 0.6 on, the build an IL2CPP game such as this one loads is in
+    // MelonLoader/net6 (MelonLoader.csproj puts each framework's build in a folder of its own); 0.5 had
+    // MelonLoader/MelonLoader.dll. r2modman keeps MelonLoader in its own profile and starts the game pointed at it,
+    // so an install it manages still isn't seen from the game folder.
     loaderChecks: [
-      { loader: "melonloader", files: ["MelonLoader/MelonLoader.dll"] },
+      { loader: "melonloader", files: ["BONEWORKS/MelonLoader/net6/MelonLoader.dll"] },
+      { loader: "melonloader", files: ["BONEWORKS/MelonLoader/MelonLoader.dll"] },
     ],
     r2modmanFolder: "BONEWORKS",
     // Steam's install folder holds the game one folder down (Steam launches BONEWORKS\BONEWORKS.exe), and either

@@ -15,12 +15,6 @@ The code is on `main`, and none of it is on npm yet. Two checks it hasn't had:
   one should be opened in the clients that support MCP Apps, with the results written into
   TRUST.md.
 
-Being built before the release:
-
-- **BONEWORKS and MelonLoader.** Because the game's executable sits one folder down,
-  environment detection may look for MelonLoader one folder too high and always report no
-  loader. To be confirmed first.
-
 ## After 0.3.0
 
 - **More of LOOT's masterlist.** The conflict check reads only the masterlist's
