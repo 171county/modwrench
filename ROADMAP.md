@@ -5,9 +5,9 @@ These are plans, not promises: [CHANGELOG.md](CHANGELOG.md) says what has shippe
 [TRUST.md](TRUST.md) says what each tool does today. If something here is wrong or you'd
 order it differently, [open an issue](https://github.com/171county/modwrench/issues).
 
-## 0.3.0, before it is tagged
+## Still to check from 0.3.0
 
-The code is on `main`. Two things it hasn't had yet:
+0.3.0 was released without two checks, and they come first:
 
 - **A real game install.** Nothing has run against a real Skyrim Special Edition or
   Fallout 4 folder; the tests build their own.

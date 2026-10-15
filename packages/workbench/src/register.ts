@@ -477,7 +477,7 @@ export function registerWorkbenchTools(server: McpServer): {
     "mw_diagnose_crash",
     {
       title: "Diagnose a crash",
-      description: "Crash log in, culprit shortlist out. Parses the log, then correlates its suspects with the loaded plugins and (with a gameId) the known-conflict database into one bundle: which suspected mods are actually in the load order, at what index, and which loaded plugins have known conflicts. It lines up the evidence; it does NOT name the cause — that's the model's call, reasoned over the data. Use when the user says \"what's causing my crash\", \"which mod is it\", or pastes a crash log and wants the answer. Opt-in attribution (attributeSuspects=true) links up to 5 suspects to their Nexus mod pages — author, link, and the name it matched, since a name search can mismatch; off by default so the diagnosis stays fully local.",
+      description: "Crash log in, culprit shortlist out. Parses the log, then correlates its suspects with the loaded plugins and (with a gameId) the known-conflict database into one bundle: which suspected mods are actually in the load order, at what index, and which loaded plugins have known conflicts. It lines up the evidence; it does NOT name the cause — that's the model's call, reasoned over the data. Use when the user says \"what's causing my crash\", \"which mod is it\", or pastes a crash log and wants the answer. Opt-in attribution (attributeSuspects=true) links up to 5 suspects to their Nexus mod pages — author, link, and the name it matched, since a name search can mismatch; off by default, so nothing about the suspects leaves the computer. With a gameId the known-conflict check fetches LOOT's public list from GitHub, which sends nothing from the log.",
       inputSchema: {
         logContent: z
           .string()
@@ -503,7 +503,7 @@ export function registerWorkbenchTools(server: McpServer): {
           .boolean()
           .optional()
           .describe(
-            "Opt-in, off by default: resolve up to 5 named suspects to their Nexus mod pages (author + link) so the user can reach the author. Requires gameId and a stored Nexus credential; makes bounded network calls to api.nexusmods.com only when true. Default: the diagnosis touches nothing but the log."
+            "Opt-in, off by default: resolve up to 5 named suspects to their Nexus mod pages (author + link) so the user can reach the author. Requires gameId and a stored Nexus credential; makes bounded network calls to api.nexusmods.com only when true. Default: no call to Nexus (with a gameId the known-conflict check still fetches LOOT's public list from GitHub)."
           ),
       },
       annotations: {
