@@ -889,7 +889,8 @@ test("a gamePath without the game's executable is turned away, or checked with a
       assert.ok(f.fix!.includes(name), `${def.gameId}: the fix names ${name}`);
     }
     if (def.exeFolderHint !== undefined) assert.ok(f.fix!.endsWith(` ${def.exeFolderHint}`), def.gameId);
-    assert.ok(!JSON.stringify(r).includes(sandbox.root), `${def.gameId}: the folder isn't echoed back`);
+    // Looked for as JSON writes it, so the backslashes of a Windows path don't hide it.
+    assert.ok(!JSON.stringify(r).includes(JSON.stringify(sandbox.root).slice(1, -1)), `${def.gameId}: the folder isn't echoed back`);
   }
 });
 

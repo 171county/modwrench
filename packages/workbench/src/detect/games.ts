@@ -40,7 +40,8 @@ export type GameDef = {
   /**
    * The game's executable, as a path below the folder a player gives (forward slashes): a name for each store's copy
    * or platform build that has one on record. The Doctors take a gamePath as the game's own folder only when it holds
-   * one of these. A name ending in ".app" is a macOS app bundle, which is a folder.
+   * one of these; with exeUnconfirmed set, a folder without one is taken with a warning. A name ending in ".app" is a
+   * macOS app bundle, which is a folder.
    */
   exeNames: string[];
   /**
