@@ -5,9 +5,9 @@ These are plans, not promises: [CHANGELOG.md](CHANGELOG.md) says what has shippe
 [TRUST.md](TRUST.md) says what each tool does today. If something here is wrong or you'd
 order it differently, [open an issue](https://github.com/171county/modwrench/issues).
 
-## Still to check from 0.3.0
+## Before 0.3.0 is released
 
-0.3.0 was released without two checks, and they come first:
+The code is on `main`, and none of it is on npm yet. Two checks it hasn't had:
 
 - **A real game install.** Nothing has run against a real Skyrim Special Edition or
   Fallout 4 folder; the tests build their own.
@@ -15,7 +15,7 @@ order it differently, [open an issue](https://github.com/171county/modwrench/iss
   one should be opened in the clients that support MCP Apps, with the results written into
   TRUST.md.
 
-## 0.3.1
+Being built before the release:
 
 - **The Doctors check that a folder is the game's own, for every game.** A `gamePath` for
   Skyrim Special Edition must hold `SkyrimSE.exe`, and one for Fallout 4 `Fallout4.exe`.
