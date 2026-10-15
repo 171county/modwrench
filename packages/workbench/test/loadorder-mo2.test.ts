@@ -1,6 +1,6 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { findGameById } from "../src/detect/games.js";
 import { discoverMo2 } from "../src/doctor/mo2facts.js";
@@ -112,8 +112,15 @@ test("mw_read_load_order finds the profiles folder by the same rules", () => {
 
 test("under Wine only Z: is this machine, and a folder is found whatever its capitals, as Wine finds it", (t) => {
   if (windows) return t.skip("Wine's drives only mean something on Linux and macOS");
+  // A disk that ignores capitals itself, as a Mac's usually does, gives the name back as the ini spells it.
+  const probe = join(sandbox.root, "case");
+  mkdirSync(probe);
+  writeFileSync(join(probe, "a"), "");
+  writeFileSync(join(probe, "A"), "");
+  const caseSensitive = readdirSync(probe).length === 2;
+  const spelled = (path: string | null | undefined): string | null | undefined => (caseSensitive ? path : path?.toLowerCase());
   const dir = instance((d) => `mod_directory=Z:${join(d, "MiXeD", "MODS")}\nprofiles_directory=Z:${join(d, "PROFILES")}`, ["mods", "mixed/mods"]);
-  assert.equal(modsOf(dir), join(dir, "mixed", "mods"), "spelled as it is on disk");
-  assert.equal(readMo2LoadOrder(SSE, { instancePath: dir })?.sourcePath, join(dir, "profiles", "Default"));
+  assert.equal(spelled(modsOf(dir)), spelled(join(dir, "mixed", "mods")), "spelled as it is on disk");
+  assert.equal(spelled(readMo2LoadOrder(SSE, { instancePath: dir })?.sourcePath), spelled(join(dir, "profiles", "Default")));
   assert.equal(modsOf(instance(() => "mod_directory=D:/Mods")), null, "a drive Wine maps somewhere ModWrench can't tell");
 });
