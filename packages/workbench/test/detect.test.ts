@@ -17,6 +17,8 @@ import {
   findProtonPrefix,
 } from "../src/detect/steam.js";
 import { detectInstalledManagers } from "../src/detect/manager.js";
+import { findGameById } from "../src/detect/games.js";
+import { detectModLoader } from "../src/detect/loader.js";
 
 // ─── Why these tests exist ────────────────────────────────────────────────────
 // The detection code is the part of ModWrench nobody else has, and it is also
@@ -464,4 +466,26 @@ test("detectInstalledManagers: returns empty rather than throwing with nothing i
   process.env.HOME = home;
   process.env.USERPROFILE = home;
   assert.deepEqual(detectInstalledManagers([]), []);
+});
+
+// ─── detectModLoader ──────────────────────────────────────────────────────────
+
+test("detectModLoader: finds BONEWORKS's MelonLoader beside the game, one folder down in Steam's install folder", () => {
+  const boneworks = findGameById("boneworks")!;
+  // 0.6 and later keep the build an IL2CPP game loads in MelonLoader/net6; 0.5 had MelonLoader/MelonLoader.dll.
+  for (const [name, folders] of [["new", ["net6"]], ["old", []]] as const) {
+    const install = mkdirp(TMP, `boneworks-${name}`, "steamapps", "common", "BONEWORKS");
+    write(join(mkdirp(install, "BONEWORKS"), "BONEWORKS.exe"), "");
+    write(join(mkdirp(install, "BONEWORKS", "MelonLoader", ...folders), "MelonLoader.dll"), "");
+    assert.equal(detectModLoader(install, boneworks), "melonloader", name);
+  }
+});
+
+test("detectModLoader: MelonLoader in Steam's install folder for BONEWORKS, above the game, isn't counted", () => {
+  // The game doesn't load it from there: MelonLoader works from the folder the running game is in.
+  const install = mkdirp(TMP, "boneworks-above", "steamapps", "common", "BONEWORKS");
+  write(join(mkdirp(install, "BONEWORKS"), "BONEWORKS.exe"), "");
+  write(join(mkdirp(install, "MelonLoader"), "MelonLoader.dll"), "");
+  write(join(mkdirp(install, "MelonLoader", "net6"), "MelonLoader.dll"), "");
+  assert.equal(detectModLoader(install, findGameById("boneworks")!), "none");
 });

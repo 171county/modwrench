@@ -37,6 +37,20 @@ export type GameDef = {
   r2modmanFolder?: string;
   /** Substrings that may appear in MO2's ModOrganizer.ini gameName field. */
   mo2GameNames?: string[];
+  /**
+   * The game's executable, as a path below the folder a player gives (forward slashes): a name for each store's copy
+   * or platform build that has one on record. The Doctors take a gamePath as the game's own folder only when it holds
+   * one of these; with exeUnconfirmed set, a folder without one is taken with a warning. A name ending in ".app" is a
+   * macOS app bundle, which is a folder.
+   */
+  exeNames: string[];
+  /**
+   * The store copies whose executable isn't confirmed, such as "the Microsoft Store copy": a folder without one of
+   * exeNames may still be the game's.
+   */
+  exeUnconfirmed?: string;
+  /** A sentence for the fix text, for a store that puts the executable in a folder below the one it creates. */
+  exeFolderHint?: string;
 };
 
 export function findGameById(gameId: string): GameDef | undefined {
@@ -64,6 +78,8 @@ export const KNOWN_GAMES: GameDef[] = [
     family: "bethesda",
     loaderChecks: [{ loader: "skse", files: ["skse64_loader.exe"] }],
     mo2GameNames: ["Skyrim Special Edition", "Skyrim SE"],
+    exeNames: ["SkyrimSE.exe"],
+    exeFolderHint: "The Microsoft Store copy keeps it in its Content folder.",
   },
   {
     gameId: "skyrim",
@@ -72,6 +88,7 @@ export const KNOWN_GAMES: GameDef[] = [
     family: "bethesda",
     loaderChecks: [{ loader: "skse", files: ["skse_loader.exe"] }],
     mo2GameNames: ["Skyrim", "Skyrim Legendary Edition"],
+    exeNames: ["TESV.exe"],
   },
   {
     gameId: "skyrimvr",
@@ -80,6 +97,7 @@ export const KNOWN_GAMES: GameDef[] = [
     family: "bethesda",
     loaderChecks: [{ loader: "skse", files: ["sksevr_loader.exe"] }],
     mo2GameNames: ["Skyrim VR"],
+    exeNames: ["SkyrimVR.exe"],
   },
   {
     gameId: "fallout4",
@@ -88,6 +106,8 @@ export const KNOWN_GAMES: GameDef[] = [
     family: "bethesda",
     loaderChecks: [{ loader: "f4se", files: ["f4se_loader.exe"] }],
     mo2GameNames: ["Fallout 4"],
+    exeNames: ["Fallout4.exe"],
+    exeFolderHint: "The Microsoft Store copy keeps it in its Content folder.",
   },
   {
     gameId: "fallout4vr",
@@ -96,6 +116,7 @@ export const KNOWN_GAMES: GameDef[] = [
     family: "bethesda",
     loaderChecks: [{ loader: "f4se", files: ["f4sevr_loader.exe"] }],
     mo2GameNames: ["Fallout 4 VR"],
+    exeNames: ["Fallout4VR.exe"],
   },
   {
     gameId: "falloutnv",
@@ -104,6 +125,9 @@ export const KNOWN_GAMES: GameDef[] = [
     family: "bethesda",
     loaderChecks: [{ loader: "nvse", files: ["nvse_loader.exe"] }],
     mo2GameNames: ["New Vegas", "Fallout New Vegas"],
+    exeNames: ["FalloutNV.exe"],
+    exeFolderHint:
+      "The Epic and Microsoft Store copies keep it in a language folder, such as Fallout New Vegas English, which for the Microsoft Store is inside its Content folder.",
   },
   {
     gameId: "fallout3",
@@ -112,6 +136,11 @@ export const KNOWN_GAMES: GameDef[] = [
     family: "bethesda",
     loaderChecks: [{ loader: "fose", files: ["fose_loader.exe"] }],
     mo2GameNames: ["Fallout 3"],
+    // Mod Organizer 2, Vortex and FOSE also look for Fallout3ng.exe, the German low-violence copy's name; which copies
+    // have it isn't confirmed.
+    exeNames: ["Fallout3.exe", "Fallout3ng.exe"],
+    exeFolderHint:
+      "The Epic and Microsoft Store copies keep it in a language folder, such as Fallout 3 GOTY English, which for the Microsoft Store is inside its Content folder.",
   },
   {
     gameId: "starfield",
@@ -120,6 +149,8 @@ export const KNOWN_GAMES: GameDef[] = [
     family: "bethesda",
     loaderChecks: [{ loader: "sfse", files: ["sfse_loader.exe"] }],
     mo2GameNames: ["Starfield"],
+    exeNames: ["Starfield.exe"],
+    exeFolderHint: "The Microsoft Store copy keeps it in its Content folder.",
   },
   {
     gameId: "oblivion",
@@ -128,6 +159,9 @@ export const KNOWN_GAMES: GameDef[] = [
     family: "bethesda",
     loaderChecks: [{ loader: "obse", files: ["obse_loader.exe"] }],
     mo2GameNames: ["Oblivion"],
+    exeNames: ["Oblivion.exe"],
+    exeFolderHint:
+      "The Epic and Microsoft Store copies keep it in a language folder, such as Oblivion GOTY English, which for the Microsoft Store is inside its Content folder.",
   },
   {
     gameId: "lethalcompany",
@@ -141,6 +175,7 @@ export const KNOWN_GAMES: GameDef[] = [
       },
     ],
     r2modmanFolder: "LethalCompany",
+    exeNames: ["Lethal Company.exe"],
   },
   {
     gameId: "valheim",
@@ -151,6 +186,10 @@ export const KNOWN_GAMES: GameDef[] = [
       { loader: "bepinex-5", files: ["BepInEx/core/BepInEx.dll"] },
     ],
     r2modmanFolder: "Valheim",
+    // The Windows, native Linux and macOS builds, as Steam launches them. That the Microsoft Store copy has valheim.exe
+    // too rests on the Valheim wiki alone, and the Mac App Store copy's name wasn't found.
+    exeNames: ["valheim.exe", "valheim.x86_64", "valheim.app"],
+    exeUnconfirmed: "the Microsoft Store and Mac App Store copies",
   },
   {
     gameId: "repo",
@@ -165,6 +204,7 @@ export const KNOWN_GAMES: GameDef[] = [
       { loader: "bepinex-5", files: ["BepInEx/core/BepInEx.dll"] },
     ],
     r2modmanFolder: "REPO",
+    exeNames: ["REPO.exe"],
   },
   {
     gameId: "riskofrain2",
@@ -175,6 +215,7 @@ export const KNOWN_GAMES: GameDef[] = [
       { loader: "bepinex-5", files: ["BepInEx/core/BepInEx.dll"] },
     ],
     r2modmanFolder: "RiskOfRain2",
+    exeNames: ["Risk of Rain 2.exe"],
   },
   {
     gameId: "dysonsphereprogram",
@@ -185,15 +226,28 @@ export const KNOWN_GAMES: GameDef[] = [
       { loader: "bepinex-5", files: ["BepInEx/core/BepInEx.dll"] },
     ],
     r2modmanFolder: "DysonSphereProgram",
+    // "Dyson Sphere Program.exe" is the Microsoft Store copy's, as modders report it; neither Microsoft nor the
+    // developer says so.
+    exeNames: ["DSPGAME.exe", "Dyson Sphere Program.exe"],
+    exeUnconfirmed: "the Microsoft Store and WeGame copies",
   },
   {
     gameId: "boneworks",
     steamAppId: "823500",
     displayName: "BONEWORKS",
     family: "unity-coop",
+    // MelonLoader goes beside the game's executable (it takes the folder the running game is in), which is one folder
+    // down in Steam's install folder. From 0.6 on, the build an IL2CPP game such as this one loads is in
+    // MelonLoader/net6 (MelonLoader.csproj puts each framework's build in a folder of its own); 0.5 had
+    // MelonLoader/MelonLoader.dll. r2modman keeps MelonLoader in its own profile and starts the game pointed at it,
+    // so an install it manages still isn't seen from the game folder.
     loaderChecks: [
-      { loader: "melonloader", files: ["MelonLoader/MelonLoader.dll"] },
+      { loader: "melonloader", files: ["BONEWORKS/MelonLoader/net6/MelonLoader.dll"] },
+      { loader: "melonloader", files: ["BONEWORKS/MelonLoader/MelonLoader.dll"] },
     ],
     r2modmanFolder: "BONEWORKS",
+    // Steam's install folder holds the game one folder down (Steam launches BONEWORKS\BONEWORKS.exe), and either
+    // folder is taken as the game's. The Oculus copy's executable has a name of its own.
+    exeNames: ["BONEWORKS.exe", "BONEWORKS/BONEWORKS.exe", "Boneworks_Oculus_Windows64.exe"],
   },
 ];

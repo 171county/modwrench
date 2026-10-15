@@ -843,7 +843,7 @@ export function registerWorkbenchTools(server: McpServer): {
           .string()
           .optional()
           .describe(
-            "The folder that holds the game's executable (for Skyrim Special Edition, SkyrimSE.exe; for Fallout 4, Fallout4.exe), not its Data folder, when ModWrench can't find it in a Steam library on its own: a GOG or Epic copy, or an unusual place."
+            "The folder that holds the game's executable (for Skyrim Special Edition, SkyrimSE.exe; for Fallout 4, Fallout4.exe), not its Data folder, when ModWrench can't find it in a Steam library on its own: a GOG or Epic copy, or an unusual place. Every game is checked for its executable: a folder without it is reported as not the game's, or, where a store's copy has no confirmed executable name, checked with a warning."
           ),
         mo2InstancePath: z
           .string()

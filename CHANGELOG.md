@@ -181,7 +181,13 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   Proton has made the game's prefix, whether Proton is told to load BepInEx's
   `winhttp` (in the launch options or the prefix's `user.reg`), which app opens
   `nxm://` links, whether a Steam library sits on an NTFS, FAT32 or exFAT drive, and
-  folder names that differ only by capital letters.
+  folder names that differ only by capital letters. A `gamePath` is taken as the
+  game's folder only when it holds the game's executable, for every game the Doctors
+  know (BONEWORKS's may sit one folder down, as Steam installs it); where a
+  store's copy has no confirmed executable name (Valheim's from the Microsoft Store
+  and the Mac App Store, Dyson Sphere Program's from the Microsoft Store and
+  WeGame), a folder without one is checked with a warning, so the report can't
+  read clear.
 
   Every finding says what it rests on, the same way Patch Day and Crash Whisperer
   do: `install` (your files), `rule` (another tool's own documentation, with the
@@ -224,7 +230,7 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   could be read as a switched-off master. Where its sources
   disagree (when a missing master crashes the game, on launch or during play) it says
   "likely" and not when. Tested on constructed installs, including a stand-in Steam,
-  Mod Organizer 2 and Proton prefix, with 297 tests in eight files and the Doctors'
+  Mod Organizer 2 and Proton prefix, with 307 tests in eight files and the Doctors'
   rules broken on purpose, 43 ways and then 7 more for Vortex and Fallout 4, to
   confirm a test fails each time. The page was
   exercised in a real browser against a stand-in for an MCP Apps host, including
@@ -543,6 +549,13 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   isn't JSON, `-32600 Request body too large` (413), `-32600 Invalid Request`
   for the other rejected bodies, and `-32603 Internal server error` (500) for
   anything else, with no stack trace or path.
+- **`mw_detect_environment` finds MelonLoader for BONEWORKS.** It looked for
+  `MelonLoader/MelonLoader.dll` in Steam's install folder for the game, but the
+  game sits one folder down (`BONEWORKS\BONEWORKS`), and MelonLoader goes beside
+  it; from 0.6 on, its build for a game like this one is in `MelonLoader/net6`.
+  So a Steam copy with MelonLoader read as having no loader. Both layouts are
+  now looked for in the game's own folder. An install r2modman manages still
+  reads as none, because r2modman keeps MelonLoader in its profile.
 
 ## [0.2.4] — 2026-09-15
 

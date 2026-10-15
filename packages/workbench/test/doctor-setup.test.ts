@@ -2,7 +2,9 @@ import { test, before, after, afterEach, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import { KNOWN_GAMES, findGameById } from "../src/detect/games.js";
 import { Budget } from "../src/doctor/fsutil.js";
+import { PLUGIN_GAMES } from "../src/doctor/games.js";
 import { DOCTOR_GAMES, runDoctor } from "../src/doctor/index.js";
 import { checkPlugins } from "../src/doctor/setup-plugins.js";
 import { summarizeDoctor } from "../src/doctor/summary.js";
@@ -823,6 +825,108 @@ test("a game outside Steam, such as a GOG copy, works when its folder is given",
   assert.equal(r.looked.gameFolder, true);
   assert.deepEqual(r.looked.plugins, { listed: 1, active: 6, read: 6, unreadable: 0, complete: true });
   assert.equal(must(r, "setup.masters").status, "ok");
+});
+
+let givens = 0;
+
+/** An empty folder of its own to pass as gamePath, outside any Steam library. */
+function givenFolder(): string {
+  const dir = join(sandbox.root, "given", String(givens++));
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+/** Put one of the game's executables in `dir`: a file, or a folder for a macOS app bundle. */
+function putExe(dir: string, name: string): void {
+  if (name.toLowerCase().endsWith(".app")) mkdirSync(join(dir, ...name.split("/")), { recursive: true });
+  else putRel(dir, name, "MZ");
+}
+
+test("every game the Doctors know has at least one executable to know its folder by", () => {
+  for (const def of KNOWN_GAMES) assert.ok(def.exeNames.length > 0, def.gameId);
+});
+
+test("a game with plugin checks is known by the executable its version is read from, and a folder without one is always turned away", () => {
+  for (const [id, game] of Object.entries(PLUGIN_GAMES)) {
+    const def = findGameById(id);
+    assert.ok(def?.exeNames.includes(game.exe), `${id}: the crash-logger check reads the version from ${game.exe}`);
+    // With a copy left unconfirmed, a folder without the executable would be checked anyway, and the plugin checks with it.
+    assert.equal(def?.exeUnconfirmed, undefined, id);
+  }
+});
+
+test("a gamePath is taken as the game's folder once it holds any one of the game's executables, in any letter case", () => {
+  for (const def of KNOWN_GAMES) {
+    for (const name of def.exeNames) {
+      for (const written of [name, name.toUpperCase()]) {
+        newHome();
+        const dir = givenFolder();
+        assert.notEqual(find(run({ gameId: def.gameId, gamePath: dir }), "setup.game"), undefined, `${def.gameId}: an empty folder isn't simply taken`);
+        putExe(dir, written);
+        const r = run({ gameId: def.gameId, gamePath: dir });
+        assert.equal(find(r, "setup.game"), undefined, `${def.gameId}: ${written}`);
+        assert.equal(r.looked.gameFolder, true, `${def.gameId}: ${written}`);
+      }
+    }
+  }
+});
+
+test("a gamePath without the game's executable is turned away, or checked with a warning where a store's copy has no confirmed name, and never reads clear", () => {
+  for (const def of KNOWN_GAMES) {
+    newHome();
+    const r = run({ gameId: def.gameId, gamePath: givenFolder() });
+    const f = must(r, "setup.game");
+    if (def.exeUnconfirmed === undefined) {
+      assert.deepEqual([f.status, f.title, r.looked.gameFolder, r.verdict], ["problem", "That folder isn't the game's folder", false, "problems"], def.gameId);
+    } else {
+      // The folder is still checked, so a real install from that store isn't turned away, but the report can't read clear.
+      assert.deepEqual([f.status, f.title, r.looked.gameFolder, r.verdict], ["warn", "Couldn't confirm that's the game's folder", true, "attention"], def.gameId);
+      assert.ok(f.detail.includes(`isn't confirmed for ${def.exeUnconfirmed}`), def.gameId);
+      assert.ok(r.nextSteps.includes(f.fix!), def.gameId);
+    }
+    for (const name of def.exeNames) {
+      assert.ok(f.detail.includes(name), `${def.gameId}: the detail names ${name}`);
+      assert.ok(f.fix!.includes(name), `${def.gameId}: the fix names ${name}`);
+    }
+    if (def.exeFolderHint !== undefined) assert.ok(f.fix!.endsWith(` ${def.exeFolderHint}`), def.gameId);
+    // Looked for as JSON writes it, so the backslashes of a Windows path don't hide it.
+    assert.ok(!JSON.stringify(r).includes(JSON.stringify(sandbox.root).slice(1, -1)), `${def.gameId}: the folder isn't echoed back`);
+  }
+});
+
+test("several names are listed the way a person would write them", () => {
+  newHome();
+  const f = must(run({ gameId: "boneworks", gamePath: givenFolder() }), "setup.game");
+  assert.match(f.detail, /no BONEWORKS\.exe, BONEWORKS\/BONEWORKS\.exe or Boneworks_Oculus_Windows64\.exe in it/);
+  assert.equal(f.fix, "Give the folder that holds BONEWORKS.exe, BONEWORKS/BONEWORKS.exe or Boneworks_Oculus_Windows64.exe: the folder the game was installed in, not the library folder above it.");
+  const fo3 = must(run({ gameId: "fallout3", gamePath: givenFolder() }), "setup.game");
+  assert.match(fo3.fix ?? "", /^Give the folder that holds Fallout3\.exe or Fallout3ng\.exe: the game's own folder, not its Data folder/);
+});
+
+test("BONEWORKS is found from Steam's folder for it and from the folder inside that holds the game", () => {
+  newHome();
+  const steamFolder = join(givenFolder(), "BONEWORKS");
+  putRel(steamFolder, "BONEWORKS/BONEWORKS.exe", "MZ");
+  for (const dir of [steamFolder, join(steamFolder, "BONEWORKS")]) {
+    const r = run({ gameId: "boneworks", gamePath: dir });
+    assert.equal(find(r, "setup.game"), undefined, dir);
+    assert.equal(r.looked.gameFolder, true);
+  }
+  const above = must(run({ gameId: "boneworks", gamePath: join(steamFolder, "..") }), "setup.game");
+  assert.equal(above.status, "problem", "the library folder above it isn't the game's");
+});
+
+test("a macOS app bundle counts only as a folder, and an executable only as a file", () => {
+  newHome();
+  const file = givenFolder();
+  putRel(file, "valheim.app", "not a bundle");
+  assert.equal(must(run({ gameId: "valheim", gamePath: file }), "setup.game").status, "warn");
+  const folder = givenFolder();
+  mkdirSync(join(folder, "valheim.exe"));
+  assert.equal(must(run({ gameId: "valheim", gamePath: folder }), "setup.game").status, "warn");
+  const bundle = givenFolder();
+  mkdirSync(join(bundle, "valheim.app", "Contents"), { recursive: true });
+  assert.equal(find(run({ gameId: "valheim", gamePath: bundle }), "setup.game"), undefined);
 });
 
 // ─── Where things live ───────────────────────────────────────────────────────

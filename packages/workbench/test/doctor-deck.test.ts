@@ -86,6 +86,8 @@ function lethal(): World & { game: string } {
   freshHome();
   const w = sandbox.makeWorld();
   const { gameDir } = makeSteam(w.steam, { game: LETHAL });
+  // The game's executable, by which a gamePath is known as the game's folder.
+  putRel(gameDir!, "Lethal Company.exe", "MZ");
   return { ...w, game: gameDir! };
 }
 

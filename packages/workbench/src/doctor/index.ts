@@ -46,6 +46,23 @@ function isInside(child: string, parent: string): boolean {
   return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 }
 
+/** Names in words: "A", "A or B", "A, B or C". */
+function anyOf(names: string[]): string {
+  return names.length < 3 ? names.join(" or ") : `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
+}
+
+/**
+ * Does `dir` hold one of the game's executables? Each part of a name is matched without regard to case, the way Windows
+ * matches it, also on a case-sensitive file system. A name ending in ".app" (a macOS app bundle) has to be a folder, and
+ * any other a file.
+ */
+function holdsGame(dir: string, def: GameDef): boolean {
+  return def.exeNames.some((name) => {
+    const found = resolveCI(dir, ...name.split("/"));
+    return found !== null && (name.endsWith(".app") ? isDir(found) : isFile(found));
+  });
+}
+
 function fail(error: string, hint?: string): DoctorError {
   return { ok: false, error, ...(hint ? { hint } : {}), supportedGames: DOCTOR_GAMES };
 }
@@ -143,11 +160,14 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
   if (options.gamePath !== undefined && options.gamePath.trim() !== "") {
     const given = resolve(options.gamePath);
     // The plugin checks read Data and plugins.txt from this folder, so a folder that isn't the game's own (its Data
-    // folder, the library above it) would read as a game with nothing installed. A game with plugin checks is known by
-    // its executable (SkyrimSE.exe, Fallout4.exe, as Patch Day and MO2 know them). The other games don't have theirs
-    // on record yet, so for them any folder is taken as given.
-    const known = PLUGIN_GAMES[def.gameId];
-    const exe = known !== undefined ? resolveCI(given, known.exe) : null;
+    // folder, the library above it) would read as a game with nothing installed, and for any game it takes the place
+    // of the folder Steam found. So a game is known by its executable, by the names detect/games.ts has on record for
+    // it. Where a store's copy has no confirmed name, a folder without one is still checked, with a warning that keeps
+    // the verdict off "clear". A game with plugin checks never gets that warning, though Fallout 4's newer Microsoft
+    // Store package isn't confirmed either: those checks would read a wrong folder as a game with nothing installed.
+    const names = anyOf(def.exeNames);
+    const where = def.family === "bethesda" ? "the game's own folder, not its Data folder or the library folder above it" : "the folder the game was installed in, not the library folder above it";
+    const hint = def.exeFolderHint !== undefined ? ` ${def.exeFolderHint}` : "";
     if (!isDir(given)) {
       findings.push({
         id: "setup.game",
@@ -158,18 +178,29 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
         fix: "Give the folder that holds the game's executable.",
         basis: "install",
       });
-    } else if (known !== undefined && (exe === null || !isFile(exe))) {
+    } else if (holdsGame(given, def)) {
+      gameDir = given;
+    } else if (def.exeUnconfirmed === undefined) {
       findings.push({
         id: "setup.game",
         area: gameArea,
         status: "problem",
         title: "That folder isn't the game's folder",
-        detail: `gamePath points at a folder with no ${known.exe} in it, so it isn't the game's own folder, and nothing in it was checked as the game.`,
-        fix: `Give the folder that holds ${known.exe}: the game's own folder, not its Data folder or the library folder above it.`,
+        detail: `gamePath points at a folder with no ${names} in it, so it isn't the game's own folder, and nothing in it was checked as the game.`,
+        fix: `Give the folder that holds ${names}: ${where}.${hint}`,
         basis: "install",
       });
     } else {
       gameDir = given;
+      findings.push({
+        id: "setup.game",
+        area: gameArea,
+        status: "warn",
+        title: "Couldn't confirm that's the game's folder",
+        detail: `gamePath points at a folder with no ${names} in it. The executable's name isn't confirmed for ${def.exeUnconfirmed}, so the folder was checked as the game's anyway. If it isn't the game's, the other findings are about some other folder.`,
+        fix: `If gamePath isn't the game's own folder, give the one that holds ${names}: ${where}.${hint}`,
+        basis: "install",
+      });
     }
   } else if (steam.app !== null) {
     gameDir = steam.app.installDir;
