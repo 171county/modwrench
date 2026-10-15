@@ -132,8 +132,9 @@ export function createRemoteApp(options: RemoteAppOptions = {}) {
     }
   });
 
+  // No stream is offered here, so GET is refused; HTTP requires a 405 to list what /mcp takes.
   app.get("/mcp", (_req: Request, res: Response) => {
-    res.status(405).json({
+    res.status(405).set("Allow", "POST, DELETE").json({
       jsonrpc: "2.0",
       error: {
         code: -32000,

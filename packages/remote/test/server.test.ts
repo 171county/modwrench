@@ -269,6 +269,20 @@ test("a DELETE the transport refuses leaves the session open, and an empty sessi
   }
 });
 
+// HTTP requires a 405 to say which methods the address does take.
+test("GET /mcp is refused with 405 and an Allow header naming the methods /mcp takes", async () => {
+  const r = await remote();
+  try {
+    for (const method of ["GET", "HEAD"]) {
+      const res = await fetch(r.endpoint, { method, headers: { accept: "text/event-stream" } });
+      assert.equal(res.status, 405, method);
+      assert.equal(res.headers.get("allow"), "POST, DELETE", method);
+    }
+  } finally {
+    await r.close();
+  }
+});
+
 // express.json() rejects such a body before any route runs; Express's own handler would answer
 // with an HTML page holding the stack trace and the server's folder paths.
 test("a body that isn't JSON, or is too large, gets a short JSON-RPC error, not an HTML page with a stack trace", async () => {
