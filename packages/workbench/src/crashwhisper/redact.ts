@@ -313,8 +313,9 @@ const ID_LABEL =
 // A long id after a word that says whose it is: "user 123456789012345678 joined".
 const WORD_THEN_SNOWFLAKE = /\b((?:user|member|player|account|discord|steam|owner|author|sender|recipient|guild)(?:[_ -]?id)?[ \t:=#]+)(\d{17,19})(?!\d)/gi;
 // Steam keeps each account's files in userdata/<account number>/. A path with a drive loses that folder to the path rules;
-// a relative one ("Steam\userdata\52079950\config") would keep it, so the number goes on its own.
-const STEAM_USERDATA = /(\buserdata[\\/]+)(\d{1,20})(?![\w.-])/gi;
+// a relative one ("Steam\userdata\52079950\config") would keep it, so the number goes on its own, also with a full stop,
+// a dash or an underscore after it ("...\52079950." ending a sentence, "52079950_old"). Only a decimal stays ("userdata/1.2").
+const STEAM_USERDATA = /(\buserdata[\\/]+)(\d{1,20})(?!\d|\.\d)/gi;
 // ─── Network ─────────────────────────────────────────────────────────────────
 
 // A dotted number, with the port after it when it has one ("203.0.113.5:2456" is replaced whole: a port is not an address).

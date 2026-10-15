@@ -200,8 +200,13 @@ test("the Steam account number in a userdata folder goes, whether or not the pat
   const rooted = run(String.raw`C:\Program Files (x86)\Steam\userdata\52079950\config\localconfig.vdf`);
   assert.equal(rooted.text, String.raw`REDACTED-PATH\localconfig.vdf`);
   assert.equal(rooted.report.byKind.id, 0);
-  // A number that is not the folder after userdata stays.
+  // A full stop ending a sentence, or a renamed copy of the folder, doesn't keep the number.
+  assert.equal(run(String.raw`Failed to read Steam\userdata\52079950.`).text, String.raw`Failed to read Steam\userdata\REDACTED-ID.`);
+  assert.equal(run(String.raw`Steam\userdata\52079950_old\config`).text, String.raw`Steam\userdata\REDACTED-ID_old\config`);
+  assert.equal(run(String.raw`Steam\userdata\52079950-backup\config`).text, String.raw`Steam\userdata\REDACTED-ID-backup\config`);
+  // A number that is not the folder after userdata stays, and so does a version.
   assert.equal(run(String.raw`userdata2\52079950\x`).text, String.raw`userdata2\52079950\x`);
+  assert.equal(run("userdata/1.2").text, "userdata/1.2");
 });
 
 // ─── Secrets ─────────────────────────────────────────────────────────────────
