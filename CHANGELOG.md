@@ -10,7 +10,7 @@ This document is maintained by hand.
 
 ## [Unreleased]
 
-## [0.3.0] — 2026-10-14
+## [0.3.0] — unreleased
 
 The workbench learns to answer three questions on its own: "is it safe to
 update?" (Patch Day), "why did my game crash?" (Crash Whisperer) and "is my
