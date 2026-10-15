@@ -309,10 +309,11 @@ test("a folder that ModOrganizer.ini puts on another computer is not opened", as
   const spy = spyOnNetworkOpens();
   try {
     const w = sb.makeWorld();
-    const share = `${B}${B}127.0.0.1${B}mw-test-share`;
+    // Spelled as QSettings writes it, backslashes doubled, since a lone one starts an escape.
+    const share = `${B}${B}127.0.0.1${B}mw-test-share`.replace(/\\/g, "\\\\");
     for (const [name, settings] of [
       ["base", `base_directory=${share}`],
-      ["mods", `mod_directory=${share}${B}mods\noverwrite_directory=${share}${B}overwrite`],
+      ["mods", `mod_directory=${share}${B}${B}mods\noverwrite_directory=${share}${B}${B}overwrite`],
     ]) {
       const instance = join(w.root, "Downloads", name!);
       put(instance, "ModOrganizer.ini", `[General]\ngameName=Skyrim Special Edition\nselected_profile=Default\n\n[Settings]\n${settings}\n`);
@@ -340,16 +341,18 @@ test("a mod or profile name in MO2's files can't climb from a long \\\\?\\C:\\ p
     const w = sb.makeWorld();
     const climb = `${Array(16).fill("..").join(B)}${B}UNC${B}127.0.0.1${B}mw-test-share`;
     const long = (p: string): string => `${B}${B}?${B}${resolve(p)}`;
+    // A path in ModOrganizer.ini, as QSettings writes it: backslashes doubled.
+    const ini = (p: string): string => p.replace(/\\/g, "\\\\");
     const elsewhere = join(w.root, "Elsewhere");
     mkdirSync(join(elsewhere, "mods"), { recursive: true });
     // The mods folder set to a long path, and a mod named to climb out of it.
     const a = join(w.root, "Downloads", "A");
-    put(a, "ModOrganizer.ini", `[General]\ngameName=Skyrim Special Edition\nselected_profile=Default\n\n[Settings]\nmod_directory=${long(join(elsewhere, "mods"))}\n`);
+    put(a, "ModOrganizer.ini", `[General]\ngameName=Skyrim Special Edition\nselected_profile=Default\n\n[Settings]\nmod_directory=${ini(long(join(elsewhere, "mods")))}\n`);
     put(join(a, "profiles", "Default"), "modlist.txt", `+${climb}\n`);
     put(join(a, "profiles", "Default"), "plugins.txt", "*Some Mod.esp\n");
     // The profiles folder set to a long path, and the selected profile named to climb out of it.
     const b = join(w.root, "Downloads", "B");
-    put(b, "ModOrganizer.ini", `[General]\ngameName=Skyrim Special Edition\nselected_profile=${climb}\n\n[Settings]\nprofiles_directory=${long(elsewhere)}\n`);
+    put(b, "ModOrganizer.ini", `[General]\ngameName=Skyrim Special Edition\nselected_profile=${climb}\n\n[Settings]\nprofiles_directory=${ini(long(elsewhere))}\n`);
     // The instance itself passed under its long spelling, and a mod named to climb out of it.
     const c = join(w.root, "Downloads", "C");
     put(c, "ModOrganizer.ini", "[General]\ngameName=Skyrim Special Edition\nselected_profile=Default\n");

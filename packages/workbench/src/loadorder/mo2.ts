@@ -1,7 +1,8 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join, parse, resolve } from "node:path";
 import { homedir } from "node:os";
 import { pathExists } from "../detect/os.js";
+import { isDir, readText, resolveCI } from "../doctor/fsutil.js";
 import { isNetworkPath } from "../localpath.js";
 import { findSteamRoot, findSteamLibraries } from "../detect/steam.js";
 import { detectInstalledManagers } from "../detect/manager.js";
@@ -35,6 +36,50 @@ export function parseIni(text: string): Record<string, Record<string, string>> {
     (out[section] ??= {})[key] = value;
   }
   return out;
+}
+
+/** What a backslash and the character after it stand for to QSettings. Any other character is dropped with its backslash. */
+const QT_ESCAPES: Record<string, string> = { a: "\x07", b: "\b", f: "\f", n: "\n", r: "\r", t: "\t", v: "\v", '"': '"', "?": "?", "'": "'", "\\": "\\" };
+
+/**
+ * A value as it reaches MO2 through Qt's QSettings (qsettings.cpp: readIniLine and iniUnescapedStringList).
+ * A backslash starts an escape, which is why QSettings doubles the backslashes in a path it writes. Double quotes,
+ * which it writes round a value with a comma, semicolon or equals sign in it, are dropped. Outside them a semicolon
+ * starts a comment, and a comma makes the value a list, which MO2 reads as no text at all (qmetatype.cpp turns a
+ * list into text only when it has one item).
+ */
+function qtValue(raw: string): string {
+  let out = "";
+  let quoted = false;
+  let wasQuoted = false;
+  let kept = 0;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i]!;
+    if (ch === "\\") {
+      const code = /^(?:x([0-9a-fA-F]+)|([0-7]+))/.exec(raw.slice(i + 1));
+      if (code) {
+        // A character by number, hex or octal, as many digits as follow; Qt keeps 16 bits of it.
+        out += String.fromCharCode(code[1] !== undefined ? parseInt(code[1].slice(-4), 16) : parseInt(code[2]!.slice(-6), 8) & 0xffff);
+        i += code[0].length;
+      } else {
+        out += QT_ESCAPES[raw[i + 1] ?? ""] ?? "";
+        i++;
+      }
+      kept = out.length;
+    } else if (ch === '"') {
+      quoted = !quoted;
+      wasQuoted = true;
+      if (!quoted) while (raw[i + 1] === " " || raw[i + 1] === "\t") i++;
+    } else if (!quoted && ch === ";") {
+      break;
+    } else if (!quoted && ch === ",") {
+      return "";
+    } else {
+      out += ch;
+    }
+  }
+  // Spaces before a comment go, unless the value was quoted or they came from an escape.
+  return wasQuoted ? out : out.slice(0, kept) + out.slice(kept).replace(/[ \t]+$/, "");
 }
 
 // ─── Instance discovery ───────────────────────────────────────────────────────
@@ -129,33 +174,58 @@ export function findMo2InstanceForGame(
 
 /**
  * Where an instance keeps its profiles, mods or Overwrite folder, worked out the
- * way MO2 does it (PathSettings in MO2's settings.cpp): the [Settings] key when
- * it is set, else "%BASE_DIR%/<name>", with %BASE_DIR% standing for the
- * base_directory setting or, without one, the instance folder. People with big
- * mod lists often keep them on another drive. Under Wine the settings hold
- * Windows paths and only Z:, the whole file system, can be placed on this
- * machine; null for any other drive. Null too, everywhere, for a folder on
- * another computer (\\host\share): Linux would read //host/share as a folder
- * of its own, and on Windows opening it connects to that computer.
+ * way MO2 does it (PathSettings in MO2's settings.cpp), as it is spelled on disk.
+ * mw_read_load_order, Patch Day and the Doctors all ask here, so they find the
+ * same folders. People with big mod lists often keep them on another drive.
+ *
+ * The [Settings] key counts when it is there, even empty; without it the folder
+ * is "%BASE_DIR%/<name>". The same key in [General] is another setting to MO2.
+ * %BASE_DIR%, in capitals, stands for base_directory, or the instance folder
+ * without one; nothing is replaced inside base_directory itself. Backslashes
+ * count as slashes once QSettings has read the value (qtValue). A path from no
+ * root is relative to MO2's own program folder, which MO2 makes its working
+ * folder (moapplication.cpp): that is the instance folder for a portable
+ * instance, the one ModOrganizer.exe sits in, and unknown for any other.
+ *
+ * Under Wine the settings hold Windows paths and only Z:, the whole file system,
+ * can be placed on this machine; null for any other drive. A path from the root
+ * is taken to be on Z:, where Linux installers put MO2. Wine finds a name
+ * whatever its capitals, and so does this. Null too when the folder isn't there,
+ * and, everywhere, for one on another computer (\\host\share), which MO2 would
+ * open: Linux would read //host/share as a folder of its own, and on Windows
+ * opening it connects to that computer. Past its first 512 KB the ini isn't
+ * read, so a setting there goes unseen and MO2's default stands.
  */
 export function mo2Folder(
   instancePath: string,
   key: "profiles_directory" | "mod_directory" | "overwrite_directory",
-  name: string
+  name: string,
+  windows = process.platform === "win32"
 ): string | null {
-  let settings: Record<string, string> = {};
-  try {
-    settings = parseIni(readFileSync(join(instancePath, "ModOrganizer.ini"), "utf8"))["Settings"] ?? {};
-  } catch {
-    // No readable ini: MO2's defaults.
+  // No readable ini: MO2's defaults.
+  const settings = parseIni(readText(join(instancePath, "ModOrganizer.ini"), 512 * 1024) ?? "")["Settings"] ?? {};
+  const setting = (k: string): string | undefined => {
+    const raw = settings[k];
+    return raw === undefined ? undefined : qtValue(raw);
+  };
+  // The instance folder as MO2 names it; under Wine, Z: holds this machine's whole file system.
+  const instance = `${windows ? "" : "Z:"}${resolve(instancePath)}`;
+  const base = setting("base_directory") ?? instance;
+  let path = (setting(key) ?? `%BASE_DIR%/${name}`).replace(/\\/g, "/").split("%BASE_DIR%").join(base.replace(/\\/g, "/"));
+  if (!windows) {
+    if (/^[a-zA-Z]:/.test(path) && !/^[zZ]:/.test(path)) return null;
+    path = path.replace(/^[zZ]:/, "");
   }
-  const base = settings["base_directory"]?.trim() || instancePath;
-  const path = (settings[key]?.trim() || `%BASE_DIR%/${name}`).replace(/%BASE_DIR%/g, () => base);
+  // A path from no root starts at MO2's own folder, known only for a portable instance. On Windows, "\mods"
+  // (no drive) and "C:mods" (no root) depend on where MO2 runs as well, so neither can be told.
+  if (windows ? !/^([a-zA-Z]:\/|\/\/)/.test(path) : !isAbsolute(path)) {
+    if (/^([a-zA-Z]:|\/)/.test(path) || !pathExists(join(instancePath, "ModOrganizer.exe"))) return null;
+    path = join(instancePath, path);
+  }
   if (isNetworkPath(path)) return null;
-  if (process.platform === "win32") return path;
-  const drive = /^([a-zA-Z]):[\\/]/.exec(path);
-  if (drive && drive[1]!.toLowerCase() !== "z") return null;
-  return (drive ? path.slice(2) : path).replace(/\\/g, "/");
+  const root = parse(path).root;
+  const found = resolveCI(root, ...path.slice(root.length).split(/[\\/]/).filter((part) => part !== ""));
+  return found !== null && isDir(found) ? found : null;
 }
 
 // ─── modlist.txt / plugins.txt parsing ────────────────────────────────────────

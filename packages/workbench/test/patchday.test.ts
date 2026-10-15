@@ -745,6 +745,22 @@ test("Mod Organizer 2: base_directory moves every folder, and %BASE_DIR% in a se
   assert.equal(problem(r, "base-mod.dll").source, "mo2:BaseMod");
 });
 
+test("Mod Organizer 2: a setting is read the way QSettings writes it, in quotes and with its backslashes doubled", () => {
+  const w = makeWorld();
+  // QSettings quotes a value with a comma in it and doubles every backslash; under Wine the path is on Z:.
+  const mods = join(w.root, "Big, Drive", "Mods");
+  const written = (process.platform === "win32" ? mods : `Z:${mods}`).replace(/[\\/]/g, "\\\\");
+  const instance = makeMo2(w, {
+    mods: { FarMod: { "far.dll": legacyPlugin() } },
+    modlist: ["+FarMod"],
+    settings: { mod_directory: `"${written}"` },
+    dirs: { mods },
+  });
+  const r = ok(checkPatchDay({ gamePath: w.gameDir, mo2InstancePath: instance }));
+  assert.equal(r.sources.mo2.used, true, r.sources.mo2.reason);
+  assert.equal(problem(r, "far.dll").source, "mo2:FarMod");
+});
+
 test("Mod Organizer 2: a mod_directory that isn't there means MO2 wasn't read, and the answer says so instead of a GO", () => {
   const w = makeWorld();
   // The mods sit in the default folder, but ModOrganizer.ini points MO2 at a drive that isn't plugged in.

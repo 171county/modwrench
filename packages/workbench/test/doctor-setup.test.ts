@@ -620,7 +620,8 @@ test("on Linux a Windows path in the ini is read through Wine's Z: drive, and an
   if (process.platform === "win32") return t.skip("a Z: path only means something to Wine");
   const w = install();
   const real = join(w.root, "wine-mods");
-  const wine = `Z:${real.replace(/\//g, "\\")}`;
+  // Backslashes doubled, as QSettings writes them.
+  const wine = `Z:${real.replace(/\//g, "\\\\")}`;
   const mo2 = makeMo2(w, { modlist: ["+SkyUI"], plugins: ["*SkyUI_SE.esp"], ini: `\n[Settings]\nmod_directory=${wine}\n` });
   putRel(join(real, "SkyUI"), "SkyUI_SE.esp", tes4({ masters: ["Skyrim.esm"] }));
   protonPluginsTxt(w, listText([]));
