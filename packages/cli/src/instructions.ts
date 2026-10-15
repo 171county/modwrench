@@ -11,7 +11,9 @@ export const SERVER_INSTRUCTIONS = [
     "mw_read_load_order, then mw_check_known_conflicts with its names. Finding mods: the nexus_, " +
     "modio_ and thunderstore_ tools, or mw_query_mod_metadata across platforms.",
   "mw_parse_crashlog and mw_diagnose_crash are the lower-level crash tools, for when the user " +
-    "wants the parsed fields. The mw_ tools read this computer's files, read-only. Every tool reads " +
+    "wants the parsed fields. The mw_ tools never write. Most read only this computer's files, but " +
+    "mw_query_mod_metadata asks Nexus and mod.io, mw_check_known_conflicts and mw_diagnose_crash " +
+    "with a gameId fetch LOOT's public list from GitHub, and attributeSuspects asks Nexus. Every tool reads " +
     "except nexus_endorse_mod: call it without confirm for a preview, and pass confirm=true only " +
     "after the user says yes. Nexus and mod.io tools are there only once connected; " +
     "mw_activate_platform connects one mid-session and mw_deck shows which are connected.",

@@ -175,7 +175,12 @@ load-order tools read your game folders. A client that can only reach MCP server
 internet, such as a connector you add by URL in a web app, can't start a program on your
 computer, so those tools aren't there for it. The optional HTTP server, `@modwrench/remote`, is
 for that case, and it carries only the public Thunderstore tools: it holds no credential and
-reads no files ([TRUST.md](TRUST.md) says why).
+reads no files ([TRUST.md](TRUST.md) says why). It has to run somewhere the web app can reach:
+it listens on `127.0.0.1` port 3000 unless `MODWRENCH_REMOTE_HOST` and `MODWRENCH_REMOTE_PORT`
+(or `PORT`) say otherwise, and behind a tunnel or proxy `MODWRENCH_ALLOWED_HOSTS` must list
+the public hostname (comma-separated), or every request is refused with "Invalid Host". On a
+server others can reach, its limit of 100 sessions is shared with anyone who connects
+([TRUST.md](TRUST.md#there-is-no-modwrench-service)).
 
 ### Connecting Nexus and mod.io
 
