@@ -181,7 +181,12 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   Proton has made the game's prefix, whether Proton is told to load BepInEx's
   `winhttp` (in the launch options or the prefix's `user.reg`), which app opens
   `nxm://` links, whether a Steam library sits on an NTFS, FAT32 or exFAT drive, and
-  folder names that differ only by capital letters.
+  folder names that differ only by capital letters. A `gamePath` is taken as the
+  game's folder only when it holds the game's executable, for every game the Doctors
+  know (BONEWORKS's may sit one folder down, as Steam installs it); where a
+  store's copy has no confirmed executable name (Valheim's from the Microsoft Store,
+  Dyson Sphere Program's from the Microsoft Store and WeGame), a folder without one
+  is checked with a warning, so the report can't read clear.
 
   Every finding says what it rests on, the same way Patch Day and Crash Whisperer
   do: `install` (your files), `rule` (another tool's own documentation, with the

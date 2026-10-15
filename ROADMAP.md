@@ -17,29 +17,6 @@ The code is on `main`, and none of it is on npm yet. Two checks it hasn't had:
 
 Being built before the release:
 
-- **The Doctors check that a folder is the game's own, for every game.** A `gamePath` for
-  Skyrim Special Edition must hold `SkyrimSE.exe`, and one for Fallout 4 `Fallout4.exe`.
-  For the other games any existing folder is taken as given. A wrong one then replaces the
-  folder Steam found without saying so, can come back "clear", and on Linux can say BepInEx
-  isn't installed when it is. Each game will be checked for its own executable, with the
-  names Mod Organizer 2's game plugins and Thunderstore's game list use:
-  - Skyrim: `TESV.exe`
-  - Skyrim VR: `SkyrimVR.exe`
-  - Fallout 4 VR: `Fallout4VR.exe`
-  - Fallout: New Vegas: `FalloutNV.exe`
-  - Fallout 3: `Fallout3.exe`, or `Fallout3ng.exe` for the low-violence copy
-  - Starfield: `Starfield.exe`
-  - Oblivion: `Oblivion.exe`
-  - Lethal Company: `Lethal Company.exe`
-  - Valheim: `valheim.exe`, or `valheim.x86_64` for the native Linux build
-  - R.E.P.O.: `REPO.exe`
-  - Risk of Rain 2: `Risk of Rain 2.exe`
-  - Dyson Sphere Program: `DSPGAME.exe`
-  - BONEWORKS: `BONEWORKS.exe`, one folder down in `BONEWORKS\BONEWORKS`
-
-  Copies from the Microsoft Store or Game Pass haven't been checked against these names, so
-  each one is confirmed before the check turns a folder away, rather than risk refusing a
-  real install.
 - **BONEWORKS and MelonLoader.** Because the game's executable sits one folder down,
   environment detection may look for MelonLoader one folder too high and always report no
   loader. To be confirmed first.
