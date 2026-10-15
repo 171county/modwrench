@@ -270,7 +270,9 @@ export function driveFinding(steam: SteamFacts, mounts: readonly MountEntry[] | 
     title: "A Steam library on an NTFS, exFAT or FAT drive",
     detail: sentences.join(" "),
     fix: "Keep Proton games on an ext4, btrfs or xfs drive. The Proton wiki's workaround for a shared drive is to link the game's compatdata folder onto a Linux filesystem.",
-    basis: ntfsLike || fat32 ? "rule" : "guess",
+    // As sure as its least sure part: with an exFAT library in it the finding is a guess, though an NTFS or FAT32
+    // library beside it keeps its page as the source, and the detail says which part is the inference.
+    basis: exfat ? "guess" : "rule",
     source: ntfsLike ? PROTON_NTFS : fat32 ? PROTON_FAT32 : STEAM_RUNTIME_434,
   };
 }

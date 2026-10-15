@@ -230,7 +230,7 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   could be read as a switched-off master. Where its sources
   disagree (when a missing master crashes the game, on launch or during play) it says
   "likely" and not when. Tested on constructed installs, including a stand-in Steam,
-  Mod Organizer 2 and Proton prefix, with 307 tests in eight files and the Doctors'
+  Mod Organizer 2 and Proton prefix, with 308 tests in eight files and the Doctors'
   rules broken on purpose, 43 ways and then 7 more for Vortex and Fallout 4, to
   confirm a test fails each time. The page was
   exercised in a real browser against a stand-in for an MCP Apps host, including
@@ -459,7 +459,11 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   keeps its profiles.** It looked only in the instance's own `profiles` folder,
   so an instance whose `ModOrganizer.ini` puts its profiles somewhere else
   (`profiles_directory`, or a `base_directory` elsewhere) read as having no such
-  profile.
+  profile. The setting is read the way MO2 reads it, by the code Patch Day and
+  the Doctors use for the mods and Overwrite folders: a path MO2 wrote in quotes
+  or with its backslashes doubled is understood, a relative one starts from a
+  portable instance's folder, and on Linux a folder is found whatever the
+  capitals in its name, as Wine finds it.
 - **Crash logs are read more fully, checked against twelve published logs.**
   Buffout 4 v1.36 plugin rows written with no space (`[00]Fallout4.esm`) are
   read, where a 106-plugin list came out empty. A log with no plugin list, or

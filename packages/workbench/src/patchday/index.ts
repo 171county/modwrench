@@ -882,10 +882,8 @@ function runPatchDay(options: PatchDayOptions, found?: (install: PatchDayInstall
       }
     }
     // The folder ModOrganizer.ini names, or MO2's default, as it is spelled on disk.
-    const folder = (key: "mod_directory" | "overwrite_directory", name: string): string | null => {
-      const path = instance ? mo2Folder(instance, key, name) : null;
-      return path === null ? null : resolveCI(dirname(path), basename(path));
-    };
+    const folder = (key: "mod_directory" | "overwrite_directory", name: string): string | null =>
+      instance ? mo2Folder(instance, key, name) : null;
     const mods = order ? folder("mod_directory", "mods") : null;
     const enabled = (order?.modFolders ?? []).filter((f) => f.enabled);
     if (order && !mods && enabled.length > 0) {

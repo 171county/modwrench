@@ -446,9 +446,26 @@ test("drive: exFAT next to FAT32 says 'either', after Valve's FAT32 answer", () 
   const stick = "/run/media/deck/stick/SteamLibrary/steamapps";
   const f = driveFinding(facts([HOME_LIB, CARD_LIB, stick], CARD_LIB), mounts);
   assert.ok(f);
-  assert.equal(f.basis, "rule");
+  assert.equal(f.basis, "guess", "the exFAT part has no page of its own");
   assert.match(f.detail, /Valve has said Proton won't support FAT32[^.]*\. exFAT can't hold the symlinks a Proton prefix uses either\./);
   assert.match(f.source ?? "", /Proton\/issues\/2439/);
+});
+
+test("drive: an exFAT library makes the finding a guess beside NTFS or FAT32 too, and the documented part keeps its page", () => {
+  for (const [other, page] of [
+    ["ntfs3", /Proton\/wiki\/Using-a-NTFS-disk/],
+    ["vfat", /Proton\/issues\/2439/],
+  ] as const) {
+    const mounts = parseMounts(["/dev/a / ext4 rw 0 0", `/dev/b /mnt/game ${other} rw 0 0`, "/dev/c /mnt/card exfat rw 0 0"].join("\n"));
+    const both = driveFinding(facts(["/mnt/game/steamapps", "/mnt/card/steamapps"], "/mnt/game/steamapps"), mounts);
+    assert.ok(both, other);
+    assert.deepEqual([both.status, both.basis], ["warn", "guess"], other);
+    assert.match(both.source ?? "", page, other);
+    assert.match(both.detail, /That it won't work is an inference; no Valve page says it about exFAT\./, other);
+    // Without the exFAT library, the same finding is the documented rule.
+    const alone = driveFinding(facts(["/mnt/game/steamapps"], "/mnt/game/steamapps"), mounts);
+    assert.deepEqual([alone?.status, alone?.basis], ["warn", "rule"], other);
+  }
 });
 
 test("drive: FAT32 is a documented rule, with Valve's answer on Proton's tracker as its source", () => {
@@ -467,7 +484,7 @@ test("drive: two risky libraries are counted and named together", () => {
   const f = driveFinding(facts(["/mnt/a/steamapps", "/mnt/b/steamapps", "/home/x/steamapps"], "/mnt/a/steamapps"), mounts);
   assert.ok(f);
   assert.match(f.detail, /^2 Steam libraries \(including the one with this game\) sit on ntfs3 and exfat\./);
-  assert.equal(f.basis, "rule", "one of them is NTFS, which has a source");
+  assert.equal(f.basis, "guess", "one of them is exFAT, which has no page of its own");
   assert.match(f.detail, /exFAT can't hold the symlinks/);
 });
 

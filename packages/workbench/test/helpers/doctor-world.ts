@@ -146,8 +146,9 @@ export function makeMo2(w: World, o: Mo2Spec): Mo2Instance {
   const profileDir = join(instance, "profiles", profile);
   mkdirSync(profileDir, { recursive: true });
   const settings: string[] = [];
-  if (o.modsAt !== undefined) settings.push(`mod_directory=${o.modsAt}`);
-  if (o.overwriteAt !== undefined) settings.push(`overwrite_directory=${o.overwriteAt}`);
+  // With forward slashes, as MO2's folder picker writes a path: to QSettings a lone backslash starts an escape.
+  if (o.modsAt !== undefined) settings.push(`mod_directory=${o.modsAt.replace(/\\/g, "/")}`);
+  if (o.overwriteAt !== undefined) settings.push(`overwrite_directory=${o.overwriteAt.replace(/\\/g, "/")}`);
   writeFileSync(
     join(instance, "ModOrganizer.ini"),
     [
