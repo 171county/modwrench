@@ -565,7 +565,10 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   request with no `Origin`, which is what programs other than browsers send, is
   answered as before, and the `Host` check (`MODWRENCH_ALLOWED_HOSTS`) still
   applies. A client that sends an `Origin` the server doesn't accept, which
-  worked in 0.2.4, now gets that 403 until its origin is listed. `GET /mcp`
+  worked in 0.2.4, now gets that 403 until its origin is listed. Claude's custom
+  connectors have been reported to send one (`https://claude.ai`, and once
+  `https://claude.ai/`), so a server they use needs
+  `MODWRENCH_ALLOWED_ORIGINS=https://claude.ai,https://claude.ai/`. `GET /mcp`
   still gets 405, now with the `Allow: POST, DELETE` header HTTP requires.
 - **`mw_detect_environment` finds MelonLoader for BONEWORKS.** It looked for
   `MelonLoader/MelonLoader.dll` in Steam's install folder for the game, but the

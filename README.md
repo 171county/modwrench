@@ -183,8 +183,11 @@ request a browser sends from a web page is refused with "Invalid Origin" unless 
 the same computer and the server listens on `127.0.0.1`, `localhost` or `::1`, or
 `MODWRENCH_ALLOWED_ORIGINS` lists the page's origin exactly (comma-separated, such as
 `https://app.example.com`; the list replaces that default). A request with no origin, which is
-what programs other than browsers send, isn't affected. On a server others can reach, its
-limit of 100 sessions is shared with anyone who connects
+what programs other than browsers send, isn't affected. A web app's connector can send the
+app's origin even though it connects from the app's servers: Claude's custom connectors have
+been reported to send `https://claude.ai`, and once `https://claude.ai/`, so for them set
+`MODWRENCH_ALLOWED_ORIGINS=https://claude.ai,https://claude.ai/`. On a server others can
+reach, its limit of 100 sessions is shared with anyone who connects
 ([TRUST.md](TRUST.md#there-is-no-modwrench-service)).
 
 ### Connecting Nexus and mod.io
