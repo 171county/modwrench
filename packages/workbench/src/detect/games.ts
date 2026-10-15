@@ -136,7 +136,8 @@ export const KNOWN_GAMES: GameDef[] = [
     family: "bethesda",
     loaderChecks: [{ loader: "fose", files: ["fose_loader.exe"] }],
     mo2GameNames: ["Fallout 3"],
-    // Fallout3ng.exe is the German low-violence copy's, as Mod Organizer 2, Vortex and FOSE look for it.
+    // Mod Organizer 2, Vortex and FOSE also look for Fallout3ng.exe, the German low-violence copy's name; which copies
+    // have it isn't confirmed.
     exeNames: ["Fallout3.exe", "Fallout3ng.exe"],
     exeFolderHint:
       "The Epic and Microsoft Store copies keep it in a language folder, such as Fallout 3 GOTY English, which for the Microsoft Store is inside its Content folder.",
@@ -186,9 +187,9 @@ export const KNOWN_GAMES: GameDef[] = [
     ],
     r2modmanFolder: "Valheim",
     // The Windows, native Linux and macOS builds, as Steam launches them. That the Microsoft Store copy has valheim.exe
-    // too rests on the Valheim wiki alone.
+    // too rests on the Valheim wiki alone, and the Mac App Store copy's name wasn't found.
     exeNames: ["valheim.exe", "valheim.x86_64", "valheim.app"],
-    exeUnconfirmed: "the Microsoft Store copy",
+    exeUnconfirmed: "the Microsoft Store and Mac App Store copies",
   },
   {
     gameId: "repo",

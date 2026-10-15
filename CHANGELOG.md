@@ -184,9 +184,10 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   folder names that differ only by capital letters. A `gamePath` is taken as the
   game's folder only when it holds the game's executable, for every game the Doctors
   know (BONEWORKS's may sit one folder down, as Steam installs it); where a
-  store's copy has no confirmed executable name (Valheim's from the Microsoft Store,
-  Dyson Sphere Program's from the Microsoft Store and WeGame), a folder without one
-  is checked with a warning, so the report can't read clear.
+  store's copy has no confirmed executable name (Valheim's from the Microsoft Store
+  and the Mac App Store, Dyson Sphere Program's from the Microsoft Store and
+  WeGame), a folder without one is checked with a warning, so the report can't
+  read clear.
 
   Every finding says what it rests on, the same way Patch Day and Crash Whisperer
   do: `install` (your files), `rule` (another tool's own documentation, with the

@@ -163,7 +163,8 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
     // folder, the library above it) would read as a game with nothing installed, and for any game it takes the place
     // of the folder Steam found. So a game is known by its executable, by the names detect/games.ts has on record for
     // it. Where a store's copy has no confirmed name, a folder without one is still checked, with a warning that keeps
-    // the verdict off "clear"; the games with plugin checks have every copy's name on record.
+    // the verdict off "clear". A game with plugin checks never gets that warning, though Fallout 4's newer Microsoft
+    // Store package isn't confirmed either: those checks would read a wrong folder as a game with nothing installed.
     const names = anyOf(def.exeNames);
     const where = def.family === "bethesda" ? "the game's own folder, not its Data folder or the library folder above it" : "the folder the game was installed in, not the library folder above it";
     const hint = def.exeFolderHint !== undefined ? ` ${def.exeFolderHint}` : "";

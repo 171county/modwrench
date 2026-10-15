@@ -846,7 +846,7 @@ test("every game the Doctors know has at least one executable to know its folder
   for (const def of KNOWN_GAMES) assert.ok(def.exeNames.length > 0, def.gameId);
 });
 
-test("a game with plugin checks is known by the executable its version is read from, and every copy of it has its name on record", () => {
+test("a game with plugin checks is known by the executable its version is read from, and a folder without one is always turned away", () => {
   for (const [id, game] of Object.entries(PLUGIN_GAMES)) {
     const def = findGameById(id);
     assert.ok(def?.exeNames.includes(game.exe), `${id}: the crash-logger check reads the version from ${game.exe}`);
