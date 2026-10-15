@@ -1,7 +1,6 @@
 import { detectInstalledManagers, inferManagerForGame } from "../detect/manager.js";
 import type { GameDef } from "../detect/games.js";
 import { findMo2InstanceForGame, mo2Folder, readMo2LoadOrder } from "../loadorder/mo2.js";
-import type { DoctorPlatform } from "./types.js";
 
 // ─── Mod Organizer 2, read from its own files ────────────────────────────────
 // MO2's virtual file system exists only inside a running MO2, so the Doctors can't
@@ -32,8 +31,7 @@ export type Mo2Facts = {
 export function discoverMo2(
   def: GameDef,
   libraries: string[],
-  options: { mo2InstancePath?: string; profileName?: string },
-  platform: DoctorPlatform
+  options: { mo2InstancePath?: string; profileName?: string }
 ): Mo2Facts {
   const managers = detectInstalledManagers(libraries);
   const wants = options.mo2InstancePath !== undefined || inferManagerForGame(def, managers) === "mo2";
@@ -66,8 +64,9 @@ export function discoverMo2(
     instance,
     profile: order.profile,
     profileDir: order.sourcePath,
-    modsDir: mo2Folder(instance, "mod_directory", "mods", platform === "windows"),
-    overwriteDir: mo2Folder(instance, "overwrite_directory", "overwrite", platform === "windows"),
+    // By this computer's path rules, not the platform the Doctors check as: the files are on this computer either way.
+    modsDir: mo2Folder(instance, "mod_directory", "mods"),
+    overwriteDir: mo2Folder(instance, "overwrite_directory", "overwrite"),
     folders: (order.modFolders ?? []).map((f) => ({ name: f.name, enabled: f.enabled })),
   };
 }

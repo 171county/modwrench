@@ -41,7 +41,7 @@ const same = (path: string | null | undefined): string | null => (path === null 
 /** The mods folder, checked to be the one the Doctors find too. */
 function modsOf(dir: string): string | null {
   const found = mo2Folder(dir, "mod_directory", "mods");
-  const doctors = discoverMo2(SSE, [], { mo2InstancePath: dir }, windows ? "windows" : "linux");
+  const doctors = discoverMo2(SSE, [], { mo2InstancePath: dir });
   assert.equal(doctors.used, true, doctors.reason);
   assert.equal(same(doctors.modsDir), same(found), "the Doctors find the same mods folder");
   return found;

@@ -228,7 +228,7 @@ export function runDoctor(options: DoctorOptions = {}): DoctorResult {
       ...(options.mo2InstancePath !== undefined ? { mo2InstancePath: options.mo2InstancePath } : {}),
       ...(options.profileName !== undefined ? { profileName: options.profileName } : {}),
     };
-    const read = step("Reading Mod Organizer 2", () => discoverMo2(def, libraries, wanted, platform));
+    const read = step("Reading Mod Organizer 2", () => discoverMo2(def, libraries, wanted));
     mo2 = read ?? { used: false, reason: "Mod Organizer 2's files couldn't be read" };
     // MO2 named in the arguments, or found and then unreadable, is a part of the install that wasn't read: the plugin
     // checks would otherwise judge the game's own list as if it were the one MO2 plays. (A step that stopped is listed already.)

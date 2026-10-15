@@ -517,6 +517,17 @@ test("with Mod Organizer 2 the profile's list and the enabled mods' plugins are 
   assert.ok(r.limits.some((l) => /virtual file system exists only while MO2 runs/.test(l)));
 });
 
+test("MO2's folders are found by this computer's path rules, whatever platform the Doctors check as", () => {
+  const w = install();
+  const mo2 = makeMo2(w, { modlist: ["+SkyUI"], plugins: ["*SkyUI_SE.esp"], mods: { SkyUI: skyui } });
+  protonPluginsTxt(w, listText([]));
+  // The tests act as another OS, but the folders are still on this computer and spelled its way.
+  const r = run({ platform: process.platform === "win32" ? "linux" : "windows", mo2InstancePath: mo2.instance });
+  assert.equal(r.looked.mo2.used, true);
+  assert.equal(r.looked.plugins?.complete, true);
+  assert.equal(find(r, "setup.plugin-stale"), undefined, "SkyUI_SE.esp was found in its mod folder");
+});
+
 test("a plugin from a mod that is switched off isn't there for the game, so its list entry is stale", () => {
   const w = install();
   const mo2 = makeMo2(w, {
