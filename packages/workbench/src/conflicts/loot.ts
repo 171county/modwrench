@@ -20,22 +20,26 @@ const APP = appIdentity(import.meta.url);
 // Other LOOT fields (after, req, msg, group, etc.) aren't used by this tool
 // — they're for load-order optimization, not incompatibility detection.
 
-// Pinned to a stable LOOT version branch rather than `master` so an upstream
-// schema change can't silently break our parser. v0.26 is the current
-// maintenance branch as of 2026 — community conflict entries keep flowing
-// into it via PRs while the schema stays frozen until v0.27.
+// Pinned to the branch LOOT itself reads by default (DEFAULT_MASTERLIST_BRANCH
+// in loot/loot's game_settings.h), v0.29 since LOOT 0.29.0. A version branch
+// rather than whatever is newest, so an upstream syntax change can't silently
+// break our parser. LOOT moves its users off older branches when it updates,
+// and new entries go to the current one only: v0.26 has had none since 0.29.0
+// came out (2026-04-11).
 //
-// Bump this default deliberately after verifying the masterlist YAML still
-// parses against parseLootMasterlist below. Users can override via env var.
-const LOOT_BRANCH = getEnv("LOOT_BRANCH", "v0.26");
+// Bump this default when LOOT's does, after verifying the masterlist YAML
+// still parses against parseLootMasterlist below. Users can override via env var.
+const LOOT_BRANCH = getEnv("LOOT_BRANCH", "v0.29");
 
-// Per-game LOOT repo names. Only Bethesda games have LOOT masterlists.
+// Per-game LOOT repo names. Only Bethesda games have LOOT masterlists. The VR
+// editions have no list on a current branch: LOOT reads Skyrim SE's for Skyrim
+// VR and Fallout 4's for Fallout 4 VR (loot/loot's game_settings.cpp).
 const LOOT_REPOS: Record<string, string> = {
   skyrimspecialedition: "skyrimse",
   skyrim: "skyrim",
-  skyrimvr: "skyrimvr",
+  skyrimvr: "skyrimse",
   fallout4: "fallout4",
-  fallout4vr: "fallout4vr",
+  fallout4vr: "fallout4",
   fallout3: "fallout3",
   falloutnv: "falloutnv",
   starfield: "starfield",

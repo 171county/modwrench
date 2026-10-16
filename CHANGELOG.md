@@ -577,6 +577,16 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   So a Steam copy with MelonLoader read as having no loader. Both layouts are
   now looked for in the game's own folder. An install r2modman manages still
   reads as none, because r2modman keeps MelonLoader in its profile.
+- **The known-conflict check reads LOOT's current masterlist.**
+  `mw_check_known_conflicts`, and `mw_diagnose_crash` with a `gameId`, fetched
+  the masterlists' `v0.26` branch. LOOT 0.29.0 moved its users to `v0.29` in
+  April, and `v0.26` has had no new entries since: Skyrim Special Edition's has
+  799 incompatibility entries on `v0.29` and 725 on `v0.26` (Fallout 4's are the
+  same on both). `LOOT_BRANCH` now defaults to `v0.29`, the branch LOOT reads,
+  and `.env.example` no longer suggests `master`, which Skyrim Special Edition,
+  Fallout 4 and Starfield don't have. Skyrim VR and Fallout 4 VR asked for lists
+  that exist on neither branch, so the LOOT check always failed for them; they
+  now read Skyrim Special Edition's and Fallout 4's, as LOOT does.
 
 ## [0.2.4] — 2026-09-15
 
