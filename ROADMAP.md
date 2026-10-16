@@ -18,11 +18,25 @@ The code is on `main`, and none of it is on npm yet. Two checks it hasn't had:
 ## After 0.3.0
 
 - **More of LOOT's masterlist.** The conflict check reads only the masterlist's
-  incompatibility entries (`inc`). The same file also carries LOOT's messages for a plugin,
-  with the conditions they apply under, the dirty-plugin records (`dirty`) and the load-order
-  rules (`after`, `req`). The plan is to read them from the file ModWrench already fetches,
-  read-only, and to evaluate a condition only when ModWrench supports every function in it,
-  skipping the message otherwise.
+  incompatibility entries (`inc`), and reports one that LOOT applies only under a condition
+  as informational, since ModWrench doesn't check conditions yet. The same file also
+  carries LOOT's messages for a plugin, its requirements (`req`) and its dirty-plugin
+  records (`dirty`). The plan, in three stages:
+  1. **Conditions.** An evaluator for LOOT's conditions that answers true, false or
+     "unknown" (a fact ModWrench doesn't have, or a function it doesn't support yet). A note
+     is shown only when its condition is true. This replaces the earlier plan to skip any
+     condition with a function ModWrench doesn't support. Both conflict tools then honour
+     `inc` conditions. LOOT's messages appear in `mw_diagnose_crash` only, capped, and
+     labelled as LOOT's notes, not as evidence about the crash.
+  2. **Requirements.** A separate LOOT tool that you choose to run, which fetches the list
+     and checks `req` entries against the install. The Doctors stay offline and get no
+     switch for it. The tool opens only the paths an allow-list permits, inside the game's
+     folders, whatever path the masterlist names.
+  3. **Dirty plugins.** Matching a `dirty` record needs the plugin's checksum (CRC), so this
+     waits for the real-install check above.
+
+  In every stage LOOT's "error" is shown as a warning, never as a ModWrench "problem", and
+  LOOT's text is shown in English only.
 - **The pages:** mod names cut at 120 characters, the load-order page titled
   "Dependencies", plugin names cut off at phone width, and download counts that show "—".
 
