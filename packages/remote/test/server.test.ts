@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -431,6 +431,11 @@ test("MODWRENCH_ALLOWED_ORIGINS is read as a comma-separated list and reaches th
     assert.equal((await initializeFrom(endpoint, "https://b.example")).status, 200);
     assert.equal((await initializeFrom(endpoint, "http://localhost:6274")).status, 403);
   } finally {
-    child.kill();
+    // tsx runs an esbuild helper under the server. On Windows, killing the server alone leaves the
+    // helper running with the server's stderr open, and this test file then never ends, so end the
+    // whole tree there.
+    if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
+    else child.kill();
+    child.stderr.destroy();
   }
 });
