@@ -25,8 +25,6 @@ The code is on `main`, and none of it is on npm yet. Two checks it hasn't had:
   skipping the message otherwise.
 - **The pages:** mod names cut at 120 characters, the load-order page titled
   "Dependencies", plugin names cut off at phone width, and download counts that show "—".
-- **Tests:** on Windows, a few of the tests that check no folder path leaks prove nothing.
-  Linux and macOS CI still enforce them.
 
 ## Open questions
 

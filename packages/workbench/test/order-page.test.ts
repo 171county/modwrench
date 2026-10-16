@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { DEPS_APP_URI, DEPS_PAGE, MCP_APP_MIME, appToolMeta } from "@modwrench/ui";
 import { registerWorkbenchTools } from "../src/register.js";
 import { AppsMockServer, ConnectedServer, DRAWS_PAGES, PLAIN, withEnv, type ToolResult } from "./helpers/apps-server.js";
+import { holdsPath } from "./helpers/paths.js";
 
 // ─── The load order on the Dependencies page ─────────────────────────────────
 // mw_read_load_order points at the Dependencies page for clients that draw MCP Apps
@@ -149,7 +150,7 @@ test("a client that draws pages: the tool points at the Dependencies page and se
       assert.deepEqual(result.structuredContent, c.data, c.label);
       assert.deepEqual(result.content, (await registered(PLAIN).call(TOOL, c.args)).content, `${c.label}: the same text as a text-only client`);
       assert.equal(result.isError, undefined, `${c.label}: a load order that couldn't be read is an answer, not an error`);
-      assert.ok(!JSON.stringify(result.structuredContent).includes(JSON.stringify(root).slice(1, -1)), `${c.label}: no folder path goes to the page`);
+      assert.ok(!holdsPath(JSON.stringify(result.structuredContent), root), `${c.label}: no folder path goes to the page`);
     }
   });
 });
@@ -172,7 +173,7 @@ test("a Mod Organizer 2 profile with no plugins sends its mod folders to the pag
     );
     // The text answer is the one it always was, and no folder path goes to the page.
     assert.deepEqual(result.content, (await registered(PLAIN).call(TOOL, args)).content);
-    assert.ok(!JSON.stringify(data).includes(JSON.stringify(root).slice(1, -1)));
+    assert.ok(!holdsPath(JSON.stringify(data), root));
   });
 });
 

@@ -11,6 +11,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { registerWorkbenchTools } from "../src/register.js";
 import { isNetworkPath } from "../src/localpath.js";
 import { mo2Folder } from "../src/loadorder/mo2.js";
+import { holdsPath } from "./helpers/paths.js";
 import { createSandbox, put } from "./helpers/world.js";
 
 // Mock server pattern — same shape used in nexus + modio + thunderstore tests.
@@ -438,7 +439,7 @@ test("through the real SDK, a locked MO2 file gives a plain error, not the path 
     const text = textOf(r);
     assert.equal(r.isError, true, text);
     assert.ok(text.includes("EBUSY"), text);
-    assert.ok(!text.includes(root) && !text.includes("Jane Doe") && !text.includes(tmpdir()), `the answer carries the path: ${text}`);
+    assert.ok(!holdsPath(text, root) && !text.includes("Jane Doe") && !holdsPath(text, tmpdir()), `the answer carries the path: ${text}`);
   } finally {
     target.readFileSync = original;
     syncBuiltinESMExports();

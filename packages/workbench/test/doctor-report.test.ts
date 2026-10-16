@@ -13,6 +13,7 @@ import type { DoctorError, DoctorFinding, DoctorOptions, DoctorReport } from "..
 import { registerWorkbenchTools } from "../src/register.js";
 import { KNOWN_GAMES } from "../src/detect/games.js";
 import { LETHAL, NXM, listText, makeMo2, makePrefix, makeSteam, putBasePlugins, putDesktop, putLaunchOptions, putMimeList, putRel, dataOf, tes4, userRegWith, windowsPluginsTxt } from "./helpers/doctor-world.js";
+import { holdsPath } from "./helpers/paths.js";
 import { PERSON } from "./helpers/person.js";
 import { createSandbox, type World } from "./helpers/world.js";
 
@@ -358,7 +359,6 @@ test("every report from every kind of install holds to the same rules", () => {
 test("no folder of the player's, no account name, no Steam account number and no part of a Steam launch-options line is in any report or answer", () => {
   const here = [sandbox.root, realpathSync(sandbox.root), tmpdir(), "mw-doctor-report-"];
   const forbidden = [...here, ...SECRET_FOLDERS, PERSON.account, PERSON.name, PERSON.machine, "abc123", "PRIVATE_TOKEN", STEAM_ACCOUNT];
-  const asSlashes = (s: string): string => s.replace(/\//g, "\\");
   for (const [name, r] of scenarios()) {
     // The scenario that holds the Steam account's launch options really did read them (the override was found), so the
     // account number being absent below means something and isn't just a file nobody opened.
@@ -366,10 +366,7 @@ test("no folder of the player's, no account name, no Steam account number and no
       assert.equal(r.findings.find((f) => f.id === "deck.bepinex-override")?.status, "ok", "the launch options in the Steam account's folder were read");
     }
     const everything = `${JSON.stringify(r)}\n${summarizeDoctor(r)}`;
-    for (const needle of forbidden) {
-      assert.ok(!everything.includes(needle), `[${name}] contains ${needle}`);
-      assert.ok(!everything.includes(asSlashes(needle)), `[${name}] contains ${asSlashes(needle)}`);
-    }
+    for (const needle of forbidden) assert.ok(!holdsPath(everything, needle), `[${name}] contains ${needle}`);
     // The pages a rule comes from are web addresses, and some have /users/ in them; they aren't folders.
     const withoutAddresses = everything.replace(/https:\/\/\S+/g, "");
     const pathLike = /[\\/](?:home|Users|tmp|var\/folders)[\\/]/i.exec(withoutAddresses);
@@ -384,7 +381,7 @@ test("a path given as an argument isn't echoed back, found or not", () => {
     const r = go({ platform: "windows", area: "setup", ...options });
     const everything = `${JSON.stringify(r)}\n${summarizeDoctor(r)}`;
     assert.ok(!everything.includes("SecretFolder"), JSON.stringify(options));
-    assert.ok(!everything.includes(sandbox.root), JSON.stringify(options));
+    assert.ok(!holdsPath(everything, sandbox.root), JSON.stringify(options));
   }
 });
 
@@ -586,7 +583,7 @@ test("the answer through the tool has no folder of the player's in it", async ()
   for (const capabilities of [DRAWS_PAGES, null]) {
     const result = await tool(capabilities).handler({ ...broken(), mo2InstancePath: join(sandbox.root, "PrivateFolder", "MO2") });
     const everything = [result.content[0]!.text, JSON.stringify(result.structuredContent ?? {})].join("\n");
-    for (const leak of [sandbox.root, "SecretFolder", "PrivateFolder", PERSON.account]) assert.ok(!everything.includes(leak), `${leak} came out`);
+    for (const leak of [sandbox.root, "SecretFolder", "PrivateFolder", PERSON.account]) assert.ok(!holdsPath(everything, leak), `${leak} came out`);
   }
 });
 
@@ -635,5 +632,5 @@ test("the debug log says that it ran and how it went, and holds nothing from the
   assert.equal(ours[0]!.verdict, "problems");
   assert.equal(ours[0]!.problems, 1);
   assert.equal(typeof ours[0]!.warnings, "number");
-  for (const leak of ["SecretFolder", PERSON.account, sandbox.root, "not-there"]) assert.ok(!run.stderr.includes(leak), `${leak} was logged`);
+  for (const leak of ["SecretFolder", PERSON.account, sandbox.root, "not-there"]) assert.ok(!holdsPath(run.stderr, leak), `${leak} was logged`);
 });

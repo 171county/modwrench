@@ -30,6 +30,7 @@ import {
 import { summarizePatchDay } from "../src/patchday/summary.js";
 import { registerWorkbenchTools } from "../src/register.js";
 import { MCP_APP_MIME, MCP_APPS_EXTENSION_ID } from "@modwrench/ui";
+import { holdsPath } from "./helpers/paths.js";
 import { buildPe, skseVersionData } from "./helpers/pe-builder.js";
 
 // ─── What these tests are ────────────────────────────────────────────────────
@@ -792,7 +793,7 @@ test("Mod Organizer 2: a profile file that can't be opened leaves MO2 unread, wi
   assert.equal(r.verdict, "check");
   assert.deepEqual(r.reasons, ["Mod Organizer 2's mods couldn't be read, so the plugins installed through it weren't checked"]);
   for (const text of [JSON.stringify(r), summarizePatchDay(r)]) {
-    assert.ok(!text.includes(ROOT), "no folder path");
+    assert.ok(!holdsPath(text, ROOT), "no folder path");
     assert.doesNotMatch(text, /EISDIR|EBUSY|EPERM|modlist\.txt/);
   }
 });
@@ -1528,8 +1529,8 @@ test("it changes nothing on disk and its answer contains no folder paths", () =>
   for (const report of [first, second]) {
     // The structured report and the plain-text answer are both something a client shows or a model reads.
     for (const [what, text] of [["report", JSON.stringify(report)], ["text", summarizePatchDay(report)]] as const) {
-      assert.ok(!text.includes(ROOT), `no temp-folder path in the ${what}`);
-      assert.ok(!text.includes(tmpdir()), `no temp-folder path in the ${what}`);
+      assert.ok(!holdsPath(text, ROOT), `no temp-folder path in the ${what}`);
+      assert.ok(!holdsPath(text, tmpdir()), `no temp-folder path in the ${what}`);
       assert.doesNotMatch(text, /[A-Za-z]:\\\\/, `no drive-letter path in the ${what}`);
       assert.doesNotMatch(text, /\/(?:home|Users|tmp|var|root|mnt)\//, `no absolute POSIX path in the ${what}`);
       assert.doesNotMatch(text, /Jane|Doe/, `nothing from inside a log line's folder path in the ${what}`);

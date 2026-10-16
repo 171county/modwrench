@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { VORTEX_DEPLOYMENT, checkVortex, readVortexRecord } from "../src/doctor/vortex.js";
+import { holdsPath } from "./helpers/paths.js";
 
 // ─── Vortex's staging folder ─────────────────────────────────────────────────
 // Vortex names its staging folder in a deployment record it writes into the game's
@@ -54,7 +55,7 @@ test("hard links with the staging folder on the game's drive: fine, resting on V
   const f = v.findings[0]!;
   assert.deepEqual([f.id, f.status, f.basis, f.source], ["setup.vortex-staging", "ok", "rule", VORTEX_DEPLOYMENT]);
   assert.equal(f.title, "Vortex's staging folder is on the game's drive");
-  assert.ok(!JSON.stringify(f).includes(root), "no folder in the finding");
+  assert.ok(!holdsPath(JSON.stringify(f), root), "no folder in the finding");
 });
 
 test("hard links with the staging folder on another drive: a problem, with how Vortex moves it", () => {
@@ -66,7 +67,7 @@ test("hard links with the staging folder on another drive: a problem, with how V
   assert.match(f.detail, /^Vortex deploys this game's mods with hard links, and its wiki says/);
   assert.match(f.detail, /its own check says it works "only if mods are installed on the same drive as the game"/);
   assert.match(f.fix ?? "", /In Vortex, open Settings, then Mods, and move the staging folder to a folder on the game's drive\. Vortex moves the mods there for you\./);
-  assert.ok(!JSON.stringify(f).includes(root), "no folder in the finding");
+  assert.ok(!holdsPath(JSON.stringify(f), root), "no folder in the finding");
 });
 
 test("another method is named, and the same-drive rule isn't applied to it", () => {
