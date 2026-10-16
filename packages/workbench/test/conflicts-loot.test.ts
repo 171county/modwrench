@@ -9,8 +9,9 @@ import { fileURLToPath } from "node:url";
 // masterlist from GitHub. Here fetch is stubbed. Skyrim SE's answer is a slice of
 // the real v0.29 list (fixtures/loot-skyrimse-v0.29.yaml, CC0, with its source
 // named at the top); Fallout 4's is made up for the cases the real list has no
-// example of. Every other repo answers 404, as GitHub does for a list that
-// doesn't exist.
+// example of. Four more repos stand in for the fetch's limits: two that stall,
+// and lists of 8 and 16 MB. Every other repo answers 404, as GitHub does for a
+// list that doesn't exist.
 
 // The branch is read from LOOT_BRANCH when the module loads, so it's cleared first.
 delete process.env["LOOT_BRANCH"];
