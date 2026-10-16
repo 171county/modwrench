@@ -577,6 +577,35 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   So a Steam copy with MelonLoader read as having no loader. Both layouts are
   now looked for in the game's own folder. An install r2modman manages still
   reads as none, because r2modman keeps MelonLoader in its profile.
+- **The known-conflict check reads LOOT's current masterlist.**
+  `mw_check_known_conflicts`, and `mw_diagnose_crash` with a `gameId`, fetched
+  the masterlists' `v0.26` branch. LOOT 0.29.0 moved its users to `v0.29` in
+  April, and `v0.26` has had no new entries since: Skyrim Special Edition's has
+  799 incompatibility entries on `v0.29` and 725 on `v0.26` (Fallout 4's are the
+  same on both). `LOOT_BRANCH` now defaults to `v0.29`, the branch LOOT reads,
+  and `.env.example` no longer suggests `master`, which Skyrim Special Edition,
+  Fallout 4 and Starfield don't have. Skyrim VR and Fallout 4 VR asked for lists
+  that exist on neither branch, so the LOOT check always failed for them; they
+  now read Skyrim Special Edition's and Fallout 4's, as LOOT does. The fetch
+  had no time limit, so a stalled connection held up the answer, crash
+  diagnosis included, until the client gave up, and no size limit; it now gives
+  up after 30 seconds, and stops reading a list over 8 MB (the largest, Oblivion's,
+  is 1.2 MB) rather than parse part of one. Either way the answer says which
+  happened, and the check uses the community data only, as it does when GitHub
+  can't be reached. An entry LOOT applies only under a condition (47 of Skyrim
+  Special Edition's 799 and 8 of Fallout 4's 217), such as 3DNPC's with Open
+  Cities when their patch isn't active, was reported as incompatible whatever
+  the condition said; it now comes back as `informational`, quoting LOOT's
+  condition and saying ModWrench doesn't check it yet. A description now carries
+  LOOT's name for the other file (`display`) and its note (`detail`, in English),
+  as one plain line of at most 300 characters. It used to read a `msg` field
+  that LOOT's entries don't have, so every description was the same sentence.
+  Entries whose plugin name is a regex, such as
+  `RUSTIC SOULGEMS - (Sorted|Unsorted)( - ESL)?( - GIST)?\.esp`, were never
+  matched; they hold 117 of Skyrim Special Edition's 799 and 22 of Fallout 4's
+  217. They are now read as LOOT reads them, and every entry that matches a
+  plugin counts, as in LOOT. A conflict names the two plugins as you or the
+  crash log wrote them, never by LOOT's regex or its spelling.
 
 ## [0.2.4] — 2026-09-15
 

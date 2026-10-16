@@ -1,0 +1,322 @@
+# A slice of LOOT's Skyrim Special Edition masterlist, for the tests in
+# conflicts-loot.test.ts.
+#
+# Source: https://github.com/loot/skyrimse, branch v0.29, commit
+# 1e390f7199840dfe5716fb72a6e4d1e5fab65f62, file masterlist.yaml. LOOT's
+# masterlists are released under CC0 1.0 (the LICENSE file in that repo), so
+# this copy needs no permission; it is credited here so it can be checked.
+#
+# What was kept: thirteen whole plugin entries, each copied byte for byte, in
+# the order the file has them, and the anchors (&name) they use, from the
+# prelude, common and groups sections. Everything else was left out. The
+# entries were picked for what they show:
+#   NAT.esp         inc as plain names, and one with a condition and a display
+#   True Light.esp  inc through an alias (*ENBSeries), and one with a detail
+#   3DNPC.esp       an inc with a condition, its name in lower case
+#   Kapotun ARMA .+\.esp
+#                   a regex name marked only by its backslash
+#   aMidianBorn_ContentAddon(Light)?\.esp, and two exact entries after it
+#                   a regex entry and an exact one that match the same plugin
+#   RUSTIC SOULGEMS - (Sorted|Unsorted)( - ESL)?( - GIST)?\.esp
+#                   a regex entry with a display
+#   MPXP1\.3 ..., three regex entries and two exact ones
+#                   three regex entries that match one plugin, and two exact
+#                   entries for such plugins with no inc list
+
+prelude:
+  common:
+  # Message Anchors
+    - &obsolete
+      type: warn
+      content: 'Obsolete. Update to the latest version. {0}'
+      subs: [ '' ]
+
+    - &patch3rdParty
+      type: say
+      content: 'You seem to be using **{0}**, but you have not enabled a compatibility patch for this mod. A third party patch is available here: {1}'
+
+    - &patchProvided
+      type: say
+      content: 'You seem to be using **{0}**, but you have not enabled a compatibility patch for this mod. A compatibility patch is provided on this plugin''s mod page.'
+
+    - &renameXtoY
+      type: warn
+      content: 'You need to rename {0} to {1} or this mod won''t work.'
+
+    - &requiresResources
+      type: warn
+      content: 'Requires resources (e.g. meshes, textures; not plugins) from {0}.'
+
+    - &requiresX
+      type: warn
+      content: 'Requires: {0}'
+
+    - &useOnlyOneX
+      type: error
+      content: 'Use only one {0}.'
+
+  # Cleaning Data Anchors
+    - &quickClean
+      util: '[SSEEdit](https://www.nexusmods.com/skyrimspecialedition/mods/164)'
+      detail: 'A guide to cleaning plugins using xEdit can be found [here](https://tes5edit.github.io/docs/7-mod-cleaning-and-error-checking.html#ThreeEasyStepstocleanMods).'
+
+common:
+# File Anchors
+  - &CommunityShaders
+    name: 'SKSE/Plugins/CommunityShaders.dll'
+    display: '[Community Shaders](https://www.nexusmods.com/skyrimspecialedition/mods/86492/)'
+
+  - &ENBSeries
+    name: '../enblocal.ini'
+    display: '[ENBSeries SE](http://enbdev.com/download_mod_tesskyrimse.htm)'
+
+groups:
+  - name: &mainGroup Main Plugins
+
+  - name: &ccGroup Creation Club
+    after: [ *mainGroup ]
+
+  - name: &unofficialPatchesGroup Unofficial Patches
+    after: [ *ccGroup ]
+
+  - name: &scriptOptimizationGroup Script Fixes & Optimization
+    description: 'A group for mods that optimize or fix issues in the base game scripts.'
+    after: [ *unofficialPatchesGroup ]
+
+  - name: &fixesGroup Fixes
+    description: 'A group for modules that fix issues and bugs.'
+    after: [ *scriptOptimizationGroup ]
+
+  - name: &frameworksGroup Resources & Frameworks
+    description: 'A group for mods that provide resources and/or a framework for other mods to use.'
+    after: [ *fixesGroup ]
+
+  - name: &earlyLoadersGroup Early Loaders
+    description: 'A group for modules that should load early before most other mods.'
+    after: [ *frameworksGroup ]
+
+plugins:
+  - name: 'NAT.esp'
+    url:
+      - link: 'https://www.nexusmods.com/skyrimspecialedition/mods/12842/'
+        name: 'NAT - Natural and Atmospheric Tamriel'
+    after: [ 'Audio Overhaul Skyrim.esp' ]
+    inc:
+      - 'Aequinoctium.esp'
+      - 'Autumn Skies.esp'
+      - 'ClimatesOfTamriel.esm'
+      - 'Dolomite Weathers.esp'
+      - 'ELFX - Weathers.esp'
+      - 'Foggy Weather 2.esp'
+      - 'Mythical Ages.esp'
+      - 'NorthernSWS.esp'
+      - 'Obsidian Weathers.esp'
+      - 'Obscura Weather and Lighting.esp'
+      - 'Obscura Weather and Lighting - hazy.esp'
+      - 'Obscura Weather and Lighting - Vibrant.esp'
+      - 'Obscura Weather and Lighting - Vibrant with Haze.esp'
+      - 'Obscura Weather and Lighting - Skytoon.esp'
+      - 'Realistic Lighting Overhaul - Weathers.esp'
+      - 'Rustic Weathers And Lighting.esp'
+      - 'Skyrim Legendary Weathers.esp'
+      - 'SolstitiumWeathersandSeasons.esp'
+      - 'surreal lighting.esp'
+      - name: 'TrueStormsSE.esp'
+        condition: 'active("TrueStormsSE.esp") and not active("NAT_TS_Patch_.*\.esp")'
+        display: 'True Storms Special Edition'
+      - 'Vivid WeathersSE.esp'
+    msg:
+      - <<: *patch3rdParty
+        subs:
+          - 'True Storms'
+          - '[NAT - TrueStorms Merged Compatibility](https://www.nexusmods.com/skyrimspecialedition/mods/15025/)'
+        condition: 'active("TrueStormsSE.esp") and not active("NAT_TS_Patch_.*\.esp")'
+    tag:
+      - Graphics
+      - Sound
+      - Stats
+    dirty:
+      - <<: *quickClean
+        crc: 0x8377D03C
+        util: '[SSEEdit v4.0.3](https://www.nexusmods.com/skyrimspecialedition/mods/164)'
+        itm: 19
+
+  - name: 'True Light.esp'
+    url:
+      - link: 'https://www.nexusmods.com/skyrimspecialedition/mods/135488/'
+        name: 'True Light'
+    group: *earlyLoadersGroup
+    req:
+      - name: 'ATLM.esp'
+        display: '[Ambient Templates for Lighting Mods](https://www.nexusmods.com/skyrimspecialedition/mods/153425/)'
+        condition: 'not file("Luma/Cell/ATLM.esp")'
+      - *CommunityShaders
+      - name: 'Shaders/InverseSquareLighting/InverseSquareLighting.hlsli'
+        display: '[Inverse Square Lighting](https://www.nexusmods.com/skyrimspecialedition/mods/153542/)'
+      - name: 'SKSE/Plugins/po3_LightPlacer.dll'
+        display: '[Light Placer](https://www.nexusmods.com/skyrimspecialedition/mods/127557/)'
+    inc:
+      - *ENBSeries
+      - 'ELFX Shadows.esp'
+      - 'EnhancedLightsandFX.esp'
+      - 'Lux.esp'
+      # A05D4081: Full v3.0
+      # C5529E7D: Interiors only v3.0
+      - name: 'RelightingSkyrim_SSE.esp'
+        detail: 'Incompatible with interiors versions.'
+        condition: 'checksum("RelightingSkyrim_SSE.esp", A05D4081) or checksum("RelightingSkyrim_SSE.esp", C5529E7D)'
+      - 'Skyrim is Luminous.esp'
+
+  - name: '3DNPC.esp'
+    url:
+      - link: 'http://3dnpc.com/2017/11/20/3dnpc-v3-4-for-oldrim-and-sse/'
+        name: 'Interesting NPCs SSE Beta'
+      - link: 'https://www.nexusmods.com/skyrimspecialedition/mods/29194/'
+        name: 'Interesting NPCs'
+    inc:
+      - name: 'open cities skyrim.esp'
+        condition: 'not active("Open Cities - 3DNPC Patch.esp")'
+    msg:
+      - <<: *patchProvided
+        subs: [ 'AI Overhaul' ]
+        condition: 'active("AI Overhaul.esp") and not active("3DNPC - AI Overhaul Patch.esp")'
+      - <<: *patchProvided
+        subs: [ 'Alternate Start' ]
+        condition: 'active("alternate start - live another life.esp") and not active("3DNPC Alternative Locations.esp")'
+      - <<: *patchProvided
+        subs: [ 'Arthmoor''s Karthwasten' ]
+        condition: 'active("karthwasten.esp") and not active("3DNPC - Arth Karthwasten Patch.esp")'
+      - <<: *patchProvided
+        subs: [ 'Arthmoor''s Kynesgrove' ]
+        condition: 'active("kynesgrove.esp") and not active("3DNPC - Arth Kynesgrove Patch.esp")'
+      - <<: *patchProvided
+        subs: [ 'Cutting Room Floor' ]
+        condition: 'active("cutting room floor.esp") and not active("3DNPC - CRF Patch.esp")'
+      - <<: *patchProvided
+        subs: [ 'Extensible Follower Framework' ]
+        condition: 'active("EFFCore.esm") and not active("3DNPCEFF.esp")'
+      - <<: *patchProvided
+        subs: [ 'TK Children' ]
+        condition: 'active("TKChildren.esp") and not active("TKChildren+3DNPC.esp")'
+      - <<: *patchProvided
+        subs: [ 'Unplayable Faction Armors' ]
+        condition: 'active("DIS_Armor_Fractions.esp") and not active("DIS_Armor_Fractions_3DNPC.esp")'
+    tag:
+      - -C.Acoustic
+      - -C.Climate
+      - -C.Encounter
+      - -C.Location
+      - -C.Music
+      - -C.Name
+      - -C.RecordFlags
+      - -C.Regions
+      - -C.Water
+      - Keywords
+      - Invent.Add
+      - -Invent.Remove
+    clean:
+      - crc: 0xC60DC7D3
+        util: 'SSEEdit v4.0.3'
+
+  - name: 'Kapotun ARMA .+\.esp'
+    url:
+      - link: 'https://www.nexusmods.com/skyrimspecialedition/mods/77612/'
+        name: 'Races of Nirn - Kapotun Reborn'
+    inc:
+      - name: 'DWKaPoTunRace.esp'
+        condition: 'version("DWKaPoTunRace.esp", >=, "2.0")'
+
+  - name: 'aMidianBorn_ContentAddon(Light)?\.esp'
+    url:
+      - link: 'https://www.nexusmods.com/skyrimspecialedition/mods/35390/'
+        name: 'aMidianBorn Content Addon'
+    after:
+      - 'aMidianBorn_Book of Silence.esp'
+      - 'BetterQuestObjectives.esp'
+      - '1nivWICCloaks.esp'
+      - '1nivWICCloaksNoGuards.esp'
+      - 'WarmongerArmory_LeveledList.esp'
+    inc:
+      - 'aMidianBorn_Book of Silence.esp'
+      - 'aMidianBorn_Ebony Variants.esp'
+      - 'aMidianBorn_Glass Variants.esp'
+      - 'aMidianBorn_Glass Variants Lore.esp'
+      - 'aMidianborn_Skyforge_Weapons.esp'
+    tag:
+      - Graphics
+      - Invent.Add
+      - Keywords
+      - Names
+      - Outfits.Add
+      - Outfits.Remove
+      - Stats
+    msg:
+      - <<: *requiresResources
+        subs: [ '[aMidianBorn Book of Silence SE](https://www.nexusmods.com/skyrimspecialedition/mods/35382/) **(CCOR CONTENT ADDON BSA)**' ]
+        condition: 'not file("aMidianBorn_ContentAddon(Light)?\.bsa") and not file("textures/AMB Variants/dlc02/nordiccarvedbrown/nordiccarvedbootsm.dds")'
+      - <<: *useOnlyOneX
+        subs: [ 'aMidianBorn Content Addon ESP' ]
+        condition: 'many("aMidianBorn_ContentAddon(Light)?\.esp")'
+
+  - name: 'amidianborn_contentaddon.esp'
+    msg:
+      - <<: *obsolete
+        subs: [ '[aMidianBorn Content Addon](https://www.nexusmods.com/skyrimspecialedition/mods/35390/)' ]
+        condition: 'not version("amidianborn_contentaddon.esp", >=, "2.2") and active("Weapons Armor Clothing & Clutter Fixes.esp")'
+      - <<: *renameXtoY
+        subs:
+          - '**aMidianBorn_ContentAddonLight.bsa**'
+          - '**aMidianBorn_ContentAddon.bsa**'
+        condition: 'not file("aMidianBorn_ContentAddon.bsa") and file("aMidianBorn_ContentAddonLight.bsa") and not file("aMidianBorn_ContentAddonLight.esp")'
+    clean:
+      - crc: 0x3307ACE9
+        util: 'SSEEdit v4.0.3g'
+
+  - name: 'aMidianBorn_ContentAddonLight.esp'
+    inc: [ 'Complete Crafting Overhaul_Remastered.esp' ]
+    msg:
+      - <<: *renameXtoY
+        subs:
+          - '**aMidianBorn_ContentAddon.bsa**'
+          - '**aMidianBorn_ContentAddonLight.bsa**'
+        condition: 'not file("aMidianBorn_ContentAddonLight.bsa") and file("aMidianBorn_ContentAddon.bsa") and not file("amidianborn_contentaddon.esp")'
+    clean:
+      - crc: 0xD8B69F8C
+        util: 'SSEEdit v4.0.3g'
+
+  - name: 'RUSTIC SOULGEMS - (Sorted|Unsorted)( - ESL)?( - GIST)?\.esp'
+    url: [ 'https://www.nexusmods.com/skyrimspecialedition/mods/5785/' ]
+    tag:
+      - Graphics
+      - ObjectBounds
+    inc:
+      - name: 'MLPSoulGems.esp'
+        display: 'MultiLayer Parallax Soul Gems'
+    msg:
+      - <<: *useOnlyOneX
+        condition: 'many("RUSTIC SOULGEMS - (Sorted|Unsorted)( - ESL)?( - GIST)?\.esp")'
+        subs: [ 'RUSTIC SOULGEMS' ]
+
+  - name: 'MPXP1\.3 \[PATCH - (DBPT\.)?SSkwy\.LotD\]( \(OCS\))?\.esp'
+    inc: [ 'Solitude Skyway SE - Legacy of the Dragonborn Patch.esp' ]
+    msg:
+      - <<: *useOnlyOneX
+        subs: [ 'MPXP 1.3 ESP' ]
+        condition: 'many("MPXP1\.3 \[PATCH - (DBPT\.)?SSkwy\.LotD\]( \(OCS\))?\.esp")'
+
+  - name: 'MPXP1\.3 \[PATCH - (DBPT\.)?SSkwy\.LotD\]\.esp'
+    inc: [ 'open cities skyrim.esp' ]
+    msg:
+      - <<: *requiresX
+        type: error
+        subs: [ 'MPXP 1.1 ESP' ]
+        condition: 'not active("MPXP1\.1 \[PATCH - (DBPT\.)?SSkwy(\.TGCoS)?\]\.esp")'
+
+  - name: 'MPXP1\.3 \[PATCH - SSkwy\.LotD\]( \(OCS\))?\.esp'
+    inc: [ 'BluePalaceTerrace.esp' ]
+
+  - name: 'MPXP1.3 [PATCH - SSkwy.LotD].esp'
+    after: [ 'MPXP1.1 [PATCH - SSkwy.TGCoS].esp' ]
+
+  - name: 'MPXP1.3 [PATCH - DBPT.SSkwy.LotD].esp'
+    after: [ 'MPXP1.1 [PATCH - DBPT.SSkwy.TGCoS].esp' ]
