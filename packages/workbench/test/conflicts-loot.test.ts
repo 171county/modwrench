@@ -15,11 +15,15 @@ import { fileURLToPath } from "node:url";
 // The branch is read from LOOT_BRANCH when the module loads, so it's cleared first.
 delete process.env["LOOT_BRANCH"];
 const { checkKnownConflicts } = await import("../src/conflicts/index.js");
+const { fetchLootMasterlist } = await import("../src/conflicts/loot.js");
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SKYRIM = readFileSync(resolve(HERE, "fixtures", "loot-skyrimse-v0.29.yaml"), "utf8");
 const FALLOUT = [
   "plugins:",
+  // A regex JavaScript can't read: the entry is skipped and the rest of the list still counts.
+  "  - name: 'Bad(\\.esp'",
+  "    inc: [ 'Other.esp' ]",
   "  - name: 'Example.esm'",
   "    inc:",
   "      - 'Other.esp'",
@@ -36,6 +40,18 @@ const FALLOUT = [
   `        detail: '${"x".repeat(400)}'`,
   "      - name: 'Quoted.esp'",
   '        condition: "active(\\"Quoted.esp\\")\\nand `rm -rf`"',
+  // A regex by its backslash alone, matching the same plugin as the exact entry above.
+  "  - name: 'Example\\.esm'",
+  "    inc: [ 'Other.esp', 'Second.esp' ]",
+  // The same pair again, from the other side.
+  "  - name: 'Other.esp'",
+  "    inc: [ 'Example.esm' ]",
+  // Brackets, parentheses, dots and a plus, but none of : \ * ? |, so not a regex.
+  "  - name: 'Weird (Name) [v1.2] + more.esp'",
+  "    inc: [ 'Other.esp' ]",
+  // LOOT anchors it as ^Alpha|Beta\.esp$, so it matches any name that starts with Alpha.
+  "  - name: 'Alpha|Beta\\.esp'",
+  "    inc: [ 'Other.esp' ]",
 ].join("\n");
 
 const MB = 1024 * 1024;
@@ -226,4 +242,126 @@ test("LOOT's display and its English detail are quoted as one plain line of at m
     // A condition is code: one line, and a backtick can't end the quote around it.
     "Quoted.esp": ["informational", `LOOT masterlist flags Example.esm and Quoted.esp ${UNCHECKED} \`active("Quoted.esp") and 'rm -rf'\`.`],
   });
+});
+
+// ─── Which entries a plugin matches ──────────────────────────────────────────
+
+test("the slice of LOOT's real list parses: each entry with an inc list, in file order, regex names read as regexes", async () => {
+  const list = await fetchLootMasterlist("skyrimspecialedition");
+  assert.ok(!("failed" in list), JSON.stringify(list));
+  const kind = (match: string | RegExp) => (typeof match === "string" ? "exact" : "regex");
+  assert.deepEqual(
+    list.rules.map((r) => [r.name, kind(r.match), r.inc.length]),
+    [
+      ["NAT.esp", "exact", 21],
+      ["True Light.esp", "exact", 6],
+      ["3DNPC.esp", "exact", 1],
+      ["Kapotun ARMA .+\\.esp", "regex", 1],
+      ["aMidianBorn_ContentAddon(Light)?\\.esp", "regex", 5],
+      ["aMidianBorn_ContentAddonLight.esp", "exact", 1],
+      ["RUSTIC SOULGEMS - (Sorted|Unsorted)( - ESL)?( - GIST)?\\.esp", "regex", 1],
+      ["MPXP1\\.3 \\[PATCH - (DBPT\\.)?SSkwy\\.LotD\\]( \\(OCS\\))?\\.esp", "regex", 1],
+      ["MPXP1\\.3 \\[PATCH - (DBPT\\.)?SSkwy\\.LotD\\]\\.esp", "regex", 1],
+      ["MPXP1\\.3 \\[PATCH - SSkwy\\.LotD\\]( \\(OCS\\))?\\.esp", "regex", 1],
+    ]
+  );
+  // An inc item reached through an alias (*ENBSeries) is read like any other.
+  assert.deepEqual(list.rules[1]!.inc[0], {
+    plugin: "../enblocal.ini",
+    display: "ENBSeries SE (http://enbdev.com/download_mod_tesskyrimse.htm)",
+  });
+
+  const made = await fetchLootMasterlist("fallout4");
+  assert.ok(!("failed" in made), JSON.stringify(made));
+  assert.deepEqual(
+    made.rules.map((r) => [r.name, kind(r.match)]),
+    [
+      ["Example.esm", "exact"],
+      ["Example\\.esm", "regex"],
+      ["Other.esp", "exact"],
+      ["Weird (Name) [v1.2] + more.esp", "exact"],
+      ["Alpha|Beta\\.esp", "regex"],
+    ],
+    "the regex JavaScript can't read is left out"
+  );
+});
+
+test("an entry whose name is a regex matches the player's plugins, and the pair is named as the player named them", async () => {
+  assert.deepEqual(
+    await pairs("skyrimspecialedition", [
+      "RUSTIC SOULGEMS - Sorted - ESL.esp",
+      "rustic soulgems - unsorted.esp",
+      "Old RUSTIC SOULGEMS - Sorted.esp",
+      "MLPSoulGems.esp",
+      "Kapotun ARMA Reborn.esp",
+      "DWKaPoTunRace.esp",
+      "nat.esp",
+      "VIVID WEATHERSSE.ESP",
+    ]),
+    [
+      ["RUSTIC SOULGEMS - Sorted - ESL.esp", "MLPSoulGems.esp", "incompatible"],
+      ["rustic soulgems - unsorted.esp", "MLPSoulGems.esp", "incompatible"],
+      // Anchored at both ends, as LOOT anchors it: "Old RUSTIC SOULGEMS - Sorted.esp" doesn't match.
+      ["Kapotun ARMA Reborn.esp", "DWKaPoTunRace.esp", "informational"],
+      ["nat.esp", "VIVID WEATHERSSE.ESP", "incompatible"],
+    ]
+  );
+  const r = await checkKnownConflicts({
+    gameId: "skyrimspecialedition",
+    modIds: ["RUSTIC SOULGEMS - Sorted - ESL.esp", "MLPSoulGems.esp", "Kapotun ARMA Reborn.esp", "DWKaPoTunRace.esp"],
+  });
+  assert.deepEqual(
+    r.conflicts.map((c) => c.description),
+    [
+      `LOOT masterlist flags RUSTIC SOULGEMS - Sorted - ESL.esp and MLPSoulGems.esp ("MultiLayer Parallax Soul Gems") as incompatible.`,
+      `LOOT masterlist flags Kapotun ARMA Reborn.esp and DWKaPoTunRace.esp ${UNCHECKED} \`version("DWKaPoTunRace.esp", >=, "2.0")\`.`,
+    ]
+  );
+});
+
+test("every entry that matches a plugin counts, in file order, and a pair found twice is reported once", async () => {
+  // A regex entry, then an exact one further down the file.
+  assert.deepEqual(
+    await pairs("skyrimspecialedition", [
+      "Complete Crafting Overhaul_Remastered.esp",
+      "aMidianBorn_Book of Silence.esp",
+      "aMidianBorn_ContentAddonLight.esp",
+    ]),
+    [
+      ["aMidianBorn_ContentAddonLight.esp", "aMidianBorn_Book of Silence.esp", "incompatible"],
+      ["aMidianBorn_ContentAddonLight.esp", "Complete Crafting Overhaul_Remastered.esp", "incompatible"],
+    ]
+  );
+  // Three regex entries match the first plugin; two of them match the second.
+  assert.deepEqual(
+    await pairs("skyrimspecialedition", [
+      "MPXP1.3 [PATCH - SSkwy.LotD].esp",
+      "MPXP1.3 [PATCH - DBPT.SSkwy.LotD].esp",
+      "BluePalaceTerrace.esp",
+      "Open Cities Skyrim.esp",
+      "Solitude Skyway SE - Legacy of the Dragonborn Patch.esp",
+    ]),
+    [
+      ["MPXP1.3 [PATCH - SSkwy.LotD].esp", "Solitude Skyway SE - Legacy of the Dragonborn Patch.esp", "incompatible"],
+      ["MPXP1.3 [PATCH - SSkwy.LotD].esp", "Open Cities Skyrim.esp", "incompatible"],
+      ["MPXP1.3 [PATCH - SSkwy.LotD].esp", "BluePalaceTerrace.esp", "incompatible"],
+      ["MPXP1.3 [PATCH - DBPT.SSkwy.LotD].esp", "Solitude Skyway SE - Legacy of the Dragonborn Patch.esp", "incompatible"],
+      ["MPXP1.3 [PATCH - DBPT.SSkwy.LotD].esp", "Open Cities Skyrim.esp", "incompatible"],
+    ]
+  );
+  // Example.esm and Other.esp are paired by the exact entry, the regex Example\.esm and Other.esp's own entry.
+  assert.deepEqual(await pairs("fallout4", ["Example.esm", "Other.esp", "Second.esp"]), [
+    ["Example.esm", "Other.esp", "incompatible"],
+    ["Example.esm", "Second.esp", "incompatible"],
+  ]);
+});
+
+test("a name with brackets but none of : \\ * ? | is exact, and a regex is anchored as LOOT anchors it", async () => {
+  assert.deepEqual(await pairs("fallout4", ["Weird (Name) [v1.2] + more.esp", "Other.esp"]), [
+    ["Weird (Name) [v1.2] + more.esp", "Other.esp", "incompatible"],
+  ]);
+  // ^Alpha|Beta\.esp$ is "starts with Alpha" or "ends with Beta.esp", as in LOOT, not one or the other exactly.
+  assert.deepEqual(await pairs("fallout4", ["Alpha Patch.esp", "Other.esp"]), [
+    ["Alpha Patch.esp", "Other.esp", "incompatible"],
+  ]);
 });

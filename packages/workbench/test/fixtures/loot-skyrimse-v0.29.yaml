@@ -20,8 +20,8 @@
 #   RUSTIC SOULGEMS - (Sorted|Unsorted)( - ESL)?( - GIST)?\.esp
 #                   a regex entry with a display
 #   MPXP1\.3 ..., three regex entries and two exact ones
-#                   three regex entries that match one plugin, and exact
-#                   names with dots and brackets that aren't regexes
+#                   three regex entries that match one plugin, and two exact
+#                   entries for such plugins with no inc list
 
 prelude:
   common:

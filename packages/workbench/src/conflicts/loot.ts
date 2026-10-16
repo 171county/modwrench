@@ -85,6 +85,8 @@ export type LootIncEntry = {
 
 export type LootPluginRule = {
   name: string;
+  /** What a plugin's name is checked against: LOOT's name lowercased, or the regex it is. */
+  match: string | RegExp;
   inc: LootIncEntry[];
 };
 
@@ -92,9 +94,28 @@ export type LootMasterlist = {
   gameId: string;
   branch: string;
   fetchedAt: number;
-  /** Map keyed by lowercased plugin name → rule. LOOT names are case-insensitive. */
-  plugins: Map<string, LootPluginRule>;
+  /**
+   * Every entry with an inc list, in file order. A plugin can match several (its
+   * exact name and any number of regexes), and LOOT merges them all, in this order.
+   */
+  rules: LootPluginRule[];
 };
+
+// LOOT reads an entry's name as a regex when it holds any of : \ * ? |, so a
+// backslash alone ('Example\.esm') makes one. It anchors it as ^name$ and
+// matches it case-insensitively (libloot's plugin_metadata.rs).
+const REGEX_NAME = /[:\\*?|]/;
+
+/** How an entry's name matches a plugin, or null for a regex JavaScript can't read (the entry is skipped). */
+function nameMatch(name: string, gameId: string): string | RegExp | null {
+  if (!REGEX_NAME.test(name)) return name.toLowerCase();
+  try {
+    return new RegExp(`^${name}$`, "iu");
+  } catch {
+    log("warn", "workbench.loot.bad_regex", { gameId, name });
+    return null;
+  }
+}
 
 const memCache = new Map<string, LootMasterlist | Promise<LootMasterlist | LootUnavailable>>();
 
@@ -161,7 +182,7 @@ function parseLootMasterlist(
   const plugins = (doc as Record<string, unknown>)["plugins"];
   if (!Array.isArray(plugins)) return null;
 
-  const map = new Map<string, LootPluginRule>();
+  const rules: LootPluginRule[] = [];
   for (const raw of plugins) {
     if (!raw || typeof raw !== "object") continue;
     const entry = raw as Record<string, unknown>;
@@ -176,14 +197,15 @@ function parseLootMasterlist(
       }
     }
     if (inc.length === 0) continue;
-    map.set(name.toLowerCase(), { name, inc });
+    const match = nameMatch(name, gameId);
+    if (match !== null) rules.push({ name, match, inc });
   }
 
   return {
     gameId,
     branch,
     fetchedAt: Date.now(),
-    plugins: map,
+    rules,
   };
 }
 

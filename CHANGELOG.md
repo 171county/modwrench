@@ -600,6 +600,12 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   LOOT's name for the other file (`display`) and its note (`detail`, in English),
   as one plain line of at most 300 characters. It used to read a `msg` field
   that LOOT's entries don't have, so every description was the same sentence.
+  Entries whose plugin name is a regex, such as
+  `RUSTIC SOULGEMS - (Sorted|Unsorted)( - ESL)?( - GIST)?\.esp`, were never
+  matched; they hold 117 of Skyrim Special Edition's 799 and 22 of Fallout 4's
+  217. They are now read as LOOT reads them, and every entry that matches a
+  plugin counts, as in LOOT. A conflict names the two plugins as you or the
+  crash log wrote them, never by LOOT's regex or its spelling.
 
 ## [0.2.4] — 2026-09-15
 

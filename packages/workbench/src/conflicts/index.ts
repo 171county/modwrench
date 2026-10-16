@@ -64,19 +64,27 @@ function lootConflict(modA: string, modB: string, inc: LootIncEntry): KnownConfl
   };
 }
 
+/**
+ * Every entry that matches a plugin counts, in file order, as LOOT merges them.
+ * `inputs` maps each normalized input to the input itself: a pair is named as
+ * the player named the two plugins, never by LOOT's regex.
+ */
 function findLootConflicts(
   masterlist: LootMasterlist,
-  inputSet: Set<string>,
+  inputs: Map<string, string>,
   pluginInputs: string[]
 ): KnownConflict[] {
   const conflicts: KnownConflict[] = [];
   for (const plugin of pluginInputs) {
-    const rule = masterlist.plugins.get(plugin.toLowerCase());
-    if (!rule) continue;
-    for (const inc of rule.inc) {
-      const incLower = inc.plugin.toLowerCase();
-      if (!inputSet.has(incLower)) continue;
-      conflicts.push(lootConflict(rule.name, inc.plugin, inc));
+    const lower = plugin.toLowerCase();
+    for (const rule of masterlist.rules) {
+      const matches = typeof rule.match === "string" ? rule.match === lower : rule.match.test(plugin);
+      if (!matches) continue;
+      for (const inc of rule.inc) {
+        const other = inputs.get(inc.plugin.toLowerCase());
+        if (other === undefined) continue;
+        conflicts.push(lootConflict(plugin, other, inc));
+      }
     }
   }
   return conflicts;
@@ -123,7 +131,8 @@ export async function checkKnownConflicts(
       warnings.push(lootStatus.reason);
     } else {
       lootStatus.available = true;
-      lootConflicts = findLootConflicts(masterlist, inputSet, pluginInputs);
+      const inputs = new Map(input.modIds.map((id) => [normalizeId(id), id]));
+      lootConflicts = findLootConflicts(masterlist, inputs, pluginInputs);
     }
   }
 
