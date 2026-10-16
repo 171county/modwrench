@@ -23,6 +23,7 @@ import {
   windowsPluginsTxt,
   LETHAL,
 } from "./helpers/doctor-world.js";
+import { holdsPath } from "./helpers/paths.js";
 import { APP_ID, createSandbox, type World } from "./helpers/world.js";
 
 // ─── The Setup Doctor, end to end ────────────────────────────────────────────
@@ -715,7 +716,7 @@ test("an MO2 instance or profile that was asked for and couldn't be used is a wa
     assert.match(f.detail, /What MO2 loads wasn't checked, and the plugin checks read the game's own plugins\.txt instead\.$/, what);
     assert.match(f.fix ?? "", /mo2InstancePath/, what);
     assert.notEqual(r.verdict, "clear", what);
-    assert.ok(!JSON.stringify(r).includes(sandbox.root), what);
+    assert.ok(!holdsPath(JSON.stringify(r), sandbox.root), what);
     assert.equal(summarizeDoctor(r).includes("If you play through Mod Organizer 2, pass mo2InstancePath"), options.mo2InstancePath === undefined, `${what}: not told to pass what it passed`);
   }
 });
@@ -821,7 +822,7 @@ test("a gamePath that is a folder but not the game's own is a problem, and nothi
     assert.equal(r.verdict, "problems");
     assert.equal(find(r, "setup.plugin-stale"), undefined, "nothing is called harmless from a folder that isn't the game");
     assert.equal(find(r, "setup.masters"), undefined, "and no master verdict is given from it");
-    assert.ok(!JSON.stringify(r).includes(sandbox.root), "the folder isn't echoed back");
+    assert.ok(!holdsPath(JSON.stringify(r), sandbox.root), "the folder isn't echoed back");
   }
 });
 
@@ -901,8 +902,7 @@ test("a gamePath without the game's executable is turned away, or checked with a
       assert.ok(f.fix!.includes(name), `${def.gameId}: the fix names ${name}`);
     }
     if (def.exeFolderHint !== undefined) assert.ok(f.fix!.endsWith(` ${def.exeFolderHint}`), def.gameId);
-    // Looked for as JSON writes it, so the backslashes of a Windows path don't hide it.
-    assert.ok(!JSON.stringify(r).includes(JSON.stringify(sandbox.root).slice(1, -1)), `${def.gameId}: the folder isn't echoed back`);
+    assert.ok(!holdsPath(JSON.stringify(r), sandbox.root), `${def.gameId}: the folder isn't echoed back`);
   }
 });
 
@@ -955,7 +955,7 @@ test("a game under Program Files and an MO2 instance in OneDrive are both flagge
   assert.equal(f.status, "warn");
   assert.equal(f.title, "Folders Windows protects or syncs");
   assert.deepEqual(f.items, ["The game: Program Files", "Mod Organizer 2's instance: a OneDrive folder"], "the mods folder is inside the instance, so it isn't a line of its own");
-  assert.ok(!JSON.stringify(f).includes(sandbox.root));
+  assert.ok(!holdsPath(JSON.stringify(f), sandbox.root));
 });
 
 test("a mods folder kept outside the instance, in a folder Windows syncs, is named as the mods folder", () => {
@@ -1137,7 +1137,7 @@ test("a plugins.txt that is there but can't be opened is reported as unreadable,
     assert.match(f.fix ?? "", /run this again/);
     assert.notEqual(r.verdict, "clear");
     assert.ok(r.limits.some((l) => l.startsWith("Some folders or plugins were skipped (plugins.txt couldn't be opened)")));
-    assert.ok(!JSON.stringify(r).includes(sandbox.root));
+    assert.ok(!holdsPath(JSON.stringify(r), sandbox.root));
   });
 });
 
@@ -1159,7 +1159,7 @@ test("a Skyrim.ccc that can't be opened leaves the Creation Club plugins uncount
     assert.match(must(r, "setup.plugin-limit").detail, /Skyrim\.ccc couldn't be opened/);
     assert.equal(r.looked.plugins?.complete, false);
     assert.notEqual(r.verdict, "clear");
-    assert.ok(!JSON.stringify(r).includes(sandbox.root));
+    assert.ok(!holdsPath(JSON.stringify(r), sandbox.root));
   });
 });
 
@@ -1388,7 +1388,7 @@ test("Vortex's deployment record leads to its staging folder: the drive rule, th
   // One disk in the test, so the staging drive is the game's drive, said once.
   assert.match(must(r, "setup.room").detail, /^the game's drive and Vortex's staging drive: [\d.]+ GB free\.$/);
   assert.match(must(r, "setup.location").detail, /Vortex's staging folder isn't under Program Files/);
-  assert.ok(!JSON.stringify(r).includes(staging), "the staging folder's path isn't in the report");
+  assert.ok(!holdsPath(JSON.stringify(r), staging), "the staging folder's path isn't in the report");
 });
 
 test("without a deployment record the staging folder is listed as not checked, and why; off Windows it isn't looked for", () => {

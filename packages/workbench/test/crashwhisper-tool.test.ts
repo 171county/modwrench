@@ -9,6 +9,7 @@ import { MCP_APP_MIME, MCP_APPS_EXTENSION_ID } from "@modwrench/ui";
 import { summarizeCrashWhisper, whisper, type CrashWhisperReport } from "../src/crashwhisper/index.js";
 import { VENUES } from "../src/crashwhisper/types.js";
 import { registerWorkbenchTools } from "../src/register.js";
+import { holdsPath } from "./helpers/paths.js";
 import { everythingOut, fixture, found, personalLines, PERSON, valuesOf } from "./helpers/person.js";
 import { createSandbox, put } from "./helpers/world.js";
 
@@ -352,7 +353,7 @@ test("no crash log anywhere: an error with the reason and where it looked, in wo
     const text = result.content[0]!.text;
     assert.match(text, /^Crash Whisperer couldn't run: No crash log found\./);
     assert.match(text, /Where it looked:\n- Skyrim Special Edition: no log found/);
-    assert.ok(!text.includes(sandbox.root), "no folder of the player's in the answer");
+    assert.ok(!holdsPath(text, sandbox.root), "no folder of the player's in the answer");
     assert.doesNotMatch(text, /[A-Za-z]:\\|\/tmp\/|\/home\//);
     assert.equal("structuredContent" in result, capabilities !== null);
     if (capabilities !== null) assert.equal(result.structuredContent?.ok, false);
@@ -369,7 +370,7 @@ test("a log that isn't one it reads, a missing file and a game it doesn't know a
   const missing = await tool().handler({ logPath: join(w.root, "no-such-file.log") });
   assert.equal(missing.isError, true);
   assert.match(missing.content[0]!.text, /can't open the file at logPath/);
-  assert.ok(!missing.content[0]!.text.includes(w.root), "the path the player gave isn't echoed back");
+  assert.ok(!holdsPath(missing.content[0]!.text, w.root), "the path the player gave isn't echoed back");
 
   const unknownGame = await tool().handler({ gameId: "notagame" });
   assert.equal(unknownGame.isError, true);
@@ -473,5 +474,5 @@ test("the debug log says that it ran and how it went, and holds nothing from the
   const everythingLogged = run.stderr;
   assert.deepEqual(found(everythingLogged), [], "nothing personal in what was logged");
   assert.doesNotMatch(everythingLogged, /CloakAndDaggerFix|Tiny Tweak|crash-sse|planted\.log|EXCEPTION_ACCESS/, "nothing from the log in what was logged");
-  assert.ok(!everythingLogged.includes(w.root), "no folder in what was logged");
+  assert.ok(!holdsPath(everythingLogged, w.root), "no folder in what was logged");
 });
