@@ -1,6 +1,7 @@
 import {
   fetchLootMasterlist,
   hasLootSupport,
+  type LootIncEntry,
   type LootMasterlist,
 } from "./loot.js";
 import { loadCommunityConflicts } from "./community.js";
@@ -43,6 +44,26 @@ function dedupePairs(conflicts: KnownConflict[]): KnownConflict[] {
   return out;
 }
 
+/**
+ * One LOOT incompatibility. An entry LOOT applies only under a condition is
+ * informational: ModWrench doesn't evaluate conditions, so it quotes the
+ * condition rather than claim the two plugins conflict.
+ */
+function lootConflict(modA: string, modB: string, inc: LootIncEntry): KnownConflict {
+  const named = inc.display ? `${modB} ("${inc.display}")` : modB;
+  let description = inc.condition
+    ? `LOOT masterlist flags ${modA} and ${named} as incompatible only under this condition, which ModWrench doesn't check yet: \`${inc.condition}\`.`
+    : `LOOT masterlist flags ${modA} and ${named} as incompatible.`;
+  if (inc.detail) description += ` LOOT's note: "${inc.detail}"`;
+  return {
+    modA,
+    modB,
+    severity: inc.condition ? "informational" : "incompatible",
+    description,
+    source: "loot-masterlist",
+  };
+}
+
 function findLootConflicts(
   masterlist: LootMasterlist,
   inputSet: Set<string>,
@@ -55,16 +76,7 @@ function findLootConflicts(
     for (const inc of rule.inc) {
       const incLower = inc.plugin.toLowerCase();
       if (!inputSet.has(incLower)) continue;
-      const entry: KnownConflict = {
-        modA: rule.name,
-        modB: inc.plugin,
-        severity: "incompatible",
-        description:
-          inc.msg ??
-          `LOOT masterlist flags ${rule.name} and ${inc.plugin} as incompatible.`,
-        source: "loot-masterlist",
-      };
-      conflicts.push(entry);
+      conflicts.push(lootConflict(rule.name, inc.plugin, inc));
     }
   }
   return conflicts;

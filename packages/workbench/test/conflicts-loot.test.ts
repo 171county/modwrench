@@ -21,7 +21,21 @@ const SKYRIM = readFileSync(resolve(HERE, "fixtures", "loot-skyrimse-v0.29.yaml"
 const FALLOUT = [
   "plugins:",
   "  - name: 'Example.esm'",
-  "    inc: [ 'Other.esp' ]",
+  "    inc:",
+  "      - 'Other.esp'",
+  "      - name: 'Noted.esp'",
+  "        display: '[Noted Mod](https://example.test/noted) **v2**'",
+  "        detail:",
+  "          - lang: de",
+  "            text: 'Nur `Version 2`.'",
+  "          - lang: en",
+  '            text: "Only `version 2`:\\n\\nsee \\"the notes\\" first."',
+  "      - name: 'German.esp'",
+  "        detail: [ { lang: de, text: 'Nur auf Deutsch.' } ]",
+  "      - name: 'Long.esp'",
+  `        detail: '${"x".repeat(400)}'`,
+  "      - name: 'Quoted.esp'",
+  '        condition: "active(\\"Quoted.esp\\")\\nand `rm -rf`"',
 ].join("\n");
 
 const MB = 1024 * 1024;
@@ -147,4 +161,69 @@ test("a masterlist over 8 MB is left unread, never parsed in part; one of 8 MB i
   assert.deepEqual(await pairs("fallout3", ["Example.esm", "Other.esp"]), [["Example.esm", "Other.esp", "incompatible"]]);
   assert.equal(padded.sent, 8 * MB);
   assert.equal(padded.cancelled, false);
+});
+
+// ─── What an entry says ──────────────────────────────────────────────────────
+
+const LOOT = "loot-masterlist" as const;
+const UNCHECKED = "as incompatible only under this condition, which ModWrench doesn't check yet:";
+
+test("an entry LOOT applies only under a condition is informational, and quotes the condition", async () => {
+  const r = await checkKnownConflicts({
+    gameId: "skyrimspecialedition",
+    modIds: ["NAT.esp", "TrueStormsSE.esp", "Vivid WeathersSE.esp", "3DNPC.esp", "open cities skyrim.esp", "True Light.esp", "RelightingSkyrim_SSE.esp"],
+  });
+  assert.deepEqual(r.conflicts, [
+    {
+      modA: "NAT.esp",
+      modB: "TrueStormsSE.esp",
+      severity: "informational",
+      description: `LOOT masterlist flags NAT.esp and TrueStormsSE.esp ("True Storms Special Edition") ${UNCHECKED} \`active("TrueStormsSE.esp") and not active("NAT_TS_Patch_.*\\.esp")\`.`,
+      source: LOOT,
+    },
+    {
+      modA: "NAT.esp",
+      modB: "Vivid WeathersSE.esp",
+      severity: "incompatible",
+      description: "LOOT masterlist flags NAT.esp and Vivid WeathersSE.esp as incompatible.",
+      source: LOOT,
+    },
+    {
+      modA: "3DNPC.esp",
+      modB: "open cities skyrim.esp",
+      severity: "informational",
+      description: `LOOT masterlist flags 3DNPC.esp and open cities skyrim.esp ${UNCHECKED} \`not active("Open Cities - 3DNPC Patch.esp")\`.`,
+      source: LOOT,
+    },
+    {
+      modA: "True Light.esp",
+      modB: "RelightingSkyrim_SSE.esp",
+      severity: "informational",
+      description:
+        `LOOT masterlist flags True Light.esp and RelightingSkyrim_SSE.esp ${UNCHECKED} ` +
+        '`checksum("RelightingSkyrim_SSE.esp", A05D4081) or checksum("RelightingSkyrim_SSE.esp", C5529E7D)`.' +
+        ` LOOT's note: "Incompatible with interiors versions."`,
+      source: LOOT,
+    },
+  ]);
+});
+
+test("LOOT's display and its English detail are quoted as one plain line of at most 300 characters", async () => {
+  const r = await checkKnownConflicts({
+    gameId: "fallout4",
+    modIds: ["Example.esm", "Noted.esp", "German.esp", "Long.esp", "Quoted.esp"],
+  });
+  const said = Object.fromEntries(r.conflicts.map((c) => [c.modB, [c.severity, c.description]]));
+  assert.deepEqual(said, {
+    // Markdown flattened, line breaks and double quotes made safe, the English text picked from the list.
+    "Noted.esp": [
+      "incompatible",
+      `LOOT masterlist flags Example.esm and Noted.esp ("Noted Mod (https://example.test/noted) v2") as incompatible. LOOT's note: "Only version 2: see 'the notes' first."`,
+    ],
+    // A note with no English text isn't shown in another language.
+    "German.esp": ["incompatible", "LOOT masterlist flags Example.esm and German.esp as incompatible."],
+    "Long.esp": ["incompatible", `LOOT masterlist flags Example.esm and Long.esp as incompatible. LOOT's note: "${"x".repeat(299)}…"`],
+    // A condition is code: one line, and a backtick can't end the quote around it.
+    "Quoted.esp": ["informational", `LOOT masterlist flags Example.esm and Quoted.esp ${UNCHECKED} \`active("Quoted.esp") and 'rm -rf'\`.`],
+  });
 });

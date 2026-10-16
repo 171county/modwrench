@@ -592,7 +592,14 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   up after 30 seconds, and stops reading a list over 8 MB (the largest, Oblivion's,
   is 1.2 MB) rather than parse part of one. Either way the answer says which
   happened, and the check uses the community data only, as it does when GitHub
-  can't be reached.
+  can't be reached. An entry LOOT applies only under a condition (47 of Skyrim
+  Special Edition's 799 and 8 of Fallout 4's 217), such as 3DNPC's with Open
+  Cities when their patch isn't active, was reported as incompatible whatever
+  the condition said; it now comes back as `informational`, quoting LOOT's
+  condition and saying ModWrench doesn't check it yet. A description now carries
+  LOOT's name for the other file (`display`) and its note (`detail`, in English),
+  as one plain line of at most 300 characters. It used to read a `msg` field
+  that LOOT's entries don't have, so every description was the same sentence.
 
 ## [0.2.4] — 2026-09-15
 

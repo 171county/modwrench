@@ -1,5 +1,6 @@
 import { load as yamlLoad } from "js-yaml";
 import { appIdentity, getEnv, log } from "@modwrench/core";
+import { clean } from "../patchday/summary.js";
 
 const APP = appIdentity(import.meta.url);
 
@@ -8,14 +9,21 @@ const APP = appIdentity(import.meta.url);
 // rules and known incompatibilities. We fetch the raw file from GitHub —
 // no auth needed.
 //
-// The schema we care about (LOOT spec v0.21+):
+// The schema we care about (LOOT's metadata syntax, libloot docs/metadata):
 //   plugins:
 //     - name: 'SomeMod.esp'
 //       inc:
 //         - 'IncompatibleMod.esp'
 //         - name: 'ConditionalInc.esp'
-//           condition: 'file("...")'    # ignored — we don't evaluate
-//           msg: 'A note about when this conflicts'
+//           display: 'Conditional Inc'  # LOOT's name for the file (CommonMark)
+//           detail: 'Only the v2 files.' # or a list of { lang, text }
+//           condition: 'file("...")'    # not evaluated: such an entry is
+//                                       # reported as informational
+//
+// display, detail and condition are someone else's text, read by a model:
+// they're kept as one plain line, cut at TEXT_MAX (the longest in Skyrim SE's
+// and Fallout 4's lists is 177 characters). One entry even has its name and
+// display swapped.
 //
 // Other LOOT fields (after, req, msg, group, etc.) aren't used by this tool
 // — they're for load-order optimization, not incompatibility detection.
@@ -63,10 +71,16 @@ const TOO_LARGE = `LOOT masterlist was over ${MAX_BYTES / 1024 / 1024} MB, so it
 /** Why the masterlist can't be used: one sentence, for the answer. */
 export type LootUnavailable = { failed: string };
 
+const TEXT_MAX = 300;
+
 export type LootIncEntry = {
   plugin: string;
-  /** Optional LOOT message (often clarifies why these conflict). */
-  msg?: string;
+  /** LOOT's name for the file, as plain text. */
+  display?: string;
+  /** LOOT's note on the entry, in English, as plain text. */
+  detail?: string;
+  /** The condition LOOT applies the entry under, as LOOT wrote it on one line. ModWrench doesn't evaluate it. */
+  condition?: string;
 };
 
 export type LootPluginRule = {
@@ -84,6 +98,27 @@ export type LootMasterlist = {
 
 const memCache = new Map<string, LootMasterlist | Promise<LootMasterlist | LootUnavailable>>();
 
+/** LOOT's English text: a plain string, or the `en` item of a list of { lang, text }. */
+function english(value: unknown): unknown {
+  if (!Array.isArray(value)) return value;
+  const en = value.find((v) => v && typeof v === "object" && (v as Record<string, unknown>)["lang"] === "en");
+  return en ? (en as Record<string, unknown>)["text"] : undefined;
+}
+
+/**
+ * LOOT's CommonMark as one plain line: a link becomes "text (address)", bold and
+ * code marks go, and a double quote becomes a single one so the text can't close
+ * the quotes it is put in.
+ */
+function plainText(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const flat = value
+    .replace(/\[([^\]]*)\]\(([^)\s]*)\)/g, "$1 ($2)")
+    .replace(/\*\*|__|`/g, "")
+    .replace(/"/g, "'");
+  return clean(flat, TEXT_MAX) || undefined;
+}
+
 function normalizeIncEntry(raw: unknown): LootIncEntry | null {
   if (typeof raw === "string") return { plugin: raw };
   if (raw && typeof raw === "object") {
@@ -91,8 +126,16 @@ function normalizeIncEntry(raw: unknown): LootIncEntry | null {
     const name = obj["name"];
     if (typeof name === "string") {
       const entry: LootIncEntry = { plugin: name };
-      const msg = obj["msg"];
-      if (typeof msg === "string") entry.msg = msg;
+      const display = plainText(obj["display"]);
+      if (display) entry.display = display;
+      const detail = plainText(english(obj["detail"]));
+      if (detail) entry.detail = detail;
+      // Conditions are code, so only made one line; they never hold a backtick, which would end the quote.
+      const condition = obj["condition"];
+      if (typeof condition === "string") {
+        const line = clean(condition.replace(/`/g, "'"), TEXT_MAX);
+        if (line) entry.condition = line;
+      }
       return entry;
     }
   }
