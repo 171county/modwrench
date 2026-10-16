@@ -46,6 +46,23 @@ const LOOT_REPOS: Record<string, string> = {
   oblivion: "oblivion",
 };
 
+// The fetch's limits. The largest masterlist is Oblivion's, at 1.2 MB, so a
+// body over 8 MB isn't one, and is left unread rather than held in memory.
+// 30 seconds lets 1.2 MB arrive over a connection as slow as about 320 kbit/s,
+// and gives up well before the 60 seconds an MCP client waits for a tool's
+// answer by default (the MCP SDK's request timeout), so a stalled connection
+// still gets an answer from the community data.
+const MAX_BYTES = 8 * 1024 * 1024;
+const TIMEOUT_MS = 30_000;
+
+const FETCH_FAILED =
+  "LOOT masterlist fetch failed (network, GitHub unreachable, or parse error).";
+const TIMED_OUT = `LOOT masterlist fetch timed out after ${TIMEOUT_MS / 1000} seconds.`;
+const TOO_LARGE = `LOOT masterlist was over ${MAX_BYTES / 1024 / 1024} MB, so it wasn't read.`;
+
+/** Why the masterlist can't be used: one sentence, for the answer. */
+export type LootUnavailable = { failed: string };
+
 export type LootIncEntry = {
   plugin: string;
   /** Optional LOOT message (often clarifies why these conflict). */
@@ -65,7 +82,7 @@ export type LootMasterlist = {
   plugins: Map<string, LootPluginRule>;
 };
 
-const memCache = new Map<string, LootMasterlist | Promise<LootMasterlist | null>>();
+const memCache = new Map<string, LootMasterlist | Promise<LootMasterlist | LootUnavailable>>();
 
 function normalizeIncEntry(raw: unknown): LootIncEntry | null {
   if (typeof raw === "string") return { plugin: raw };
@@ -127,11 +144,30 @@ function parseLootMasterlist(
   };
 }
 
+/** The body as text, read as a stream, or null once it passes MAX_BYTES: it is never held whole or parsed in part. */
+async function readCapped(res: Response): Promise<string | null> {
+  if (!res.body) return "";
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > MAX_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
+}
+
 export async function fetchLootMasterlist(
   gameId: string
-): Promise<LootMasterlist | null> {
+): Promise<LootMasterlist | LootUnavailable> {
   const repo = LOOT_REPOS[gameId];
-  if (!repo) return null;
+  if (!repo) return { failed: FETCH_FAILED };
 
   const cacheKey = `${gameId}:${LOOT_BRANCH}`;
   const cached = memCache.get(cacheKey);
@@ -140,36 +176,43 @@ export async function fetchLootMasterlist(
   const url = `https://raw.githubusercontent.com/loot/${repo}/${LOOT_BRANCH}/masterlist.yaml`;
   log("debug", "workbench.loot.fetch", { url });
 
-  const pending: Promise<LootMasterlist | null> = (async () => {
+  const pending: Promise<LootMasterlist | LootUnavailable> = (async () => {
     try {
       const res = await fetch(url, {
         headers: {
           Accept: "text/yaml, text/plain;q=0.9, */*;q=0.5",
           "User-Agent": APP.userAgent,
         },
+        // Covers reading the body too: a stall at any point ends the fetch.
+        signal: AbortSignal.timeout(TIMEOUT_MS),
       });
       if (!res.ok) {
         log("warn", "workbench.loot.fetch_failed", {
           url,
           status: res.status,
         });
-        return null;
+        return { failed: FETCH_FAILED };
       }
-      const text = await res.text();
-      return parseLootMasterlist(text, gameId, LOOT_BRANCH);
+      const text = await readCapped(res);
+      if (text === null) {
+        log("warn", "workbench.loot.too_large", { url, maxBytes: MAX_BYTES });
+        return { failed: TOO_LARGE };
+      }
+      return parseLootMasterlist(text, gameId, LOOT_BRANCH) ?? { failed: FETCH_FAILED };
     } catch (err) {
       log("warn", "workbench.loot.fetch_error", {
         url,
         msg: err instanceof Error ? err.message : String(err),
       });
-      return null;
+      const timedOut = err instanceof Error && err.name === "TimeoutError";
+      return { failed: timedOut ? TIMED_OUT : FETCH_FAILED };
     }
   })();
 
   memCache.set(cacheKey, pending);
   const resolved = await pending;
-  if (resolved) memCache.set(cacheKey, resolved);
-  else memCache.delete(cacheKey);
+  if ("failed" in resolved) memCache.delete(cacheKey);
+  else memCache.set(cacheKey, resolved);
   return resolved;
 }
 

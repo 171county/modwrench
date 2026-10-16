@@ -105,10 +105,9 @@ export async function checkKnownConflicts(
       "Pass plugin filenames (.esp/.esm/.esl) to engage LOOT checks.";
   } else {
     const masterlist = await fetchLootMasterlist(input.gameId);
-    if (!masterlist) {
+    if ("failed" in masterlist) {
       lootStatus.reason =
-        "LOOT masterlist fetch failed (network, GitHub unreachable, or " +
-        "parse error). Conflict detection falls back to community data only.";
+        masterlist.failed + " Conflict detection falls back to community data only.";
       warnings.push(lootStatus.reason);
     } else {
       lootStatus.available = true;

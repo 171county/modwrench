@@ -586,7 +586,13 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   and `.env.example` no longer suggests `master`, which Skyrim Special Edition,
   Fallout 4 and Starfield don't have. Skyrim VR and Fallout 4 VR asked for lists
   that exist on neither branch, so the LOOT check always failed for them; they
-  now read Skyrim Special Edition's and Fallout 4's, as LOOT does.
+  now read Skyrim Special Edition's and Fallout 4's, as LOOT does. The fetch
+  had no time limit, so a stalled connection held up the answer, crash
+  diagnosis included, until the client gave up, and no size limit; it now gives
+  up after 30 seconds, and stops reading a list over 8 MB (the largest, Oblivion's,
+  is 1.2 MB) rather than parse part of one. Either way the answer says which
+  happened, and the check uses the community data only, as it does when GitHub
+  can't be reached.
 
 ## [0.2.4] — 2026-09-15
 
