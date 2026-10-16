@@ -37,3 +37,37 @@ test("publish-mcp.yml stops in a private repository before it publishes", () => 
   assert.ok(guard > 0);
   assert.ok(guard < workflow.indexOf("mcp-publisher publish"));
 });
+
+// npm trusted publishing lets a release publish without a stored token that expires. npm's docs
+// list what it needs: npm 11.5.1 or newer, Node 22.14.0 or newer, the id-token: write permission,
+// a GitHub-hosted runner, and a repository.url in each package that matches this repository.
+const NPM_FOR_TRUSTED_PUBLISHING = [11, 5, 1];
+const atLeast = (have, want) => {
+  for (let i = 0; i < want.length; i++) if (have[i] !== want[i]) return have[i] > want[i];
+  return true;
+};
+
+test("release.yml publishes with what npm trusted publishing needs", () => {
+  const workflow = read(".github/workflows/release.yml");
+  const npmJob = workflow.slice(workflow.indexOf("\n  npm:"), workflow.indexOf("\n  mcp-registry:"));
+  assert.match(npmJob, /^\n  npm:\n    runs-on: (?:ubuntu|windows|macos)-[\w.-]+\n/, "a GitHub-hosted runner");
+  assert.match(npmJob, /\n    permissions:\n(?:      [^\n]*\n)*?      id-token: write\b/, "the id-token permission");
+  const node = npmJob.match(/\n\s+node-version: (\d+)\n/);
+  assert.ok(node && Number(node[1]) >= 22, "Node 22 or newer");
+  const install = npmJob.match(/\n\s+run: npm install -g npm@(\d+)\.(\d+)\.(\d+)\n/);
+  assert.ok(install, "a pinned npm is installed");
+  assert.ok(atLeast(install.slice(1, 4).map(Number), NPM_FOR_TRUSTED_PUBLISHING), "npm 11.5.1 or newer");
+  assert.ok(install.index > npmJob.indexOf("actions/setup-node"), "after setup-node, so it replaces the npm the publish runs");
+  assert.ok(install.index < npmJob.search(/\n\s+npm publish /), "before the publish");
+  assert.match(npmJob, /\n\s+npm publish [^\n]*--provenance/, "the publish still asks for provenance, for the token fallback");
+});
+
+test("every package release.yml publishes gives this repository as its repository.url", () => {
+  const workflow = read(".github/workflows/release.yml");
+  const packages = workflow.match(/\n\s+for pkg in ([a-z ]+); do\n/)[1].split(" ");
+  assert.ok(packages.length > 0);
+  for (const pkg of packages) {
+    const manifest = JSON.parse(read(`packages/${pkg}/package.json`));
+    assert.equal(manifest.repository?.url, "git+https://github.com/171county/modwrench.git", manifest.name);
+  }
+});

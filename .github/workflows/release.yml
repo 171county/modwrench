@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # npm provenance
+      id-token: write # npm trusted publishing and provenance
     steps:
       # npm provenance only works from a public repository, and TRUST.md promises the
       # source is public and that each release can be checked against it. Released from a
@@ -54,6 +54,27 @@ jobs:
       - name: Check release readiness
         run: npm run check:publishable
 
+      # Trusted publishing: npm swaps this run's GitHub identity (the id-token
+      # permission above) for a short-lived publish token, so a release doesn't
+      # depend on a stored token that expires. It needs npm 11.5.1 or newer,
+      # and Node 22 comes with npm 10, so the publish runs a pinned npm.
+      # A package that doesn't trust this workflow yet falls back to NPM_TOKEN.
+      #
+      # Setup on npmjs.com, once for each of the eight @modwrench/* packages, no
+      # more than two days before a release (npm drops a trusted publisher that
+      # hasn't published within two days of being added):
+      #   Settings -> Trusted publishing -> GitHub Actions
+      #     Organization or user: 171county
+      #     Repository:           modwrench
+      #     Workflow filename:    release.yml
+      #     Environment name:     leave empty, this job has none
+      #     Allowed actions:      npm publish
+      # After the release, `npm view @modwrench/cli@<version> _npmUser` names
+      # GitHub Actions for a trusted publish. Then delete the NPM_TOKEN secret
+      # and revoke the token on npmjs.com.
+      - name: Install an npm that supports trusted publishing
+        run: npm install -g npm@11.21.0
+
       # Dependency order matters: every package must be on npm before anything
       # that depends on it. @modwrench/ui in particular is required by five
       # other packages — publishing them without it makes all five uninstallable.
@@ -72,6 +93,8 @@ jobs:
             fi
           done
         env:
+          # The fallback for a package that doesn't trust this workflow yet;
+          # npm tries trusted publishing first.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           # A tag push is a real release; a manual run defaults to beta so it
           # cannot move latest by accident.
