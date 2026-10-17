@@ -39,15 +39,17 @@ The complete list, from the shipped code:
 | `api.nexusmods.com` | Nexus tools; crash-suspect attribution (opt-in) | Mod data; author links for named suspects |
 | `users.nexusmods.com` | `auth login nexus` only | OAuth |
 | `api.mod.io` | mod.io tools | Mod data |
-| `thunderstore.io` | Thunderstore tools | Mod data |
+| `thunderstore.io` | Thunderstore tools; `mw_pulse`, only after you confirm | Mod data; the latest version of each mod you run |
 | `raw.githubusercontent.com` | `mw_check_known_conflicts`; `mw_diagnose_crash` with a `gameId` | LOOT's public masterlist |
 | a Nexus CDN host | `nexus_file_preview` only | The archive listing for one file |
 
-Two of those need naming properly rather than being left to the table.
+Three of those need naming properly rather than being left to the table.
 
 **The CDN host is the only destination here that is not a fixed address.** `nexus_file_preview` reads a file's `content_preview_link` — a URL Nexus supplies at runtime — and follows it. ModWrench does not choose that host and cannot list it in advance, because Nexus decides it per file. The request carries no credential.
 
 **`raw.githubusercontent.com` learns which game you are modding.** The masterlist URL contains the game: `raw.githubusercontent.com/loot/<game>/…/masterlist.yaml`, where `<game>` is `skyrimse`, `fallout4`, `starfield` and so on. So GitHub receives your IP address, that game name, and a User-Agent identifying ModWrench and its version. No mod data, no credentials, no file paths — but the game name is real and this page previously said "nothing else", which was not accurate.
+
+**`thunderstore.io` learns which mods you run when you confirm a Pulse check.** `mw_pulse` asks Thunderstore about each mod in your r2modman profile by name, one request per mod, so Thunderstore receives your IP address, the names of those mods and a User-Agent identifying ModWrench and its version. It sends nothing until you have said yes to the exact number of requests: see [Pulse](#pulse-what-it-reads-and-sends).
 
 Platform base URLs are environment variables you can override, so you can point most of ModWrench at a proxy and watch what it sends. Three paths do not honour those variables, and the first is the one you would most want to watch:
 
@@ -333,6 +335,17 @@ What goes into the draft:
 - **Your setup, from what ModWrench knows without asking:** its own version, the connectors that are on, the name and version your AI client gave when it connected (cleaned like your words, since the client chose them), the operating system (Windows, macOS or Linux, and on Linux whether `/etc/os-release` says this is a Steam Deck), the processor architecture, Node's version, and whether `MODWRENCH_UI` and `MODWRENCH_STRUCTURED` change the pages. No folder, account name, computer name or file of yours goes in. The one file it opens is `/etc/os-release`, on Linux.
 
 Read the draft before you post it: an issue is public.
+
+## Pulse: what it reads and sends
+
+`mw_pulse` answers "what has changed for the mods I run?" Today it covers mods installed from Thunderstore with r2modman (Lethal Company, Valheim and the other Thunderstore games). Mods from Nexus Mods and mod.io are not checked yet, and the answer says so.
+
+- **What it reads.** The r2modman profile's `mods.yml`, the same file `mw_read_load_order` reads: each mod's Thunderstore name, its installed version and whether it is switched on. Only switched-on mods are checked.
+- **It asks before it sends anything.** Called without `confirm`, it makes no network request at all: it answers with how many requests it would make and to which host. Only a second call with `confirm=true` sends them, and the AI is told to make that call only after you say yes. A test asserts that the unconfirmed call makes no request.
+- **What it sends.** One request per mod to `thunderstore.io` (or `THUNDERSTORE_BASE_URL`), asking for `/api/experimental/package/<owner>/<name>/`. Each request carries that mod's name, a User-Agent naming ModWrench and its version, and, as every request does, your IP address. No account, key, folder, profile name or version number of yours is sent. A name that isn't shaped like a Thunderstore name (letters, digits and underscores, an owner and a name joined by one dash) is not sent and is listed as not checked.
+- **How much.** At most 200 mods in one run; any beyond that are listed as not checked. At most four requests at a time, through the same client the Thunderstore tools use, which retries a request Thunderstore answers with "too many requests" or a server error a few times and then gives up. It never runs on its own or on a schedule, and it keeps nothing between runs.
+- **What it answers.** For each mod: the version you have and Thunderstore's latest, whether its author has marked it deprecated, or that Thunderstore no longer has it. Each mod is named with its author and its Thunderstore page. Versions are compared as numbers (`1.10.0` is newer than `1.9.2`); a version that isn't three numbers is reported as "can't compare" rather than guessed at.
+- **What it can't tell you.** Whether an update suits your game version or your other mods: Thunderstore's data doesn't say, and Pulse doesn't install, download or change anything.
 
 ## What leaves your machine — read this one
 

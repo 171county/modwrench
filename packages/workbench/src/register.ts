@@ -44,6 +44,7 @@ import { runDoctor } from "./doctor/index.js";
 import { summarizeDoctor } from "./doctor/summary.js";
 import { correlateCrash, type CrashSuspect } from "./crashlog/diagnose.js";
 import { isNetworkPath } from "./localpath.js";
+import { runPulse, summarizePulse } from "./pulse/index.js";
 
 const refusal = (text: string): CallToolResult => ({ content: [{ type: "text", text }], isError: true });
 
@@ -885,5 +886,46 @@ export function registerWorkbenchTools(server: McpServer): {
     })
   );
 
-  return { toolCount: 9 };
+  // ─── Tool 10: mw_pulse ──────────────────────────────────────────────────────
+  // "What has changed for the mods I run?" Thunderstore mods in an r2modman profile
+  // for now. The first call sends nothing and answers with the plan; only a call with
+  // confirm=true asks Thunderstore, one request per mod (see pulse/index.ts).
+
+  server.registerTool(
+    "mw_pulse",
+    {
+      title: "What's changed for my mods",
+      description:
+        "Pulse: \"what has changed for the mods I run?\" Reads the switched-on mods in an r2modman profile and checks each one against Thunderstore: which have updates, which their authors have deprecated, and which Thunderstore no longer has. Thunderstore games only for now (Lethal Company, Valheim); Nexus and mod.io mods aren't checked yet. Behave like this: call it once WITHOUT confirm. That sends nothing and answers with how many requests a check would make and to which host. Show that to the user, and call again with confirm=true only after they say yes. Never pass confirm=true on the first call. Read-only: it never downloads, installs or changes anything. Use when the user says \"are my mods up to date\", \"what's changed for my mods\" or \"any updates for my modpack\".",
+      inputSchema: {
+        gameId: z
+          .string()
+          .describe("Canonical game ID of a Thunderstore game, e.g. 'lethalcompany' or 'valheim'. mw_detect_environment lists the games on this computer."),
+        profileName: z
+          .string()
+          .optional()
+          .describe("r2modman profile name. Defaults to the first profile alphabetically (typically 'Default')."),
+        confirm: z
+          .boolean()
+          .optional()
+          .describe("true sends the requests. Leave it out on the first call, which only says what would be sent; pass true only after the user has said yes to that."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    guarded("mw_pulse", [], async ({ gameId, profileName, confirm }) => {
+      const result = await runPulse({
+        gameId,
+        ...(profileName !== undefined ? { profileName } : {}),
+        ...(confirm !== undefined ? { confirm } : {}),
+      });
+      return { content: [{ type: "text", text: summarizePulse(result) }] };
+    })
+  );
+
+  return { toolCount: 10 };
 }

@@ -40,6 +40,30 @@ The code is on `main`, and none of it is on npm yet. Two checks it hasn't had:
 - **The pages:** mod names cut at 120 characters, the load-order page titled
   "Dependencies", plugin names cut off at phone width, and download counts that show "—".
 
+## Wave 2
+
+Four tools, built after 0.3.0 on a branch of their own. The same rules hold for each: read-only
+on your computer, nothing kept between runs, every claim names its source, a full text answer
+first and a page only as an extra, and any network request made by the server, never by a page.
+
+- **Pulse: "what has changed for the mods I run?"** Reads the mods and versions in your load
+  order, asks each mod's platform for its latest version, and says which have updates, which
+  their authors have deprecated and which the platform no longer has. It asks once before it
+  sends anything, with the exact number of requests and the host, and it never runs on its own.
+  It talks only to hosts ModWrench already uses. The first part covers Thunderstore mods in
+  r2modman profiles ([TRUST.md](TRUST.md#pulse-what-it-reads-and-sends) says what it sends).
+  Next: Nexus mods, from the mod IDs and versions that Mod Organizer 2 (`meta.ini`) and Vortex
+  record, once how ModWrench reaches Nexus is settled; then mod.io; then a page.
+- **Trust Card: "who made this, and is it what it says?"** One card per mod: author, the
+  platform and page it came from, its permissions, last update and endorsements, and LOOT's
+  notes about it. Facts with their sources, and no score: ModWrench doesn't judge someone's mod.
+- **Crew Check: "do we all have the same mods?"** For co-op games. Each player gets a short
+  list of their mods and versions to paste into the chat, and ModWrench compares the lists.
+  No network at all.
+- **Deck faces.** The deck page becomes the home page: one face per job (crash, setup, patch,
+  updates, crew) with its last result in this session and a button to run it. Nothing is
+  saved between sessions.
+
 ## Open questions
 
 - **How ModWrench reaches Nexus Mods.** Whether the read tools can move to Nexus's v2
