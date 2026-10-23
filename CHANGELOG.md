@@ -51,6 +51,13 @@ This document is maintained by hand.
   exactly a name and a version, with caps on how much is read, and the answer
   says what was left unread.
   [TRUST.md](TRUST.md#crew-check-what-it-reads-and-compares) has the details.
+- **Deck faces.** The deck page and `mw_deck` list five jobs (Crash Whisperer,
+  the Doctors, Patch Day, Pulse and Crew Check), each with how it last came out
+  in this session: one line built from the job's verdict and counts alone, never
+  a name or a path, held in memory and gone when the server stops. Each row's
+  Ask puts that job's fixed question into the chat. `@modwrench/workbench`
+  exports `deckFaces` and `FACE_JOBS`.
+  [TRUST.md](TRUST.md#the-deck-page) says what the rows hold.
 
 ## [0.3.0] — unreleased
 

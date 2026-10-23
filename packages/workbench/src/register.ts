@@ -49,6 +49,9 @@ import { isNetworkPath } from "./localpath.js";
 import { runPulse, summarizePulse } from "./pulse/index.js";
 import { CREW_MAX_CHARS, CREW_MAX_LISTS, runCrewCheck, summarizeCrewCheck } from "./crew/index.js";
 import { runTrustCard, summarizeTrustCard } from "./trustcard/index.js";
+import { crashFace, crewFace, noteFace, patchFace, setupFace, updatesFace } from "./faces.js";
+
+export { deckFaces, FACE_JOBS, type Face, type FaceJob } from "./faces.js";
 
 const refusal = (text: string): CallToolResult => ({ content: [{ type: "text", text }], isError: true });
 
@@ -679,6 +682,7 @@ export function registerWorkbenchTools(server: McpServer): {
       // page is registered (or when MODWRENCH_STRUCTURED says so). Couldn't run (unsupported
       // game, game not found, a version that isn't one): flagged so a client can show it as a
       // failed call.
+      if (result.ok) noteFace("patch", patchFace(result.verdict));
       return pageAnswer(server, summarizePatchDay(result), result, patchDayPage !== undefined);
     })
   );
@@ -810,6 +814,7 @@ export function registerWorkbenchTools(server: McpServer): {
         checks: result.ok ? result.checks.length : 0,
       });
 
+      if (result.ok) noteFace("crash", crashFace(result.leads.length, result.confidence.evidence));
       return pageAnswer(server, summarizeCrashWhisper(result, packet ? { packet } : {}), result, crashWhispererPage !== undefined);
     })
   );
@@ -886,6 +891,7 @@ export function registerWorkbenchTools(server: McpServer): {
         warnings: result.ok ? result.counts.warn : 0,
       });
 
+      if (result.ok) noteFace("setup", setupFace(result.verdict, result.counts));
       return pageAnswer(server, summarizeDoctor(result), result, doctorPage !== undefined);
     })
   );
@@ -929,6 +935,10 @@ export function registerWorkbenchTools(server: McpServer): {
         ...(profileName !== undefined ? { profileName } : {}),
         ...(confirm !== undefined ? { confirm } : {}),
       });
+      if (result.ok && result.confirmed) {
+        const m = result.mods;
+        noteFace("updates", updatesFace(m.length, m.filter((x) => x.state === "update").length, m.filter((x) => x.deprecated).length, m.filter((x) => x.state === "gone").length));
+      }
       // The page gets the same facts as the text, and what its button passes back.
       const page = result.ok
         ? pulseView({
@@ -993,6 +1003,7 @@ export function registerWorkbenchTools(server: McpServer): {
         ...(profileName !== undefined ? { profileName } : {}),
         ...(crewLists !== undefined ? { crewLists } : {}),
       });
+      if (result.ok && result.mode === "compare") noteFace("crew", crewFace(result.missing.length, result.versions.length, result.same));
       return { content: [{ type: "text", text: summarizeCrewCheck(result) }] };
     })
   );

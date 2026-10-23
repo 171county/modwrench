@@ -21,12 +21,16 @@ export const DECK_APP_URI = "ui://modwrench/deck";
 /** One platform on the deck. */
 export type DeckConnector = { id: string; name: string; status: "on" | "off" | "warn"; toolCount?: number; tool?: string };
 
+/** One job on the deck, with how it last came out in this session: a verdict and counts, never names. */
+export type DeckFace = { job: string; last?: { line: string; at: string } };
+
 /** What mw_deck sends the Deck page as its structuredContent. */
 export type DeckView = {
   view: "deck";
   theme: ThemeId;
   connectors: DeckConnector[];
   games: Array<{ id: string; name: string; note?: string }>;
+  faces: DeckFace[];
 };
 
 const STATUSES: ReadonlyArray<string> = ["on", "off", "warn"];
@@ -37,7 +41,7 @@ const str = (value: unknown): string => (typeof value === "string" ? value : "")
  * field that isn't a string becomes "", a status that isn't on, off or warn is off,
  * and a tool count that isn't a finite number is left out. Never throws on a field.
  */
-export function deckView(input: { theme?: string; connectors: DeckConnector[]; games: DeckView["games"] }): DeckView {
+export function deckView(input: { theme?: string; connectors: DeckConnector[]; games: DeckView["games"]; faces?: DeckFace[] }): DeckView {
   return {
     view: "deck",
     theme: THEME_IDS.includes(input.theme as ThemeId) ? (input.theme as ThemeId) : "skyrim",
@@ -53,6 +57,12 @@ export function deckView(input: { theme?: string; connectors: DeckConnector[]; g
       name: str(g.name),
       ...(typeof g.note === "string" ? { note: g.note } : {}),
     })),
+    faces: (Array.isArray(input.faces) ? input.faces : [])
+      .filter((f) => f !== null && typeof f === "object")
+      .map((f) => ({
+        job: str(f.job),
+        ...(f.last && typeof f.last === "object" && str(f.last.line) ? { last: { line: str(f.last.line), at: str(f.last.at) } } : {}),
+      })),
   };
 }
 
@@ -70,6 +80,10 @@ const CSS = String.raw`
 `;
 
 const BODY = `
+    <section id="deck-faces" class="mw-sec" hidden>
+      <div class="mw-sec-h"><h2>Jobs</h2><span class="mw-sec-sub">how each last came out in this session</span></div>
+      <ul id="deck-face-list" class="mw-list"></ul>
+    </section>
     <section id="deck-connectors" class="mw-sec" hidden>
       <div class="mw-sec-h"><h2>Connectors</h2><span class="mw-sec-sub">what ModWrench can reach</span></div>
       <ul id="deck-list" class="mw-list"></ul>
@@ -105,6 +119,14 @@ const SCRIPT = String.raw`
     valheim: 'Show me the top Valheim mods.'
   };
   var EMPTY_ASK = 'Detect my modding setup.';
+  // The jobs, in the deck's order: the name shown and the one sentence each Ask sends.
+  var FACES = {
+    crash: { name: 'Crash Whisperer', ask: 'Why did my game crash?' },
+    setup: { name: 'The Doctors', ask: 'Is my modding setup ready?' },
+    patch: { name: 'Patch Day', ask: 'Is it safe to update my game?' },
+    updates: { name: 'Pulse', ask: 'Are my mods up to date?' },
+    crew: { name: 'Crew Check', ask: 'Do my crew and I have the same mods?' }
+  };
 
   var FLAGS = { on: ['ON', 'mw-flag ok'], off: ['OFF', 'mw-flag'], warn: ['WARN', 'mw-flag warn'] };
 
@@ -156,7 +178,23 @@ const SCRIPT = String.raw`
     ]);
   }
 
+  // A job the page knows, with its last line from this session or "not run yet". Unknown jobs aren't drawn.
+  function faceRow(f, ask) {
+    var job = pick(FACES, f.job, '');
+    if (!job) return null;
+    var last = isObject(f.last) ? tidy(f.last.line, 160) : '';
+    return h('li', { class: 'mw-lrow' }, [
+      h('span', { class: 'mw-dot ' + (last ? 'on' : 'off'), 'aria-hidden': 'true' }),
+      h('span', { class: 'mw-lmain' }, [
+        h('span', { class: 'mw-lname', text: FACES[job].name }),
+        h('span', { class: 'mw-lmeta', text: last || 'not run in this session' })
+      ]),
+      ask ? askButton(FACES[job].ask, 'Ask', 'mw-btn mw-ask') : null
+    ]);
+  }
+
   function reset() {
+    mwSkin.show('deck-faces', false);
     mwSkin.show('deck-connectors', false);
     mwSkin.show('deck-empty', false);
     mwSkin.show('deck-games', false);
@@ -167,6 +205,13 @@ const SCRIPT = String.raw`
     var ask = canAsk();
     var connectors = (Array.isArray(data.connectors) ? data.connectors : []).filter(isObject);
     var games = (Array.isArray(data.games) ? data.games : []).filter(isObject);
+    var faces = (Array.isArray(data.faces) ? data.faces : []).filter(isObject);
+
+    var faceList = el('deck-face-list');
+    mwSkin.clear(faceList);
+    var drawn = 0;
+    faces.forEach(function (f) { var row = faceRow(f, ask); if (row) { faceList.appendChild(row); drawn++; } });
+    mwSkin.show('deck-faces', drawn > 0);
 
     var list = el('deck-list');
     var empty = el('deck-empty');
@@ -208,7 +253,7 @@ export const DECK_PAGE: AppPageDef = {
   uri: DECK_APP_URI,
   title: "Deck page",
   description:
-    "The page MCP Apps clients draw for mw_deck: which platforms are connected, with their tools, and the four flagship games. Read-only; it makes no network requests and keeps nothing. An Ask button puts a fixed sentence in the chat, only when you press it and your client takes messages from pages.",
+    "The page MCP Apps clients draw for mw_deck: each job and how it last came out in this session, which platforms are connected, with their tools, and the four flagship games. Read-only; it makes no network requests and keeps nothing. An Ask button puts a fixed sentence in the chat, only when you press it and your client takes messages from pages.",
   render: renderDeckApp,
   clipboard: false,
 };
