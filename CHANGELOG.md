@@ -10,6 +10,21 @@ This document is maintained by hand.
 
 ## [Unreleased]
 
+### Added
+- **Pulse: `mw_pulse` — "what has changed for the mods I run?"** It reads the
+  switched-on mods in an r2modman profile and checks each one against
+  Thunderstore: which have an update, which their authors have marked
+  deprecated, and which Thunderstore no longer has, each named with its author
+  and page. **It asks first:** called without `confirm`, it sends nothing and
+  answers with how many requests a check would make and to which host; only a
+  second call with `confirm=true` sends them, one per mod, each carrying only
+  that mod's Thunderstore name. At most 200 mods in a run, four requests at a
+  time, through the same client and the same `THUNDERSTORE_BASE_URL` as the
+  Thunderstore tools; it never runs on its own and keeps nothing. Thunderstore
+  games only so far: mods from Nexus Mods and mod.io aren't checked yet.
+  [TRUST.md](TRUST.md#pulse-what-it-reads-and-sends) says what it reads and
+  sends.
+
 ## [0.3.0] — unreleased
 
 The workbench learns to answer three questions on its own: "is it safe to

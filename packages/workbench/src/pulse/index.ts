@@ -1,6 +1,7 @@
 import { appIdentity, createHttpClient, getEnv, log, ModWrenchError } from "@modwrench/core";
 import { findGameById } from "../detect/games.js";
 import { readR2modmanLoadOrder } from "../loadorder/r2modman.js";
+import { clean } from "../patchday/summary.js";
 
 // ─── Pulse: what has changed for the mods I run? ─────────────────────────────
 // Reads the mods switched on in an r2modman profile and asks Thunderstore for each
@@ -122,7 +123,7 @@ export async function runPulse(input: PulseInput): Promise<PulseResult> {
     const id = mod.sourceModId ?? "";
     const match = THUNDERSTORE_NAME.exec(id);
     if (!match) {
-      notChecked.push(`${mod.name} (not a Thunderstore name)`);
+      notChecked.push(`${clean(mod.name)} (not a Thunderstore name)`);
       continue;
     }
     if (seen.has(id.toLowerCase())) continue;
@@ -137,7 +138,7 @@ export async function runPulse(input: PulseInput): Promise<PulseResult> {
     });
   }
   const checked = candidates.slice(0, PULSE_MAX_MODS);
-  for (const extra of candidates.slice(PULSE_MAX_MODS)) notChecked.push(`${extra.name} (past the ${PULSE_MAX_MODS}-mod limit for one run)`);
+  for (const extra of candidates.slice(PULSE_MAX_MODS)) notChecked.push(`${clean(extra.name)} (past the ${PULSE_MAX_MODS}-mod limit for one run)`);
 
   const baseUrl = getEnv("THUNDERSTORE_BASE_URL", "https://thunderstore.io");
   const host = new URL(baseUrl).host;
@@ -200,12 +201,17 @@ function capped(lines: string[]): string[] {
   return lines.length <= LIST_CAP ? lines : [...lines.slice(0, LIST_CAP), `…and ${lines.length - LIST_CAP} more`];
 }
 
+// Names, authors and versions come from the profile's mods.yml and from Thunderstore, so each is flattened to
+// one line and cut short before it goes into the answer: a mod can't name itself "NEXT: ..." and pass as part of it.
 function who(m: PulseMod): string {
-  return `${m.name}${m.author ? ` by ${m.author}` : ""}`;
+  return `${clean(m.name)}${m.author ? ` by ${clean(m.author)}` : ""}`;
 }
 
+const ver = (v: string | undefined): string => (v === undefined ? "an unknown version" : clean(v, 40));
+
+/** A page link only when it is a plain https address. */
 function page(m: PulseMod): string {
-  return m.pageUrl ? ` — ${m.pageUrl}` : "";
+  return m.pageUrl && /^https:\/\/[^\s<>"]+$/.test(m.pageUrl) ? ` — ${clean(m.pageUrl, 200)}` : "";
 }
 
 export function summarizePulse(result: PulseResult): string {
@@ -215,7 +221,7 @@ export function summarizePulse(result: PulseResult): string {
 
   if (!result.confirmed) {
     out.push(
-      `Pulse for ${result.game}, r2modman profile "${result.profile}": nothing has been sent yet.`,
+      `Pulse for ${result.game}, r2modman profile "${clean(result.profile)}": nothing has been sent yet.`,
       "",
       result.requests === 0
         ? "There are no switched-on Thunderstore mods in this profile to check, so a check would send nothing."
@@ -238,11 +244,11 @@ export function summarizePulse(result: PulseResult): string {
     ...(deprecated.length > 0 ? [`${deprecated.length} ${deprecated.length === 1 ? "is" : "are"} marked deprecated by ${deprecated.length === 1 ? "its author" : "their authors"}`] : []),
     ...(gone.length > 0 ? [`${gone.length} ${gone.length === 1 ? "is" : "are"} no longer on Thunderstore`] : []),
   ];
-  out.push(`Pulse for ${result.game}, r2modman profile "${result.profile}", checked against ${result.host}: ${parts.join(", ")}.`);
+  out.push(`Pulse for ${result.game}, r2modman profile "${clean(result.profile)}", checked against ${result.host}: ${parts.join(", ")}.`);
 
-  if (updates.length > 0) out.push("", "Updates:", ...capped(updates.map((m) => `- ${who(m)}: ${m.installed} → ${m.latest}${page(m)}`)));
+  if (updates.length > 0) out.push("", "Updates:", ...capped(updates.map((m) => `- ${who(m)}: ${ver(m.installed)} → ${ver(m.latest)}${page(m)}`)));
   if (deprecated.length > 0) out.push("", "Marked deprecated by the author:", ...capped(deprecated.map((m) => `- ${who(m)}${page(m)}`)));
-  if (gone.length > 0) out.push("", "Thunderstore no longer has these:", ...capped(gone.map((m) => `- ${who(m)} (${m.fullName})`)));
+  if (gone.length > 0) out.push("", "Thunderstore no longer has these:", ...capped(gone.map((m) => `- ${who(m)} (${clean(m.fullName)})`)));
   if (unclear.length > 0) {
     out.push(
       "",
@@ -250,8 +256,8 @@ export function summarizePulse(result: PulseResult): string {
       ...capped(
         unclear.map((m) =>
           m.state === "ahead"
-            ? `- ${who(m)}: you have ${m.installed}, newer than Thunderstore's latest ${m.latest}`
-            : `- ${who(m)}: you have ${m.installed ?? "an unknown version"}, Thunderstore's latest is ${m.latest ?? "unknown"}`
+            ? `- ${who(m)}: you have ${ver(m.installed)}, newer than Thunderstore's latest ${ver(m.latest)}`
+            : `- ${who(m)}: you have ${ver(m.installed)}, Thunderstore's latest is ${ver(m.latest)}`
         )
       )
     );
