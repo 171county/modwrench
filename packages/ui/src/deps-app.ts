@@ -142,6 +142,8 @@ export function orderView(
 const CSS = String.raw`
 .mw-deps .mw-sec-h{flex-wrap:wrap}
 .mw-deps h2{min-width:0;overflow-wrap:anywhere}
+.mw-deps .mw-lname{white-space:normal;overflow-wrap:anywhere}
+.mw-deps .mw-lmeta{overflow-wrap:anywhere}
 .mw-tree{font-family:var(--mono);color:var(--sub);opacity:.6;letter-spacing:-1px}
 .mw-dep{padding-left:22px}
 .mw-deproot .mw-lname,.mw-deproot{font-family:var(--font-head)}

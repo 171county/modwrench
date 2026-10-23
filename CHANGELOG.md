@@ -19,6 +19,11 @@ This document is maintained by hand.
   reads, and its label said "Dependencies" over either. The label now says
   "Dependencies", "Load order" or "Mod folders" for what is drawn, and the
   page's title is "Dependencies and load order".
+- **Long plugin names wrap on the load-order page.** Each name was held to one
+  line and cut with an ellipsis, so at phone width most of a long plugin name
+  was lost, and a plugin file name with no spaces ran under the ON/OFF flag and
+  out of the list. Names and plugin files now wrap inside the row, on the
+  dependency lists too.
 
 ## [0.3.0] — unreleased
 
