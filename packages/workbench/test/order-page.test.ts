@@ -242,8 +242,8 @@ test("a server that can't take the page still gets every tool, as text, and the 
   await withEnv({ MODWRENCH_UI: undefined, MODWRENCH_STRUCTURED: undefined }, async () => {
     // Already connected: registering a resource throws.
     const connected = new ConnectedServer(DRAWS_PAGES);
-    assert.equal(registerWorkbenchTools(connected as never).toolCount, 11);
-    assert.equal(connected.tools.size, 11);
+    assert.equal(registerWorkbenchTools(connected as never).toolCount, 12);
+    assert.equal(connected.tools.size, 12);
     assert.equal(connected.resources.size, 0);
     assert.equal(connected.tools.get(TOOL)!.config._meta, undefined);
     for (const c of CASES) {
@@ -259,8 +259,8 @@ test("a server that can't take the page still gets every tool, as text, and the 
       registerTool: (name: string, config: { _meta?: unknown }, handler: (a: Record<string, unknown>) => Promise<ToolResult>) =>
         void tools.set(name, { config, handler }),
     };
-    assert.equal(registerWorkbenchTools(toolsOnly as never).toolCount, 11);
-    assert.equal(tools.size, 11);
+    assert.equal(registerWorkbenchTools(toolsOnly as never).toolCount, 12);
+    assert.equal(tools.size, 12);
     assert.equal(tools.get(TOOL)!.config._meta, undefined);
     for (const c of CASES) {
       const result = await tools.get(TOOL)!.handler(c.args);

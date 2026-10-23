@@ -36,10 +36,10 @@ The complete list, from the shipped code:
 
 | Destination | When | Why |
 |---|---|---|
-| `api.nexusmods.com` | Nexus tools; crash-suspect attribution (opt-in) | Mod data; author links for named suspects |
+| `api.nexusmods.com` | Nexus tools; `mw_query_mod_metadata` and `mw_trust_card` for a Nexus mod; crash-suspect attribution (opt-in) | Mod data; author links for named suspects |
 | `users.nexusmods.com` | `auth login nexus` only | OAuth |
 | `api.mod.io` | mod.io tools | Mod data |
-| `thunderstore.io` | Thunderstore tools; `mw_pulse`, only after you confirm | Mod data; the latest version of each mod you run |
+| `thunderstore.io` | Thunderstore tools; `mw_query_mod_metadata` and `mw_trust_card` for a Thunderstore mod; `mw_pulse`, only after you confirm | Mod data; the latest version of each mod you run |
 | `raw.githubusercontent.com` | `mw_check_known_conflicts`; `mw_diagnose_crash` with a `gameId` | LOOT's public masterlist |
 | a Nexus CDN host | `nexus_file_preview` only | The archive listing for one file |
 
@@ -350,6 +350,10 @@ Read the draft before you post it: an issue is public.
 - **How much.** At most 200 mods in one run; any beyond that are listed as not checked. At most four requests at a time, through the same client the Thunderstore tools use, which retries a request Thunderstore answers with "too many requests" or a server error a few times and then gives up. It never runs on its own or on a schedule, and it keeps nothing between runs.
 - **What it answers.** For each mod: the version you have and Thunderstore's latest, whether its author has marked it deprecated, or that Thunderstore no longer has it. Each mod is named with its author and its Thunderstore page. Versions are compared as numbers (`1.10.0` is newer than `1.9.2`); a version that isn't three numbers is reported as "can't compare" rather than guessed at.
 - **What it can't tell you.** Whether an update suits your game version or your other mods: Thunderstore's data doesn't say, and Pulse doesn't install, download or change anything.
+
+## Trust Card: what it shows
+
+`mw_trust_card` answers "who made this mod, and is it what it says?" for one mod you name, on Nexus Mods, mod.io or Thunderstore. It asks that platform for the mod's record, the same request `mw_query_mod_metadata` makes (Nexus and mod.io with your connected account; Thunderstore by the mod's full `Owner-ModName`, with no account), and shows it one fact to a line: the author, who uploaded it (Nexus records that apart from the author, and the card says plainly when the two differ, which can be a permitted re-upload or translation, or a copy), where it lives, its latest version, when it was first published and last updated, whether its author marked it deprecated (Thunderstore), the platform's own download and endorsement or rating numbers, and what the platform says about permissions (none of the three gives them through its API, so the card sends you to the mod's page). **It adds no score, rating or verdict of its own**, as [the promise above](#what-modwrench-will-never-do) says: every line is the platform's record, and a fact the platform doesn't give is shown as not on record. Every value is someone else's text, so each is flattened to one line and cut short. A Nexus game domain is used only when it is letters and digits, since it goes into the request's address with your key on it. Nexus's adult filter applies as it does to `mw_query_mod_metadata`.
 
 ## Crew Check: what it reads and compares
 

@@ -40,6 +40,12 @@ export type NormalizedMod = {
   endorsements?: number;
   permissions?: ModPermissions;
   pageUrl: string;
+  /** When the platform says the mod was first published. */
+  created?: string;
+  /** Who uploaded it, where the platform records that apart from the author (Nexus). */
+  uploadedBy?: string;
+  /** The author has marked it deprecated (Thunderstore). */
+  deprecated?: boolean;
 };
 
 export type QueryModMetadataInput = {

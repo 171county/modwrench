@@ -6,11 +6,12 @@
 
 export const SERVER_INSTRUCTIONS = [
   "ModWrench helps with game mods. Pick the tool by the question. Why did my game crash: " +
-    "mw_crash_whisperer (it finds the newest crash log itself). Is my setup OK, why do my mods " +
-    "keep breaking: mw_doctor. Is it safe to update the game: mw_patch_day. Are my mods up to " +
-    "date: mw_pulse. Do we all have the same mods: mw_crew_check. Load order: " +
-    "mw_read_load_order, then mw_check_known_conflicts with its names. Finding mods: the nexus_, " +
-    "modio_ and thunderstore_ tools, or mw_query_mod_metadata across platforms.",
+    "mw_crash_whisperer (it finds the newest crash log). Is my setup OK, why do my mods keep breaking: " +
+    "mw_doctor. Safe to " +
+    "update the game: mw_patch_day. Are my mods up to date: mw_pulse. Do we all have the same " +
+    "mods: mw_crew_check. Who made this mod: mw_trust_card. Load order: mw_read_load_order, then " +
+    "mw_check_known_conflicts. Finding mods: the nexus_, modio_ and thunderstore_ tools, or " +
+    "mw_query_mod_metadata.",
   "mw_parse_crashlog and mw_diagnose_crash are the lower-level crash tools, for when the user " +
     "wants the parsed fields. The mw_ tools never write. Most read only this computer's files, but " +
     "mw_query_mod_metadata asks Nexus and mod.io, mw_check_known_conflicts and mw_diagnose_crash " +

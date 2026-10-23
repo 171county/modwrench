@@ -48,6 +48,7 @@ import { correlateCrash, type CrashSuspect } from "./crashlog/diagnose.js";
 import { isNetworkPath } from "./localpath.js";
 import { runPulse, summarizePulse } from "./pulse/index.js";
 import { CREW_MAX_CHARS, CREW_MAX_LISTS, runCrewCheck, summarizeCrewCheck } from "./crew/index.js";
+import { runTrustCard, summarizeTrustCard } from "./trustcard/index.js";
 
 const refusal = (text: string): CallToolResult => ({ content: [{ type: "text", text }], isError: true });
 
@@ -320,7 +321,7 @@ export function registerWorkbenchTools(server: McpServer): {
     "mw_query_mod_metadata",
     {
       title: "Look up a mod across platforms",
-      description: "Put a name and a source on a mod. Looks up metadata across platforms (Nexus, mod.io) in one normalized shape: id, name, author, version, downloads, endorsements, pageUrl, and a permissions block that always carries attribution. Use it to enrich a crashlog suspect or a load-order entry — \"who made this\", \"look up this mod\", \"what version is X\". Thunderstore support is planned.",
+      description: "Put a name and a source on a mod. Looks up metadata across platforms (Nexus, mod.io) in one normalized shape: id, name, author, version, downloads, endorsements, pageUrl, and a permissions block that always carries attribution. Use it to enrich a crashlog suspect or a load-order entry — \"look up this mod\", \"what version is X\". Thunderstore mods are looked up by platform=\"thunderstore\" and their full \"Owner-ModName\" as modId, with no credential.",
       inputSchema: {
         modId: z
           .string()
@@ -996,5 +997,41 @@ export function registerWorkbenchTools(server: McpServer): {
     })
   );
 
-  return { toolCount: 11 };
+  // ─── Tool 12: mw_trust_card ─────────────────────────────────────────────────
+  // "Who made this, and is it what it says?" One mod's record on its platform, one
+  // fact to a line, each naming its source, and no score of ModWrench's own.
+
+  server.registerTool(
+    "mw_trust_card",
+    {
+      title: "Who made this mod",
+      description:
+        "Trust Card: \"who made this mod, and is it what it says?\" One mod's record on its own platform, a fact to a line: author, who uploaded it (Nexus, and whether that is someone else than the author), where it lives, version, first published, last updated, deprecated (Thunderstore), the platform's own download and endorsement or rating numbers, and what the platform says about permissions. Facts only, each from the platform: ModWrench adds no score or verdict. Nexus needs a connected Nexus account and the game's Nexus domain as gameId; mod.io a connected account and its numeric game id; Thunderstore needs nothing and takes the full \"Owner-ModName\" as modId. Use when the user asks \"who made this mod\", \"is this the real one\" or \"can I trust this mod\".",
+      inputSchema: {
+        platform: z.enum(["nexus", "modio", "thunderstore"]).describe("The platform the mod lives on."),
+        modId: z
+          .string()
+          .min(1)
+          .max(200)
+          .describe("The mod's id there: Nexus's number, mod.io's number, or Thunderstore's full name \"Owner-ModName\"."),
+        gameId: z
+          .string()
+          .max(100)
+          .optional()
+          .describe("Nexus: the game's domain, e.g. 'skyrimspecialedition'. mod.io: the game's numeric id. Not needed for Thunderstore."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    guarded("mw_trust_card", [], async ({ platform, modId, gameId }) => {
+      const result = await runTrustCard({ platform, modId, ...(gameId !== undefined ? { gameId } : {}) });
+      return { content: [{ type: "text", text: summarizeTrustCard(result, platform) }], ...(result.found ? {} : { isError: true as const }) };
+    })
+  );
+
+  return { toolCount: 12 };
 }

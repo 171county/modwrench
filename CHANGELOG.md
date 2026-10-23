@@ -30,6 +30,18 @@ This document is maintained by hand.
   check it lists updates first, with an Open button for each mod's Thunderstore
   page where your client can open links, and a Check again button. The page
   itself makes no network request.
+- **Trust Card: `mw_trust_card` — "who made this mod, and is it what it says?"**
+  One mod's record on Nexus Mods, mod.io or Thunderstore, one fact to a line:
+  author, who uploaded it and whether that is someone else, where it lives,
+  latest version, first published and last updated, deprecated, the platform's
+  own download and endorsement or rating numbers, and what the platform says
+  about permissions. Facts only, each from the platform, and no score of
+  ModWrench's own. [TRUST.md](TRUST.md#trust-card-what-it-shows) says what it
+  asks for.
+- **`mw_query_mod_metadata` looks Thunderstore mods up**, by platform
+  `thunderstore` and the mod's full `Owner-ModName`, with no credential. Its
+  records also carry when a mod was first published, who uploaded it (Nexus)
+  and whether it is deprecated (Thunderstore).
 - **Crew Check: `mw_crew_check` — "do we all have the same mods?"** For co-op
   Thunderstore games. With no lists it makes your crew list: one line per
   switched-on mod in your r2modman profile with its Thunderstore name and

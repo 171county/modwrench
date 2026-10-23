@@ -38,6 +38,8 @@ type NexusModResponse = {
   endorsement_count?: number;
   updated_timestamp?: number;
   updated_time?: string;
+  created_timestamp?: number;
+  created_time?: string;
 };
 
 export function normalizeNexusMod(
@@ -68,6 +70,9 @@ export function normalizeNexusMod(
   else if (mod.updated_timestamp) {
     out.lastUpdated = new Date(mod.updated_timestamp * 1000).toISOString();
   }
+  if (mod.created_time) out.created = mod.created_time;
+  else if (mod.created_timestamp) out.created = new Date(mod.created_timestamp * 1000).toISOString();
+  if (mod.uploaded_by) out.uploadedBy = mod.uploaded_by;
   return out;
 }
 
@@ -83,6 +88,7 @@ type ModioModResponse = {
   description_plaintext?: string;
   profile_url?: string;
   date_updated?: number;
+  date_added?: number;
   submitted_by?: { username?: string; profile_url?: string };
   modfile?: { version?: string };
   stats?: {
@@ -124,7 +130,47 @@ export function normalizeModioMod(mod: ModioModResponse): NormalizedMod {
   if (mod.date_updated) {
     out.lastUpdated = new Date(mod.date_updated * 1000).toISOString();
   }
+  if (mod.date_added) out.created = new Date(mod.date_added * 1000).toISOString();
   return out;
 }
 
-export type { NexusModResponse, ModioModResponse };
+// ─── Thunderstore ─────────────────────────────────────────────────────────────
+
+// The public package record (/api/experimental/package/<owner>/<name>/). Thunderstore
+// records no permissions for a package, so those stay unknown, as for the others.
+type ThunderstorePackageResponse = {
+  namespace?: string;
+  name?: string;
+  full_name?: string;
+  owner?: string;
+  package_url?: string;
+  date_created?: string;
+  date_updated?: string;
+  rating_score?: number;
+  is_deprecated?: boolean;
+  total_downloads?: number;
+  latest?: { version_number?: string; description?: string };
+};
+
+export function normalizeThunderstorePackage(pkg: ThunderstorePackageResponse, fullName: string): NormalizedMod {
+  const pageUrl = typeof pkg.package_url === "string" ? pkg.package_url : `https://thunderstore.io/package/${fullName.replace("-", "/")}/`;
+  const author = typeof pkg.owner === "string" && pkg.owner !== "" ? pkg.owner : fullName.split("-")[0]!;
+  const out: NormalizedMod = {
+    id: fullName,
+    name: typeof pkg.name === "string" && pkg.name !== "" ? pkg.name : fullName,
+    platform: "thunderstore",
+    pageUrl,
+    attribution: { author, sourcePlatform: "thunderstore", sourceModId: fullName, pageUrl },
+    permissions: unknownPermissions(),
+  };
+  if (typeof pkg.latest?.version_number === "string") out.version = pkg.latest.version_number;
+  if (typeof pkg.latest?.description === "string" && pkg.latest.description !== "") out.summary = pkg.latest.description;
+  if (typeof pkg.total_downloads === "number" && Number.isFinite(pkg.total_downloads)) out.downloadCount = pkg.total_downloads;
+  if (typeof pkg.rating_score === "number" && Number.isFinite(pkg.rating_score)) out.endorsements = pkg.rating_score;
+  if (typeof pkg.date_updated === "string") out.lastUpdated = pkg.date_updated;
+  if (typeof pkg.date_created === "string") out.created = pkg.date_created;
+  if (pkg.is_deprecated === true) out.deprecated = true;
+  return out;
+}
+
+export type { NexusModResponse, ModioModResponse, ThunderstorePackageResponse };
