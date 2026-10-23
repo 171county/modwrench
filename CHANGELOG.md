@@ -43,6 +43,13 @@ This document is maintained by hand.
   a log cut short or pasted in part doesn't make a plugin look switched off. The
   parsed log now carries that count as `pluginTotal`.
 
+### Fixed
+- **A LOOT entry whose plugin name is a regex gets the same guard as a regex in
+  a condition.** The conflict tools ran a fetched name like `(a+)+\.esp` as it
+  came, and JavaScript can take for ever on one like that. Such an entry is now
+  skipped and matches no plugin. Every regex name in LOOT's v0.29 lists for all
+  seven games passes the guard.
+
 ## [0.3.0] — unreleased
 
 The workbench learns to answer three questions on its own: "is it safe to

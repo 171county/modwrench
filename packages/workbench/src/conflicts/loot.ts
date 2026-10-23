@@ -1,7 +1,7 @@
 import { load as yamlLoad } from "js-yaml";
 import { appIdentity, getEnv, log } from "@modwrench/core";
 import { clean } from "../patchday/summary.js";
-import { parseCondition, type Condition } from "./condition.js";
+import { parseCondition, safeRegex, type Condition } from "./condition.js";
 
 const APP = appIdentity(import.meta.url);
 
@@ -122,15 +122,15 @@ export type LootMasterlist = {
 // matches it case-insensitively (libloot's plugin_metadata.rs).
 const REGEX_NAME = /[:\\*?|]/;
 
-/** How an entry's name matches a plugin, or null for a regex JavaScript can't read (the entry is skipped). */
+/**
+ * How an entry's name matches a plugin, or null for a regex JavaScript can't read or that safeRegex won't run
+ * (the entry is skipped). Every regex name in LOOT's v0.29 lists for all seven games passes safeRegex.
+ */
 function nameMatch(name: string, gameId: string): string | RegExp | null {
   if (!REGEX_NAME.test(name)) return name.toLowerCase();
-  try {
-    return new RegExp(`^${name}$`, "iu");
-  } catch {
-    log("warn", "workbench.loot.bad_regex", { gameId, name });
-    return null;
-  }
+  const regex = safeRegex(name);
+  if (!regex) log("warn", "workbench.loot.bad_regex", { gameId, name });
+  return regex;
 }
 
 const memCache = new Map<string, LootMasterlist | Promise<LootMasterlist | LootUnavailable>>();

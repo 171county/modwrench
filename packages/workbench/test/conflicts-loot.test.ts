@@ -25,6 +25,9 @@ const FALLOUT = [
   // A regex JavaScript can't read: the entry is skipped and the rest of the list still counts.
   "  - name: 'Bad(\\.esp'",
   "    inc: [ 'Other.esp' ]",
+  // A regex that can backtrack for ever in JavaScript (LOOT's engine never backtracks): it isn't run, so it matches nothing.
+  "  - name: '(a+)+\\.esp'",
+  "    inc: [ 'Other.esp' ]",
   "  - name: 'Example.esm'",
   "    inc:",
   "      - 'Other.esp'",
@@ -284,8 +287,12 @@ test("the slice of LOOT's real list parses: each entry with an inc or msg list, 
       ["Weird (Name) [v1.2] + more.esp", "exact"],
       ["Alpha|Beta\\.esp", "regex"],
     ],
-    "the regex JavaScript can't read is left out"
+    "the regex JavaScript can't read and the one safeRegex won't run are left out"
   );
+});
+
+test("a name whose regex safeRegex won't run matches no plugin, not even one it would match", async () => {
+  assert.deepEqual(await pairs("fallout4", ["aaaa.esp", "Other.esp"]), []);
 });
 
 test("an entry whose name is a regex matches the player's plugins, and the pair is named as the player named them", async () => {
