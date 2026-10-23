@@ -472,7 +472,7 @@ test("no plugin list, or a game whose plugin list it doesn't read, is said plain
 type Config = { annotations?: Record<string, boolean>; inputSchema?: Record<string, unknown> };
 type Handler = (args: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text: string }>; structuredContent?: unknown }>;
 
-test("mw_loot_requirements takes a game and a profile, is read-only, says it reaches out for LOOT's list, and answers in text only", async () => {
+test("mw_loot_requirements takes a game, an MO2 instance and a profile, is read-only, says it reaches out for LOOT's list, and answers in text only", async () => {
   const { registerWorkbenchTools } = await import("../src/register.js");
   const tools = new Map<string, { config: Config; handler: Handler }>();
   registerWorkbenchTools({
@@ -480,12 +480,25 @@ test("mw_loot_requirements takes a game and a profile, is read-only, says it rea
     registerResource: () => undefined,
   } as unknown as never);
   const tool = tools.get("mw_loot_requirements")!;
-  assert.deepEqual(Object.keys(tool.config.inputSchema!).sort(), ["gameId", "profileName"]);
+  assert.deepEqual(Object.keys(tool.config.inputSchema!).sort(), ["gameId", "mo2InstancePath", "profileName"]);
   assert.equal(tool.config.annotations?.readOnlyHint, true);
   assert.equal(tool.config.annotations?.openWorldHint, true, "it fetches LOOT's list");
   assert.equal((tool.config as { _meta?: unknown })._meta, undefined, "it has no page");
   const r = await tool.handler({ gameId: "oblivion" });
   assert.deepEqual(r, { content: [{ type: "text", text: "mw_loot_requirements reads the plugin list of skyrimspecialedition and fallout4 only, so it can't check \"oblivion\"." }] });
+});
+
+test("mw_loot_requirements looks in a portable MO2 instance it is pointed at, refuses a network path for one, and says when none was used", async () => {
+  const { registerWorkbenchTools } = await import("../src/register.js");
+  const tools = new Map<string, Handler>();
+  registerWorkbenchTools({ registerTool: (name: string, _c: Config, handler: Handler) => void tools.set(name, handler), registerResource: () => undefined } as unknown as never);
+  const tool = tools.get("mw_loot_requirements")!;
+  const text = async (args: Record<string, unknown>): Promise<string> => ((await tool(args)) as { content: Array<{ text: string }> }).content[0]!.text;
+  const { mo2 } = mo2Install();
+  assert.match(await text({ gameId: "skyrimspecialedition", mo2InstancePath: mo2.instance }), /Mod Organizer 2's virtual file system/);
+  assert.match(await text({ gameId: "skyrimspecialedition", mo2InstancePath: "\\\\server\\share" }), /mo2InstancePath/);
+  windowsInstall();
+  assert.match(summarizeRequirements(await run()), /run this again with its folder as mo2InstancePath/);
 });
 
 test("the answer names LOOT as the source, lists warnings first, never calls anything a problem, and names no folder", async () => {

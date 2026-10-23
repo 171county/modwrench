@@ -304,7 +304,7 @@ It has been exercised in a real browser against a stand-in for an MCP Apps host,
 **What it reads to find your active plugins**, read-only, with the Doctors' own readers ([the Doctors](#the-doctors-what-they-open) say more about each):
 
 - Steam's folder, its library list (`libraryfolders.vdf`) and the game's `appmanifest_<appid>.acf`, to find the game; and, to tell whether Mod Organizer 2 is the active manager, the folders the Doctors look at for MO2, Vortex and r2modman.
-- For Mod Organizer 2: `ModOrganizer.ini` in each instance MO2 keeps, for this game's instance and its profiles, mods and Overwrite folders, and also for `gamePath`, the game folder MO2 plays, which can be a copy beside the instance (Wabbajack's "Stock Game") rather than Steam's; then the profile's `modlist.txt` and `plugins.txt`. A portable instance isn't looked for. Without MO2, the game's own `plugins.txt`, in the folder the Doctors read it from.
+- For Mod Organizer 2: `ModOrganizer.ini` in each instance MO2 keeps, for this game's instance and its profiles, mods and Overwrite folders, and also for `gamePath`, the game folder MO2 plays, which can be a copy beside the instance (Wabbajack's "Stock Game") rather than Steam's; then the profile's `modlist.txt` and `plugins.txt`. A portable instance isn't looked for unless you pass its folder as `mo2InstancePath`. Without MO2, the game's own `plugins.txt`, in the folder the Doctors read it from.
 - `Skyrim.ccc` or `Fallout4.ccc` in the game folder, and the names in the game's `Data` folder and at the top of each enabled mod's folder and Overwrite, to see which listed plugins are installed. That listing is the Setup Doctor's: it also lists the names in `SKSE/Plugins` (or `F4SE/Plugins`) in each of those folders and looks for `DLLPlugins/NetScriptFramework.Runtime.dll`, neither of which this tool uses, it follows a link the way the Doctor's does, and for the Microsoft Store's Fallout 4 it lists the DLC folders beside the game's too. No plugin file is opened.
 
 The active plugins are the game's own and Creation Club files that are installed, and the switched-on entries of the list whose files were found. If MO2 was asked for (a `profileName`) or found and can't be read, or there is no plugin list, it says so and checks nothing.
@@ -327,7 +327,7 @@ The limits:
 
 - **It checks that a file is there, by its name.** It doesn't open it, so a wrong version, a damaged file or one the game won't load reads as present. LOOT's other checks on a file (`checksum()`, `version()` and the rest) stay unknown.
 - **It reads what LOOT's masterlist records, not what a mod's author says.** A requirement LOOT doesn't list isn't checked.
-- **A portable Mod Organizer 2 instance isn't found**, since the tool takes no `mo2InstancePath`. The game's own `plugins.txt` and Data folder are then read as for Vortex, so a requirement of a plugin in Data that only such an instance supplies would read as missing.
+- **A portable Mod Organizer 2 instance isn't found on its own.** Unless you pass its folder as `mo2InstancePath`, the game's own `plugins.txt` and Data folder are read as for Vortex, so a requirement of a plugin in Data that only such an instance supplies would read as missing. The answer says so whenever no MO2 instance was used.
 - **Only Steam's copy of the game is found** without MO2, since the tool takes no `gamePath`.
 - **It was built from LOOT's documentation, LOOT's real lists and constructed test folders, and has not been run against a real install.**
 

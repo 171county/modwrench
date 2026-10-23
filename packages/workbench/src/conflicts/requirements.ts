@@ -359,7 +359,7 @@ const LIMITS = (mo2: boolean): string[] => [
   "Only the active plugins' requirements are checked: those the game loads without listing and the switched-on plugins whose files were found.",
   mo2
     ? "Mod Organizer 2's virtual file system exists only while MO2 runs, so the game's Data folder, each enabled mod's folder and Overwrite were looked in instead."
-    : "The game's own Data folder was looked in, as Vortex and hand installs put mods there. A portable Mod Organizer 2 instance isn't looked for.",
+    : "The game's own Data folder was looked in, as Vortex and hand installs put mods there. A portable Mod Organizer 2 instance (such as a Wabbajack list's) isn't looked for on its own: if you play through one, run this again with its folder as mo2InstancePath, since what it supplies isn't in Data.",
 ];
 
 // ─── The answer ──────────────────────────────────────────────────────────────

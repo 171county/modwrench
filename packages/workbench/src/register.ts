@@ -901,6 +901,12 @@ export function registerWorkbenchTools(server: McpServer): {
         gameId: z
           .string()
           .describe("Canonical game ID: 'skyrimspecialedition' or 'fallout4'."),
+        mo2InstancePath: z
+          .string()
+          .optional()
+          .describe(
+            "Mod Organizer 2 instance folder, for a portable instance (such as a Wabbajack list's) that doesn't live where MO2 normally keeps them. Without it a portable instance isn't found, and the game's own plugins.txt and Data folder are checked instead."
+          ),
         profileName: z
           .string()
           .optional()
@@ -913,8 +919,12 @@ export function registerWorkbenchTools(server: McpServer): {
         openWorldHint: true,
       },
     },
-    guarded("mw_loot_requirements", [], async ({ gameId, profileName }) => {
-      const result = await checkLootRequirements({ gameId, ...(profileName !== undefined ? { profileName } : {}) });
+    guarded("mw_loot_requirements", ["mo2InstancePath"], async ({ gameId, mo2InstancePath, profileName }) => {
+      const result = await checkLootRequirements({
+        gameId,
+        ...(mo2InstancePath !== undefined ? { mo2InstancePath } : {}),
+        ...(profileName !== undefined ? { profileName } : {}),
+      });
 
       // Counts only: nothing from the player's files or folders.
       log("debug", "workbench.loot_requirements", {

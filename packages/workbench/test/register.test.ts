@@ -226,6 +226,7 @@ const PATH_ARGS: Array<[tool: string, arg: string, others: Record<string, unknow
   ["mw_crash_whisperer", "mo2InstancePath", { logPath: SSE_LOG, compareRecent: 0 }],
   ["mw_doctor", "gamePath", {}],
   ["mw_doctor", "mo2InstancePath", {}],
+  ["mw_loot_requirements", "mo2InstancePath", { gameId: "skyrimspecialedition" }],
 ];
 const NETWORK_FORMS = [
   `${B}${B}127.0.0.1${B}mw-test-share${B}x`,
