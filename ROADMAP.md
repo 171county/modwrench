@@ -26,10 +26,12 @@ The code is on `main`, and none of it is on npm yet. Two checks it hasn't had:
      them in both conflict tools, and `mw_diagnose_crash` shows up to 10 of LOOT's
      messages that have no condition or whose condition is true, labelled as LOOT's notes and not as evidence about
      the crash. [CHANGELOG.md](CHANGELOG.md) has the details.
-  2. **Requirements.** A separate LOOT tool that you choose to run, which fetches the list
-     and checks `req` entries against the install. The Doctors stay offline and get no
-     switch for it. The tool opens only the paths an allow-list permits, inside the game's
-     folders, whatever path the masterlist names.
+  2. **Requirements.** Done, not yet released: `mw_loot_requirements`, a separate tool that
+     you choose to run, fetches the list and checks the `req` entries of the active plugins
+     against the install, saying present, missing or unknown. The Doctors stay offline and
+     get no switch for it. It only checks whether a file is there, and only at the paths an
+     allow-list permits, inside the game's folders, whatever path the masterlist names.
+     [TRUST.md](TRUST.md#loot-requirements-what-it-opens) lists them.
   3. **Dirty plugins.** Matching a `dirty` record needs the plugin's checksum (CRC), so this
      waits for the real-install check above.
 

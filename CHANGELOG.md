@@ -20,6 +20,28 @@ This document is maintained by hand.
   "error" is shown as a warning. The text is LOOT's English, with its
   substitutions (`{0}`) filled in, as one plain line of at most 300 characters,
   as for the conflicts' notes. `mw_check_known_conflicts` doesn't show them.
+- **`mw_loot_requirements`: what LOOT's masterlist says your active plugins
+  need.** A tool of its own, for Skyrim Special Edition and Fallout 4, that you
+  choose to run: it fetches LOOT's list the way the conflict tools do, reads the
+  active plugins the way the Doctors do (Mod Organizer 2's profile, or the
+  game's own `plugins.txt`), and for each file LOOT lists as required by one of
+  them (`req`) says present, missing or unknown, with LOOT's name and note for
+  it, as LOOT's record. A requirement LOOT applies only under a condition is
+  checked when the condition is true, left out when it is false, and unknown,
+  quoting the condition, when ModWrench can't tell. LOOT's errors are warnings.
+  It only looks for whether a file is there, with `lstat`, never opening one,
+  and only where an allow-list permits, whatever path the masterlist names:
+  below the game's Data folder, or directly in the game's folder for one
+  leading `../`, with one of the file endings LOOT's requirements use, and with
+  Mod Organizer 2 in each enabled mod's folder and Overwrite as well. A link or
+  junction on the way isn't followed. It says missing only when that proves
+  it: on Windows, with every folder that could hold the file looked in. Off
+  Windows, where names that differ in capitals are different files, and for a
+  file in the game's folder under Mod Organizer 2, it says unknown. The Doctors
+  stay offline. With MO2 the game folder is the one MO2's settings name
+  (`gamePath`), which for Wabbajack's lists is a copy beside the instance.
+  [TRUST.md](TRUST.md#loot-requirements-what-it-opens) lists every path it may
+  look at.
 
 ### Changed
 - **The conflict tools answer LOOT's conditions.** An incompatibility entry LOOT
