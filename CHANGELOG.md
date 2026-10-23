@@ -24,6 +24,12 @@ This document is maintained by hand.
   games only so far: mods from Nexus Mods and mod.io aren't checked yet.
   [TRUST.md](TRUST.md#pulse-what-it-reads-and-sends) says what it reads and
   sends.
+- **The Pulse page.** In clients that draw MCP Apps pages, `mw_pulse` points at
+  `ui://modwrench/pulse`. Before a check it shows what one would send, with a
+  Check now button that makes the confirmed call when you press it; after a
+  check it lists updates first, with an Open button for each mod's Thunderstore
+  page where your client can open links, and a Check again button. The page
+  itself makes no network request.
 - **Crew Check: `mw_crew_check` — "do we all have the same mods?"** For co-op
   Thunderstore games. With no lists it makes your crew list: one line per
   switched-on mod in your r2modman profile with its Thunderstore name and

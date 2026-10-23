@@ -226,7 +226,7 @@ test("every tool that points at a page points at one that is registered, the thr
   });
 });
 
-test("the full map: which workbench tool points at which page, and the seven pages registered", () => {
+test("the full map: which workbench tool points at which page, and the eight pages registered", () => {
   withUi(undefined, () => {
     const server = new AppsMockServer();
     register(server);
@@ -242,7 +242,7 @@ test("the full map: which workbench tool points at which page, and the seven pag
       mw_patch_day: "ui://modwrench/patch-day",
       mw_crash_whisperer: "ui://modwrench/crash-whisperer",
       mw_doctor: "ui://modwrench/doctor",
-      mw_pulse: null,
+      mw_pulse: "ui://modwrench/pulse",
       mw_crew_check: null,
     });
     assert.deepEqual(Object.fromEntries([...server.resources].map(([uri, r]) => [uri, r.name])), {
@@ -253,6 +253,7 @@ test("the full map: which workbench tool points at which page, and the seven pag
       "ui://modwrench/patch-day": "patch_day_panel",
       "ui://modwrench/crash-whisperer": "crash_whisperer_panel",
       "ui://modwrench/doctor": "doctor_panel",
+      "ui://modwrench/pulse": "pulse_panel",
     });
   });
 });

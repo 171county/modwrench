@@ -20,10 +20,12 @@ import {
   CRASH_PAGE,
   DEPS_PAGE,
   MODS_PAGE,
+  PULSE_PAGE,
   conflictsView,
   crashView,
   modsView,
   orderView,
+  pulseView,
 } from "@modwrench/ui";
 
 /** Pick the theme skin from a canonical game id. */
@@ -892,6 +894,7 @@ export function registerWorkbenchTools(server: McpServer): {
   // for now. The first call sends nothing and answers with the plan; only a call with
   // confirm=true asks Thunderstore, one request per mod (see pulse/index.ts).
 
+  const pulsePage = registerAppPage(server, PULSE_PAGE);
   server.registerTool(
     "mw_pulse",
     {
@@ -917,6 +920,7 @@ export function registerWorkbenchTools(server: McpServer): {
         idempotentHint: true,
         openWorldHint: true,
       },
+      ...(pulsePage ? { _meta: pulsePage } : {}),
     },
     guarded("mw_pulse", [], async ({ gameId, profileName, confirm }) => {
       const result = await runPulse({
@@ -924,7 +928,25 @@ export function registerWorkbenchTools(server: McpServer): {
         ...(profileName !== undefined ? { profileName } : {}),
         ...(confirm !== undefined ? { confirm } : {}),
       });
-      return { content: [{ type: "text", text: summarizePulse(result) }] };
+      // The page gets the same facts as the text, and what its button passes back.
+      const page = result.ok
+        ? pulseView({
+            theme: themeForGameId(gameId),
+            game: result.game,
+            profile: result.profile,
+            host: result.host,
+            confirmed: result.confirmed,
+            requests: result.confirmed ? result.mods.length : result.requests,
+            mods: result.confirmed ? result.mods : [],
+            notChecked: result.notChecked,
+            args: { gameId, ...(profileName !== undefined ? { profileName } : {}) },
+          })
+        : null;
+      return {
+        content: [{ type: "text", text: summarizePulse(result) }],
+        ...(page ? pageData(server, page as unknown as Record<string, unknown>, pulsePage !== undefined) : {}),
+        ...(result.ok ? {} : { isError: true as const }),
+      };
     })
   );
 
