@@ -14,6 +14,11 @@ This document is maintained by hand.
 - **The Mods page shows a long mod name whole.** It cut every name at 120
   characters, shorter than the 128 Thunderstore allows. The cut is now at 300,
   against hostile input only, and a long name wraps.
+- **The load-order page is no longer labelled "Dependencies".** One page draws
+  both a Thunderstore mod's dependencies and the load order `mw_read_load_order`
+  reads, and its label said "Dependencies" over either. The label now says
+  "Dependencies", "Load order" or "Mod folders" for what is drawn, and the
+  page's title is "Dependencies and load order".
 
 ## [0.3.0] — unreleased
 

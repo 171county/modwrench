@@ -260,12 +260,22 @@ const SCRIPT = String.raw`
     if (total > rows.length) out.appendChild(note('Showing the first ' + rows.length + ' of ' + total + '; the full list is in the chat answer.'));
   }
 
+  // The label under the brand names what is drawn; the page's own title names both.
+  function label(text) { mwSkin.el('mw-label').textContent = text; }
+
   function draw(data) {
     var out = mwSkin.el('deps-out');
     mwSkin.clear(out);
-    if (data.kind === 'order') drawOrder(out, data);
-    else if (data.kind === 'deps') drawDeps(out, data);
-    else out.appendChild(mwSkin.empty('Nothing to show', 'Nothing came back that this page can show.'));
+    if (data.kind === 'order') {
+      label(data.ok === true && data.rows === 'folders' ? 'Mod folders' : 'Load order');
+      drawOrder(out, data);
+    } else if (data.kind === 'deps') {
+      label('Dependencies');
+      drawDeps(out, data);
+    } else {
+      label('Dependencies and load order');
+      out.appendChild(mwSkin.empty('Nothing to show', 'Nothing came back that this page can show.'));
+    }
     mwSkin.show('deps-out', true);
   }
 
@@ -276,9 +286,9 @@ const SCRIPT = String.raw`
 /** The Dependencies and load order page, as the HTML an MCP Apps host loads for `ui://modwrench/deps`. */
 export function renderDepsApp(): string {
   return renderApp({
-    title: "Dependencies",
+    title: "Dependencies and load order",
     css: SKIN_CSS + CSS,
-    body: skinFrame("Dependencies", BODY),
+    body: skinFrame("Dependencies and load order", BODY),
     script: SKIN_JS + SCRIPT,
   });
 }

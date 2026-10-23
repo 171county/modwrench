@@ -271,6 +271,24 @@ test("a load order: the manager and profile, how many are enabled, and each entr
   assert.equal(byClass(out, "mw-deps-note").length, 0, "every entry is shown, so no note");
 });
 
+// One page draws both, so the label under the brand once said "Dependencies" over a
+// load order. It names what was drawn; before that, it names both.
+test("the page's label names what it shows: dependencies, a load order or a profile's mod folders", async () => {
+  const label = (page: Page): string => page.el("mw-label").textContent;
+  const html = renderDepsApp();
+  assert.ok(html.includes("<title>Dependencies and load order</title>"));
+  assert.equal(label(loadPage(html)), "Dependencies and load order", "before an answer arrives");
+  assert.equal(label(await shown(DEPS)), "Dependencies");
+  assert.equal(label(await shown(ORDER)), "Load order");
+  assert.equal(label(await shown(orderView({ ok: false, reason: "x" }))), "Load order");
+  const folders = orderView({ ok: true, manager: "mo2", profile: "Default", enabledCount: 1, totalCount: 1, loadOrder: [], folders: [{ name: "A", enabled: true }] });
+  assert.equal(label(await shown(folders)), "Mod folders");
+  const page = await shown(ORDER);
+  await page.result({ structuredContent: DEPS });
+  assert.equal(label(page), "Dependencies", "a later answer relabels the page");
+  assert.equal(label(await shown({ view: "deps", kind: "mods" })), "Dependencies and load order", "nothing drawn, nothing narrowed");
+});
+
 test("an entry whose enable state isn't known is shown as unknown, not as on", async () => {
   const page = await shown(orderView({ ok: true, manager: "vortex", profile: "default", enabledCount: 0, totalCount: 1, loadOrder: [{ name: "Folder", enabled: null }] }));
   const row = byClass(page.el("deps-out"), "mw-lrow")[0]!;

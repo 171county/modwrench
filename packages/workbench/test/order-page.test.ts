@@ -142,7 +142,7 @@ test("a client that draws pages: the tool points at the Dependencies page and se
     assert.equal(read.contents.length, 1);
     assert.equal(read.contents[0]!.mimeType, MCP_APP_MIME);
     assert.ok(read.contents[0]!.text.startsWith("<!doctype html>"));
-    assert.ok(read.contents[0]!.text.includes("<title>Dependencies</title>"));
+    assert.ok(read.contents[0]!.text.includes("<title>Dependencies and load order</title>"));
     assert.equal(read.contents[0]!._meta, undefined, "the page asks for no permission");
 
     for (const c of CASES) {
