@@ -24,6 +24,13 @@ This document is maintained by hand.
   was lost, and a plugin file name with no spaces ran under the ON/OFF flag and
   out of the list. Names and plugin files now wrap inside the row, on the
   dependency lists too.
+- **Download counts on the Mods page for Nexus trending and Thunderstore search
+  and top mods.** They showed "—". `nexus_trending` read a `downloads` field
+  that Nexus's v1 API doesn't send (it sends `mod_downloads`), and
+  `thunderstore_search_mods` and `thunderstore_top_mods` never added up their
+  versions' downloads. Those two tools' text answers now carry `total_downloads`, as
+  `thunderstore_list_mods`' always has. mod.io and `mw_query_mod_metadata` were
+  already right, and a mod a platform gives no count for still shows "—".
 
 ## [0.3.0] — unreleased
 

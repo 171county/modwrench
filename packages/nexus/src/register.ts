@@ -32,7 +32,8 @@ type NexusRow = {
   author?: string;
   version?: string;
   endorsement_count?: number;
-  downloads?: number;
+  /** v1's name for a mod's total downloads (the v2 GraphQL API calls it `downloads`). */
+  mod_downloads?: number;
 };
 
 /** Nexus discovery lists -> the Mods page's data, Skyrim-skinned (Nexus is
@@ -43,7 +44,7 @@ function nexusModsView(query: string, domain: string, rows: NexusRow[]): ModsVie
     author: r.author ?? "unknown",
     platform: "nexus",
     version: r.version,
-    downloads: r.downloads,
+    downloads: r.mod_downloads,
     endorsements: r.endorsement_count,
     summary: r.summary,
     pageUrl: `https://www.nexusmods.com/${domain}/mods/${r.mod_id}`,
