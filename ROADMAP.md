@@ -37,8 +37,6 @@ The code is on `main`, and none of it is on npm yet. Two checks it hasn't had:
 
   In every stage LOOT's "error" is shown as a warning, never as a ModWrench "problem", and
   LOOT's text is shown in English only.
-- **The pages:** mod names cut at 120 characters, the load-order page titled
-  "Dependencies", plugin names cut off at phone width, and download counts that show "—".
 
 ## Open questions
 
