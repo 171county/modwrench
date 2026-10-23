@@ -1,11 +1,11 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { dump } from "js-yaml";
 import { PULSE_MAX_MODS, compareVersions, runPulse, summarizePulse, type PulseInput } from "../src/pulse/index.js";
 import { registerWorkbenchTools } from "../src/register.js";
+import { r2profile, type R2Mod } from "./helpers/r2profile.js";
 
 // ─── A profile, and a Thunderstore that records what it was asked ────────────
 // Profiles are written the way r2modman writes mods.yml (see loadorder-r2modman.test.ts), under a home of the
@@ -15,29 +15,8 @@ import { registerWorkbenchTools } from "../src/register.js";
 const root = mkdtempSync(join(tmpdir(), "mw-pulse-"));
 after(() => rmSync(root, { recursive: true, force: true }));
 
-type Mod = { name: string; displayName?: string; authorName?: string; version?: [number, number, number]; enabled?: boolean };
-
-function profile(mods: Mod[], name = "Default"): Record<string, string> {
-  const home = mkdtempSync(join(root, "home-"));
-  const r2 =
-    process.platform === "win32"
-      ? join(home, "AppData", "Roaming", "r2modmanPlus-local")
-      : process.platform === "darwin"
-        ? join(home, "Library", "Application Support", "r2modmanPlus-local")
-        : join(home, ".config", "r2modmanPlus-local");
-  const dir = join(r2, "LethalCompany", "profiles", name);
-  mkdirSync(dir, { recursive: true });
-  const entries = mods.map((m) => ({
-    manifestVersion: 1,
-    name: m.name,
-    ...(m.authorName !== undefined ? { authorName: m.authorName } : {}),
-    displayName: m.displayName ?? m.name.split("-")[1] ?? m.name,
-    ...(m.version ? { versionNumber: { major: m.version[0], minor: m.version[1], patch: m.version[2] } } : {}),
-    enabled: m.enabled ?? true,
-  }));
-  writeFileSync(join(dir, "mods.yml"), dump(entries));
-  return { APPDATA: join(home, "AppData", "Roaming"), HOME: home, USERPROFILE: home };
-}
+type Mod = R2Mod;
+const profile = (mods: Mod[], name?: string): Record<string, string> => r2profile(root, mods, name);
 
 type Pkg = { latest?: string; deprecated?: boolean; status?: number };
 

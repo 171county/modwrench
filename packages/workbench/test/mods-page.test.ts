@@ -124,7 +124,7 @@ test("a server that can't register the page still gets every tool, and mw_query_
   };
   for (const server of [new ConnectedServer(DRAWS_PAGES), toolsOnly()]) {
     assertTextOnly(await run(server, CASES[0]!.args), CASES[0]!.golden, server.constructor.name);
-    assert.equal(server.tools.size, 10);
+    assert.equal(server.tools.size, 11);
     for (const [name, t] of server.tools) assert.equal(t.config._meta, undefined, name);
   }
 });

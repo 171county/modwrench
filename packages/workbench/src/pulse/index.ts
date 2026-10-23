@@ -1,7 +1,6 @@
 import { appIdentity, createHttpClient, getEnv, log, ModWrenchError } from "@modwrench/core";
-import { findGameById } from "../detect/games.js";
-import { readR2modmanLoadOrder } from "../loadorder/r2modman.js";
 import { clean } from "../patchday/summary.js";
+import { readThunderstoreProfile, type ProfileMod } from "./profile.js";
 
 // ─── Pulse: what has changed for the mods I run? ─────────────────────────────
 // Reads the mods switched on in an r2modman profile and asks Thunderstore for each
@@ -16,8 +15,6 @@ const APP = appIdentity(import.meta.url);
 export const PULSE_MAX_MODS = 200;
 /** How many requests are in flight at once. */
 const CONCURRENCY = 4;
-/** Thunderstore's owner and package names are letters, digits and underscores, joined by one dash. */
-const THUNDERSTORE_NAME = /^([A-Za-z0-9_]+)-([A-Za-z0-9_]+)$/;
 const SEMVER = /^(\d+)\.(\d+)\.(\d+)$/;
 
 export type PulseInput = { gameId: string; profileName?: string; confirm?: boolean };
@@ -72,11 +69,6 @@ export type PulseResult =
       notChecked: string[];
     };
 
-/** A profile name is one folder name: no separators, and not "." or "..". */
-function plainFolderName(value: string): boolean {
-  return value !== "" && value !== "." && value !== ".." && !/[\\/]/.test(value);
-}
-
 /** -1, 0 or 1 for two three-number versions; null when either isn't one. */
 export function compareVersions(a: string, b: string): number | null {
   const x = SEMVER.exec(a);
@@ -89,60 +81,17 @@ export function compareVersions(a: string, b: string): number | null {
   return 0;
 }
 
-type Candidate = { name: string; fullName: string; owner: string; pkg: string; author?: string; installed?: string };
-
 export async function runPulse(input: PulseInput): Promise<PulseResult> {
-  const game = findGameById(input.gameId);
-  if (!game) return { ok: false, reason: `"${input.gameId}" isn't a game ModWrench knows. mw_detect_environment lists the games on this computer.` };
-  if (!game.r2modmanFolder) {
-    return {
-      ok: false,
-      reason: `Pulse checks Thunderstore mods in r2modman profiles so far, and ${game.displayName} isn't an r2modman game. Mods from Nexus Mods and mod.io aren't checked yet.`,
-    };
-  }
-  if (input.profileName !== undefined && !plainFolderName(input.profileName)) {
-    return { ok: false, reason: "profileName must be the name of one r2modman profile, with no slashes, and not . or .." };
-  }
+  const read = readThunderstoreProfile(input.gameId, input.profileName, "Pulse");
+  if (!read.ok) return read;
 
-  const order = readR2modmanLoadOrder(game, input.profileName !== undefined ? { profileName: input.profileName } : {});
-  if (!order) {
-    return {
-      ok: false,
-      reason:
-        input.profileName !== undefined
-          ? `No r2modman profile by that name was found for ${game.displayName}.`
-          : `No r2modman profile was found for ${game.displayName} on this computer.`,
-    };
-  }
-
-  const notChecked: string[] = [];
-  const seen = new Set<string>();
-  const candidates: Candidate[] = [];
-  for (const mod of order.mods) {
-    if (mod.enabled !== true) continue;
-    const id = mod.sourceModId ?? "";
-    const match = THUNDERSTORE_NAME.exec(id);
-    if (!match) {
-      notChecked.push(`${clean(mod.name)} (not a Thunderstore name)`);
-      continue;
-    }
-    if (seen.has(id.toLowerCase())) continue;
-    seen.add(id.toLowerCase());
-    candidates.push({
-      name: mod.name,
-      fullName: id,
-      owner: match[1]!,
-      pkg: match[2]!,
-      ...(mod.author !== undefined ? { author: mod.author } : {}),
-      ...(mod.version !== undefined ? { installed: mod.version } : {}),
-    });
-  }
-  const checked = candidates.slice(0, PULSE_MAX_MODS);
-  for (const extra of candidates.slice(PULSE_MAX_MODS)) notChecked.push(`${clean(extra.name)} (past the ${PULSE_MAX_MODS}-mod limit for one run)`);
+  const notChecked = read.notThunderstore.map((name) => `${name} (not a Thunderstore name)`);
+  const checked: ProfileMod[] = read.mods.slice(0, PULSE_MAX_MODS);
+  for (const extra of read.mods.slice(PULSE_MAX_MODS)) notChecked.push(`${clean(extra.name)} (past the ${PULSE_MAX_MODS}-mod limit for one run)`);
 
   const baseUrl = getEnv("THUNDERSTORE_BASE_URL", "https://thunderstore.io");
   const host = new URL(baseUrl).host;
-  const base = { ok: true as const, game: game.displayName, profile: order.profile, host, notChecked };
+  const base = { ok: true as const, game: read.game, profile: read.profile, host, notChecked };
 
   if (input.confirm !== true) return { ...base, confirmed: false, requests: checked.length };
 

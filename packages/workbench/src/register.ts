@@ -45,6 +45,7 @@ import { summarizeDoctor } from "./doctor/summary.js";
 import { correlateCrash, type CrashSuspect } from "./crashlog/diagnose.js";
 import { isNetworkPath } from "./localpath.js";
 import { runPulse, summarizePulse } from "./pulse/index.js";
+import { CREW_MAX_CHARS, CREW_MAX_LISTS, runCrewCheck, summarizeCrewCheck } from "./crew/index.js";
 
 const refusal = (text: string): CallToolResult => ({ content: [{ type: "text", text }], isError: true });
 
@@ -927,5 +928,51 @@ export function registerWorkbenchTools(server: McpServer): {
     })
   );
 
-  return { toolCount: 10 };
+  // ─── Tool 11: mw_crew_check ─────────────────────────────────────────────────
+  // "Do we all have the same mods?" For co-op games. No network: it makes this
+  // player's crew list, or compares the crew's pasted lists with their profile.
+
+  server.registerTool(
+    "mw_crew_check",
+    {
+      title: "Do we all have the same mods",
+      description:
+        "Crew Check: \"do we all have the same mods?\" for co-op Thunderstore games (Lethal Company, Valheim). Called without crewLists, it answers with the user's crew list: the Thunderstore name and version of each switched-on mod in their r2modman profile, to share with their crew. Called with the crewmates' pasted lists in crewLists, it compares them with the user's profile and names mods some players lack and mods on different versions. No network, read-only. Use when the user says \"do we all have the same mods\", \"why can't my friend join\" or \"compare our modpacks\".",
+      inputSchema: {
+        gameId: z
+          .string()
+          .describe("Canonical game ID of a Thunderstore game, e.g. 'lethalcompany' or 'valheim'. mw_detect_environment lists the games on this computer."),
+        profileName: z
+          .string()
+          .optional()
+          .describe("r2modman profile name. Defaults to the first profile alphabetically (typically 'Default')."),
+        crewLists: z
+          .array(
+            z.object({
+              name: z.string().max(80).optional().describe("The crewmate's name, as the user calls them."),
+              list: z.string().max(CREW_MAX_CHARS).describe("The crew list the crewmate shared, pasted as it is."),
+            })
+          )
+          .max(CREW_MAX_LISTS)
+          .optional()
+          .describe(`Crewmates' crew lists to compare with the user's profile, at most ${CREW_MAX_LISTS}. Leave out to make the user's own list.`),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    guarded("mw_crew_check", [], async ({ gameId, profileName, crewLists }) => {
+      const result = runCrewCheck({
+        gameId,
+        ...(profileName !== undefined ? { profileName } : {}),
+        ...(crewLists !== undefined ? { crewLists } : {}),
+      });
+      return { content: [{ type: "text", text: summarizeCrewCheck(result) }] };
+    })
+  );
+
+  return { toolCount: 11 };
 }

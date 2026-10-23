@@ -347,6 +347,14 @@ Read the draft before you post it: an issue is public.
 - **What it answers.** For each mod: the version you have and Thunderstore's latest, whether its author has marked it deprecated, or that Thunderstore no longer has it. Each mod is named with its author and its Thunderstore page. Versions are compared as numbers (`1.10.0` is newer than `1.9.2`); a version that isn't three numbers is reported as "can't compare" rather than guessed at.
 - **What it can't tell you.** Whether an update suits your game version or your other mods: Thunderstore's data doesn't say, and Pulse doesn't install, download or change anything.
 
+## Crew Check: what it reads and compares
+
+`mw_crew_check` answers "do we all have the same mods?" for co-op games on Thunderstore. **It makes no network request.**
+
+- **Your crew list.** Called with no lists, it reads your r2modman profile's `mods.yml` (the same file Pulse reads) and answers with your crew list: a header line naming the game and the number of mods, then one line per switched-on Thunderstore mod with its Thunderstore name and version. Nothing else goes in it: no folder, profile name, account or computer name. You decide whether to share it, and where.
+- **Comparing.** Called with your crewmates' pasted lists, it compares them with your profile and names the mods some players don't have and the mods on different versions. A pasted list is someone else's text, so it is read line by line, and a line counts only when it is exactly a Thunderstore name and a version; anything else is counted and left unread, and the answer says how many. At most 16 lists, 64 KB each, and 500 mods from each. A crewmate's name is flattened to one line and cut to 40 characters, and a list can't call its player "You".
+- **What it can't tell you.** Whether a mod has to match for your lobby to work: some mods are client-side only. It doesn't download, install or change anything.
+
 ## What leaves your machine — read this one
 
 This is the part most tools would leave out.
@@ -359,6 +367,7 @@ ModWrench hands its results to the AI client you connected it to. If that client
 - **`mw_crash_whisperer` takes out what it recognises of your name, computer name, folders, addresses and keys from the log before it reads it**, and returns a short answer rather than the log. It names the plugins the log points at, and the help posts it writes list your plugins unless you ask it not to; even then they name the plugins that changed the objects the log names. A log you paste into the chat yourself has already gone. See [Crash Whisperer](#crash-whisperer-what-it-opens).
 - **`mw_patch_day` names your plugins** — every SKSE plugin's file name, the Mod Organizer 2 mod folder it came from, and the name it declares for itself — but returns no folder paths. See [Patch Day](#patch-day-what-it-opens).
 - **`mw_doctor` names the plugins and mod folders its findings are about** (a plugin and the master it needs, say), the first dozen names at the top of Mod Organizer 2's Overwrite folder, which kind of drive your Steam libraries sit on and how much room is free. It returns no folder paths, no account name or Steam account number, and none of the text of your Steam launch options. See [the Doctors](#the-doctors-what-they-open).
+- **`mw_crew_check` names your switched-on Thunderstore mods and their versions**, and those in the lists you paste, with the names you give your crewmates and your profile's name. It returns no folder paths.
 - **`mw_pulse` names the switched-on Thunderstore mods in your r2modman profile**, with their authors, the version you have and Thunderstore's latest, and your profile's name. It returns no folder paths. See [Pulse](#pulse-what-it-reads-and-sends).
 
 ModWrench keeps none of it — nothing written, nothing cached, nothing uploaded. But it cannot control what your AI client does with a tool result, and it cannot un-send it. If that matters to you, use a local model, or don't point the crash tools at anything you would not paste into a chat window.

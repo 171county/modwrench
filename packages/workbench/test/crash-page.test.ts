@@ -292,8 +292,8 @@ test("a server that can't take the page still gets both tools, as text, with no 
     const toolsOnly = new ToolsOnlyServer();
     for (const server of [connected, toolsOnly]) {
       const { toolCount } = registerWorkbenchTools(server as never);
-      assert.equal(toolCount, 10);
-      assert.equal(server.tools.size, 10);
+      assert.equal(toolCount, 11);
+      assert.equal(server.tools.size, 11);
       for (const tool of TOOLS) assert.equal(server.tools.get(tool)!.config._meta, undefined, tool);
       const results = await answers(server);
       CASES.forEach((c, i) => assert.deepEqual(results[i], textOnly(c), label(c)));

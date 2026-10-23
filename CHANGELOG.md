@@ -24,6 +24,15 @@ This document is maintained by hand.
   games only so far: mods from Nexus Mods and mod.io aren't checked yet.
   [TRUST.md](TRUST.md#pulse-what-it-reads-and-sends) says what it reads and
   sends.
+- **Crew Check: `mw_crew_check` — "do we all have the same mods?"** For co-op
+  Thunderstore games. With no lists it makes your crew list: one line per
+  switched-on mod in your r2modman profile with its Thunderstore name and
+  version, and nothing else, for you to share. With your crewmates' lists pasted
+  in, it names the mods some players don't have and the mods on different
+  versions. No network at all. A pasted list is read only where a line is
+  exactly a name and a version, with caps on how much is read, and the answer
+  says what was left unread.
+  [TRUST.md](TRUST.md#crew-check-what-it-reads-and-compares) has the details.
 
 ## [0.3.0] — unreleased
 
