@@ -10,7 +10,7 @@ const root = mkdtempSync(join(tmpdir(), "mw-r2-"));
 after(() => rmSync(root, { recursive: true, force: true }));
 
 /** Puts a profile's mods.yml where r2modman keeps it on this platform, under a home of our own. */
-function profile(yaml: string): { home: string; env: Record<string, string> } {
+function profile(yaml: string): { home: string; env: Record<string, string>; profiles: string } {
   const home = mkdtempSync(join(root, "home-"));
   const r2 =
     process.platform === "win32"
@@ -20,7 +20,7 @@ function profile(yaml: string): { home: string; env: Record<string, string> } {
         : join(home, ".config", "r2modmanPlus-local");
   mkdirSync(join(r2, "LethalCompany", "profiles", "Default"), { recursive: true });
   writeFileSync(join(r2, "LethalCompany", "profiles", "Default", "mods.yml"), yaml);
-  return { home, env: { APPDATA: join(home, "AppData", "Roaming"), HOME: home, USERPROFILE: home } };
+  return { home, env: { APPDATA: join(home, "AppData", "Roaming"), HOME: home, USERPROFILE: home }, profiles: join(r2, "LethalCompany", "profiles") };
 }
 
 function withEnv<T>(env: Record<string, string>, fn: () => T): T {
@@ -96,6 +96,21 @@ test("r2modman reads a mod without enabled: true as switched off, and so does th
   const result = withEnv(env, () => readR2modmanLoadOrder(findGameById("lethalcompany")!, {}));
   assert.equal(result?.mods[0]?.enabled, false);
   assert.equal(result?.enabledCount, 0);
+});
+
+test("a profileName that isn't one folder name doesn't read a mods.yml outside or below r2modman's profiles folder", () => {
+  const { env, profiles } = profile("- name: Author-Mod\n  displayName: Mod\n  enabled: true\n");
+  const planted = "- name: Planted-Mod\n  displayName: Planted\n  enabled: true\n";
+  // Each name would find a mods.yml if it were joined on: "a\b" is a folder of its own off Windows, two on it.
+  for (const dir of [join(profiles, "..", "x"), join(profiles, "a", "b"), join(profiles, "a\\b"), join(profiles, ".."), profiles]) {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "mods.yml"), planted);
+  }
+  for (const name of ["../x", "a/b", "a\\b", "..", "."]) {
+    assert.equal(withEnv(env, () => readR2modmanLoadOrder(findGameById("lethalcompany")!, { profileName: name })), null, name);
+  }
+  const normal = withEnv(env, () => readR2modmanLoadOrder(findGameById("lethalcompany")!, { profileName: "Default" }));
+  assert.equal(normal?.mods[0]?.sourceModId, "Author-Mod");
 });
 
 function withPlatform<T>(platform: NodeJS.Platform, fn: () => T): T {

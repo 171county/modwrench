@@ -10,6 +10,17 @@ This document is maintained by hand.
 
 ## [Unreleased]
 
+### Fixed
+- **A profile name can't climb out of the profiles folder.** `profileName` is
+  joined onto Mod Organizer 2's or r2modman's profiles folder, so a name like
+  `../../somewhere` read a profile's `mods.yml`, `plugins.txt` and `modlist.txt`
+  from outside it. `mw_read_load_order`, `mw_patch_day`, `mw_crash_whisperer`
+  and `mw_doctor` now refuse a `profileName` that isn't one folder name (empty,
+  `.` or `..`, or holding `/`, `\` or a NUL character) before anything is
+  opened, with an answer that names the argument and doesn't repeat it. A
+  `selected_profile` in `ModOrganizer.ini` that isn't one folder name is treated
+  as missing.
+
 ## [0.3.0] — unreleased
 
 The workbench learns to answer three questions on its own: "is it safe to

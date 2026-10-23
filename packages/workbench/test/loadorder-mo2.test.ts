@@ -129,3 +129,22 @@ test("under Wine only Z: is this machine, and a folder is found whatever its cap
   assert.equal(spelled(readMo2LoadOrder(SSE, { instancePath: dir })?.sourcePath), spelled(join(dir, "profiles", "Default")));
   assert.equal(modsOf(instance(() => "mod_directory=D:/Mods")), null, "a drive Wine maps somewhere ModWrench can't tell");
 });
+
+test("a profile name that isn't one folder name, passed or set as the ini's selected_profile, is treated as missing", () => {
+  const dir = instance(() => "");
+  // Each name would find a plugins.txt if it were joined on: "a\b" is a folder of its own off Windows, two on it.
+  for (const where of [join(dir, "x"), join(dir, "profiles", "a", "b"), join(dir, "profiles", "a\\b"), dir, join(dir, "profiles")]) {
+    mkdirSync(where, { recursive: true });
+    writeFileSync(join(where, "plugins.txt"), "*Planted.esp\n");
+  }
+  const names = ["../x", "a/b", "a\\b", "..", "."];
+  for (const name of names) assert.equal(readMo2LoadOrder(SSE, { instancePath: dir, profileName: name }), null, name);
+  for (const name of names) {
+    const planted = instance(() => "", ["mods", "x"], { general: () => `selected_profile=${name}` });
+    writeFileSync(join(planted, "x", "plugins.txt"), "*Planted.esp\n");
+    writeFileSync(join(planted, "plugins.txt"), "*Planted.esp\n");
+    assert.equal(readMo2LoadOrder(SSE, { instancePath: planted }), null, `selected_profile=${name}`);
+    assert.equal(discoverMo2(SSE, [], { mo2InstancePath: planted }).missed, true, `selected_profile=${name}`);
+  }
+  assert.equal(readMo2LoadOrder(SSE, { instancePath: dir, profileName: "Default" })?.profile, "Default");
+});

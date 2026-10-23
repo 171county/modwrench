@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { load as yamlLoad } from "js-yaml";
 import { pathExists } from "../detect/os.js";
+import { isFolderName } from "../localpath.js";
 import type { GameDef } from "../detect/games.js";
 import type { LoadOrderResult, LoadOrderMod } from "./types.js";
 
@@ -96,7 +97,8 @@ export function readR2modmanLoadOrder(
       return null;
     }
   }
-  if (!profile) return null;
+  // A name that isn't one folder would read a mods.yml outside the profiles folder.
+  if (!profile || !isFolderName(profile)) return null;
 
   const profileDir = join(profilesDir, profile);
   const manifestPath = join(profileDir, "mods.yml");
