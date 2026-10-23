@@ -424,7 +424,7 @@ export function registerWorkbenchTools(server: McpServer): {
           .array(z.string())
           .min(2)
           .describe(
-            "List of mods/plugins to check pairwise. Entries can be plugin filenames ('Skyrim.esp') or platform-prefixed mod IDs ('nexus:12345', 'modio:67890', 'thunderstore:Author-ModName'). At least 2 required for a conflict to be possible."
+            "List of mods/plugins to check pairwise. Entries can be plugin filenames ('Skyrim.esp') or platform-prefixed mod IDs ('nexus:12345', 'modio:67890', 'thunderstore:Author-ModName'). At least 2 required for a conflict to be possible. A plugin named here is taken to be active when LOOT's conditions are checked, so name only the plugins that are switched on."
           ),
       },
       annotations: {
@@ -477,7 +477,7 @@ export function registerWorkbenchTools(server: McpServer): {
     "mw_diagnose_crash",
     {
       title: "Diagnose a crash",
-      description: "Crash log in, culprit shortlist out. Parses the log, then correlates its suspects with the loaded plugins and (with a gameId) the known-conflict database into one bundle: which suspected mods are actually in the load order, at what index, and which loaded plugins have known conflicts. It lines up the evidence; it does NOT name the cause — that's the model's call, reasoned over the data. Use when the user says \"what's causing my crash\", \"which mod is it\", or pastes a crash log and wants the answer. Opt-in attribution (attributeSuspects=true) links up to 5 suspects to their Nexus mod pages — author, link, and the name it matched, since a name search can mismatch; off by default, so nothing about the suspects leaves the computer. With a gameId the known-conflict check fetches LOOT's public list from GitHub, which sends nothing from the log.",
+      description: "Crash log in, culprit shortlist out. Parses the log, then correlates its suspects with the loaded plugins and (with a gameId) the known-conflict database into one bundle: which suspected mods are actually in the load order, at what index, and which loaded plugins have known conflicts, plus, kept apart and capped at 10, LOOT's notes on the plugins the log lists (general advice, not evidence about the crash). It lines up the evidence; it does NOT name the cause — that's the model's call, reasoned over the data. Use when the user says \"what's causing my crash\", \"which mod is it\", or pastes a crash log and wants the answer. Opt-in attribution (attributeSuspects=true) links up to 5 suspects to their Nexus mod pages — author, link, and the name it matched, since a name search can mismatch; off by default, so nothing about the suspects leaves the computer. With a gameId the known-conflict check fetches LOOT's public list from GitHub, which sends nothing from the log.",
       inputSchema: {
         logContent: z
           .string()
@@ -532,11 +532,12 @@ export function registerWorkbenchTools(server: McpServer): {
       const diagnosis = await correlateCrash({
         parsed,
         ...(gameId !== undefined ? { gameId } : {}),
-        checkConflicts: async (g, modIds) => {
-          const r = await checkKnownConflicts({ gameId: g, modIds });
+        checkConflicts: async (g, modIds, allActive) => {
+          const r = await checkKnownConflicts({ gameId: g, modIds, allActive, withLootNotes: true });
           return {
             conflicts: r.conflicts,
             ...(r.warnings ? { warnings: r.warnings } : {}),
+            ...(r.lootNotes ? { lootNotes: r.lootNotes } : {}),
           };
         },
       });

@@ -1,6 +1,7 @@
 import { load as yamlLoad } from "js-yaml";
 import { appIdentity, getEnv, log } from "@modwrench/core";
 import { clean } from "../patchday/summary.js";
+import { parseCondition, type Condition } from "./condition.js";
 
 const APP = appIdentity(import.meta.url);
 
@@ -17,15 +18,19 @@ const APP = appIdentity(import.meta.url);
 //         - name: 'ConditionalInc.esp'
 //           display: 'Conditional Inc'  # LOOT's name for the file (CommonMark)
 //           detail: 'Only the v2 files.' # or a list of { lang, text }
-//           condition: 'file("...")'    # not evaluated: such an entry is
-//                                       # reported as informational
+//           condition: 'active("...")' # see condition.ts
+//       msg:
+//         - type: say                   # or warn, or error
+//           content: 'Use {0}.'         # or a list of { lang, text }
+//           subs: [ 'Another.esp' ]     # put in place of {0}, {1}, ...
+//           condition: 'active("...")'
 //
-// display, detail and condition are someone else's text, read by a model:
-// they're kept as one plain line, cut at TEXT_MAX (the longest in Skyrim SE's
-// and Fallout 4's lists is 177 characters). One entry even has its name and
-// display swapped.
+// display, detail, content and condition are someone else's text, read by a
+// model: they're kept as one plain line, cut at TEXT_MAX (the longest detail
+// in Skyrim SE's and Fallout 4's lists is 177 characters). One entry even has
+// its name and display swapped.
 //
-// Other LOOT fields (after, req, msg, group, etc.) aren't used by this tool
+// Other LOOT fields (after, req, group, etc.) aren't used by this tool
 // — they're for load-order optimization, not incompatibility detection.
 
 // Pinned to the branch LOOT itself reads by default (DEFAULT_MASTERLIST_BRANCH
@@ -79,8 +84,18 @@ export type LootIncEntry = {
   display?: string;
   /** LOOT's note on the entry, in English, as plain text. */
   detail?: string;
-  /** The condition LOOT applies the entry under, as LOOT wrote it on one line. ModWrench doesn't evaluate it. */
+  /** The condition LOOT applies the entry under, as LOOT wrote it, on one line. */
   condition?: string;
+  /** That condition, read. */
+  when?: Condition;
+};
+
+/** One of LOOT's messages about a plugin. */
+export type LootMessage = {
+  type: "say" | "warn" | "error";
+  /** In English, with its substitutions made, as plain text. */
+  text: string;
+  when?: Condition;
 };
 
 export type LootPluginRule = {
@@ -88,6 +103,7 @@ export type LootPluginRule = {
   /** What a plugin's name is checked against: LOOT's name lowercased, or the regex it is. */
   match: string | RegExp;
   inc: LootIncEntry[];
+  msg: LootMessage[];
 };
 
 export type LootMasterlist = {
@@ -95,8 +111,8 @@ export type LootMasterlist = {
   branch: string;
   fetchedAt: number;
   /**
-   * Every entry with an inc list, in file order. A plugin can match several (its
-   * exact name and any number of regexes), and LOOT merges them all, in this order.
+   * Every entry with an inc or msg list, in file order. A plugin can match several
+   * (its exact name and any number of regexes), and LOOT merges them all, in this order.
    */
   rules: LootPluginRule[];
 };
@@ -152,15 +168,41 @@ function normalizeIncEntry(raw: unknown): LootIncEntry | null {
       const detail = plainText(english(obj["detail"]));
       if (detail) entry.detail = detail;
       // Conditions are code, so only made one line; they never hold a backtick, which would end the quote.
+      // What is read is LOOT's own text, whole.
       const condition = obj["condition"];
       if (typeof condition === "string") {
         const line = clean(condition.replace(/`/g, "'"), TEXT_MAX);
-        if (line) entry.condition = line;
+        if (line) {
+          entry.condition = line;
+          entry.when = parseCondition(condition);
+        }
       }
       return entry;
     }
   }
   return null;
+}
+
+/** A message LOOT shows for a plugin, or null for one without a type or English text. */
+function normalizeMessage(raw: unknown): LootMessage | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const type = obj["type"];
+  if (type !== "say" && type !== "warn" && type !== "error") return null;
+  const content = english(obj["content"]);
+  if (typeof content !== "string") return null;
+  // {0}, {1}, ... take the substitutions in order; one without a substitution stays as written.
+  const subs: unknown[] = Array.isArray(obj["subs"]) ? obj["subs"] : [];
+  const filled = content.replace(/\{(\d+)\}/g, (whole, n: string) => {
+    const sub = subs[Number(n)];
+    return typeof sub === "string" ? sub : whole;
+  });
+  const text = plainText(filled);
+  if (!text) return null;
+  const message: LootMessage = { type, text };
+  const condition = obj["condition"];
+  if (typeof condition === "string" && condition.trim()) message.when = parseCondition(condition);
+  return message;
 }
 
 function parseLootMasterlist(
@@ -196,9 +238,16 @@ function parseLootMasterlist(
         if (normalized) inc.push(normalized);
       }
     }
-    if (inc.length === 0) continue;
+    const msg: LootMessage[] = [];
+    if (Array.isArray(entry["msg"])) {
+      for (const m of entry["msg"]) {
+        const normalized = normalizeMessage(m);
+        if (normalized) msg.push(normalized);
+      }
+    }
+    if (inc.length === 0 && msg.length === 0) continue;
     const match = nameMatch(name, gameId);
-    if (match !== null) rules.push({ name, match, inc });
+    if (match !== null) rules.push({ name, match, inc, msg });
   }
 
   return {

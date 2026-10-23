@@ -7,7 +7,7 @@
 // the conflict check is injected, so it unit-tests without a filesystem or net.
 
 import { PLAYER_FORM_IDS, type CrashlogParseResult, type SuspectedRef } from "./types.js";
-import type { KnownConflict } from "../conflicts/types.js";
+import type { KnownConflict, LootNote } from "../conflicts/types.js";
 
 export type CrashSuspect = {
   name: string;
@@ -23,15 +23,25 @@ export type CrashDiagnosis = {
   suspects: CrashSuspect[];
   loadedPluginCount: number;
   knownConflicts: KnownConflict[];
+  /** LOOT's messages for the plugins the log lists, kept apart from the evidence, when there are any. */
+  lootNotes?: { about: string; notes: LootNote[]; omitted?: number };
   gameId?: string;
   notes: string[];
   disclaimer: string;
 };
 
+/** `allActive`: modIds is every plugin the game loaded, so LOOT's conditions can take any other as inactive. */
 export type ConflictChecker = (
   gameId: string,
-  modIds: string[]
-) => Promise<{ conflicts: KnownConflict[]; warnings?: string[] }>;
+  modIds: string[],
+  allActive: boolean
+) => Promise<{ conflicts: KnownConflict[]; warnings?: string[]; lootNotes?: LootNote[] }>;
+
+// LOOT's messages are general advice about a plugin, not about this crash, so
+// they are labelled as LOOT's and capped, its warnings (and errors) first.
+const LOOT_NOTES_MAX = 10;
+const LOOT_NOTES_ABOUT =
+  "LOOT's notes: what LOOT's masterlist says about plugins this log lists, in LOOT's words, where its condition is true or it has none. LOOT's errors are shown as warnings. They are general advice about those plugins, not evidence about this crash.";
 
 // Engine/runtime modules that appear in almost every crash — not useful
 // suspects. Matched case-insensitively at the start of the module name.
@@ -101,17 +111,29 @@ export async function correlateCrash(opts: {
   // 2b. The objects that say less.
   for (const ref of refs) if (weak(ref)) addRef(ref);
 
-  // 3. Optional known-conflict cross-check over the loaded plugins.
+  // 3. Optional known-conflict cross-check over the loaded plugins. The list is
+  // every plugin the game loaded only when the log says how many it lists and
+  // lists that many: a log cut short, or pasted in part, would make a missing
+  // plugin look inactive.
   const notes: string[] = [];
   let knownConflicts: KnownConflict[] = [];
+  let lootNotes: CrashDiagnosis["lootNotes"];
   if (opts.gameId && opts.checkConflicts && plugins.length >= 2) {
     try {
+      const allActive = opts.parsed.pluginList === "listed" && opts.parsed.pluginTotal === plugins.length;
       const r = await opts.checkConflicts(
         opts.gameId,
-        plugins.map((p) => p.name)
+        plugins.map((p) => p.name),
+        allActive
       );
       knownConflicts = r.conflicts;
       for (const w of r.warnings ?? []) notes.push(w);
+      const found = r.lootNotes ?? [];
+      if (found.length > 0) {
+        const ordered = [...found.filter((n) => n.type === "warning"), ...found.filter((n) => n.type !== "warning")];
+        lootNotes = { about: LOOT_NOTES_ABOUT, notes: ordered.slice(0, LOOT_NOTES_MAX) };
+        if (ordered.length > LOOT_NOTES_MAX) lootNotes.omitted = ordered.length - LOOT_NOTES_MAX;
+      }
     } catch (err) {
       notes.push(
         `known-conflict check failed: ${err instanceof Error ? err.message : String(err)}`
@@ -128,6 +150,7 @@ export async function correlateCrash(opts: {
     suspects,
     loadedPluginCount: plugins.length,
     knownConflicts,
+    ...(lootNotes ? { lootNotes } : {}),
     ...(opts.gameId !== undefined ? { gameId: opts.gameId } : {}),
     notes,
     disclaimer:

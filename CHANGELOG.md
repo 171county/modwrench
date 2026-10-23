@@ -10,6 +10,39 @@ This document is maintained by hand.
 
 ## [Unreleased]
 
+### Added
+- **`mw_diagnose_crash` shows LOOT's notes on the plugins the crash log lists.**
+  With a `gameId`, the answer has a `lootNotes` part beside the known conflicts:
+  the messages LOOT's masterlist has for those plugins (`msg`), each shown only
+  when it has no condition or its condition is true, at most 10 (LOOT's warnings
+  and errors first, with the number left out), and labelled as LOOT's notes,
+  general advice about the plugins and not evidence about the crash. LOOT's
+  "error" is shown as a warning. The text is LOOT's English, with its
+  substitutions (`{0}`) filled in, as one plain line of at most 300 characters,
+  as for the conflicts' notes. `mw_check_known_conflicts` doesn't show them.
+
+### Changed
+- **The conflict tools answer LOOT's conditions.** An incompatibility entry LOOT
+  applies only under a condition came back as `informational`, whatever the
+  condition said. ModWrench now reads LOOT's conditions (`not`, `and`, `or`,
+  brackets and LOOT's functions) and answers each one true, false or unknown
+  from the plugins it knows are active: true is reported as incompatible, false
+  isn't reported, and unknown stays `informational`, quoting the condition. It
+  can answer `active()` and `many_active()`, and `file()` and `many()` when they
+  are true of active plugins. Anything that needs the game's files, such as
+  `checksum()`, `version()`, `readable()` or `is_master()`, is unknown, since
+  these tools don't read them; so is a condition it can't parse, one over 2,000
+  characters or nested more than 16 deep, and a regex that JavaScript could take
+  for ever on (LOOT's own regex engine can't). In LOOT's v0.29 lists for all
+  seven games, every one of the 5,529 conditions parses. In
+  `mw_check_known_conflicts` a plugin you name is taken to be active, and one you
+  don't name isn't taken to be inactive, since the list may be partial. In
+  `mw_diagnose_crash` the plugins the log lists are active, and the rest are
+  inactive only when the log says how many plugins it lists and lists that many
+  (Crash Logger SSE's `Total:` line, NetScriptFramework's `Game plugins (N)`), so
+  a log cut short or pasted in part doesn't make a plugin look switched off. The
+  parsed log now carries that count as `pluginTotal`.
+
 ## [0.3.0] — unreleased
 
 The workbench learns to answer three questions on its own: "is it safe to

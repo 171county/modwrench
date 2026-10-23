@@ -102,6 +102,11 @@ export type CrashlogParseResult = {
    * Only "listed" makes an empty loadedPlugins mean no plugins.
    */
   pluginList?: "listed" | "absent" | "failed";
+  /**
+   * How many plugins the log says its list holds, when it says: Crash Logger SSE's "Total:" line, NetScriptFramework's
+   * "Game plugins (N)". A log that was cut short, or pasted in part, lists fewer.
+   */
+  pluginTotal?: number;
   /** The DLLs and EXEs the log lists as loaded (Crash Logger SSE's and Buffout 4's MODULES, NetScriptFramework's Modules). */
   modules?: LoadedModule[];
   registers?: Record<string, string>;
