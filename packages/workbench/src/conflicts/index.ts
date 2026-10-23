@@ -67,7 +67,7 @@ function lootConflict(modA: string, modB: string, inc: LootIncEntry, unsure: boo
   };
 }
 
-function matchesPlugin(rule: LootPluginRule, plugin: string): boolean {
+export function matchesPlugin(rule: LootPluginRule, plugin: string): boolean {
   return typeof rule.match === "string" ? rule.match === plugin.toLowerCase() : rule.match.test(plugin);
 }
 

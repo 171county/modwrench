@@ -14,13 +14,15 @@
 // The facts are the plugins the caller says are active, and whether that is
 // all of them. So active() and many_active() can be answered, and file() and
 // many() can be true for active plugins (an active plugin's file is there; an
-// inactive one's may be too). Every other function LOOT has needs the game's
-// files, which these tools don't read: checksum(), version(),
+// inactive one's may be too). A caller that can look for a file says so with
+// `exists`, and file() of a path that isn't a regex is then its answer:
+// mw_loot_requirements does, the conflict tools don't. Every other function
+// LOOT has needs the game's files read: checksum(), version(),
 // product_version(), filename_version(), readable(), is_executable(),
 // is_master(), file_size() and description_contains() are unknown. So is a
-// path in a folder ("SKSE/Plugins/x.dll", "../SkyrimSE.exe"), a function
-// LOOT doesn't have, and a call ModWrench can't read, such as one with the
-// wrong arguments. A condition that doesn't parse is unknown as a whole.
+// path in a folder ("SKSE/Plugins/x.dll", "../SkyrimSE.exe") without `exists`,
+// a function LOOT doesn't have, and a call ModWrench can't read, such as one
+// with the wrong arguments. A condition that doesn't parse is unknown as a whole.
 //
 // The text comes from the fetched masterlist, so it is bounded: one over
 // MAX_LENGTH characters, or with more than MAX_DEPTH brackets and "not"s inside
@@ -38,6 +40,8 @@ export type LootFacts = {
   active: readonly string[];
   /** Whether `active` is every active plugin, so that any other plugin is known to be inactive. */
   allActive: boolean;
+  /** Whether the file at a path LOOT names (not a regex) is there, as far as the caller can tell. */
+  exists?: (path: string) => Truth;
 };
 
 export type Condition = (facts: LootFacts) => Truth;
@@ -106,6 +110,12 @@ function matcher(arg: Arg | undefined, alwaysRegex: boolean): ((facts: LootFacts
 /** One function call. */
 function call(name: string, args: Arg[]): Condition {
   if (args.length !== 1) return UNKNOWN;
+  const arg = args[0]!;
+  if (name === "file" && arg.quoted && !REGEX_PATH.test(arg.text)) {
+    // An active plugin's file is there; anything else is the caller's own look, when it has one.
+    const lower = arg.text.toLowerCase();
+    return (facts) => (facts.active.some((p) => p.toLowerCase() === lower) ? true : (facts.exists?.(arg.text) ?? "unknown"));
+  }
   const one = name === "active" || name === "file";
   const many = name === "many_active" || name === "many";
   if (!one && !many) return UNKNOWN;

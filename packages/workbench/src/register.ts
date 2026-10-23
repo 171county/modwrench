@@ -36,6 +36,7 @@ function themeForGameId(gameId: string): string {
   return "lethal";
 }
 import { checkKnownConflicts } from "./conflicts/index.js";
+import { checkLootRequirements, summarizeRequirements } from "./conflicts/requirements.js";
 import { checkPatchDay } from "./patchday/index.js";
 import { summarizePatchDay } from "./patchday/summary.js";
 import { registerCrashWhispererApp, registerDoctorApp, registerPatchDayApp } from "./apps.js";
@@ -886,5 +887,45 @@ export function registerWorkbenchTools(server: McpServer): {
     })
   );
 
-  return { toolCount: 9 };
+  // ─── Tool 10: mw_loot_requirements ─────────────────────────────────────────
+  // LOOT's requirements (req) for the active plugins, checked against the install:
+  // a separate tool the person chooses to run, since it fetches LOOT's list. The
+  // Doctors stay offline. It looks only for files the allow-list in
+  // conflicts/requirements.ts permits, by lstat, and opens none of them. Text only.
+  server.registerTool(
+    "mw_loot_requirements",
+    {
+      title: "Check LOOT's requirements",
+      description: "Check what LOOT's masterlist says the active plugins need. Fetches LOOT's public masterlist from GitHub (the same list the conflict tools read), reads the active plugins the way mw_doctor does (Mod Organizer 2's profile, or the game's own plugins.txt), and for each file LOOT lists as required by an active plugin (another plugin, a DLL such as SKSE/Plugins/x.dll, or a file in the game's folder such as the script extender's loader) says present, missing or unknown, with LOOT's own words for it. It only checks whether a file is there, without opening it, and only inside the game's Data folder, the game's folder and Mod Organizer 2's enabled mods and Overwrite; anything it can't establish is unknown, never missing. LOOT's errors are warnings here. Skyrim Special Edition and Fallout 4. Use when the user asks \"am I missing anything LOOT says I need\", \"does this mod need SKSE or another plugin\", or \"check my requirements\".",
+      inputSchema: {
+        gameId: z
+          .string()
+          .describe("Canonical game ID: 'skyrimspecialedition' or 'fallout4'."),
+        profileName: z
+          .string()
+          .optional()
+          .describe("MO2 profile name. Default: the instance's active profile."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    guarded("mw_loot_requirements", [], async ({ gameId, profileName }) => {
+      const result = await checkLootRequirements({ gameId, ...(profileName !== undefined ? { profileName } : {}) });
+
+      // Counts only: nothing from the player's files or folders.
+      log("debug", "workbench.loot_requirements", {
+        ok: result.ok,
+        requirements: result.ok ? result.requirements.length : 0,
+        missing: result.ok ? result.requirements.filter((r) => r.status === "missing").length : 0,
+      });
+
+      return { content: [{ type: "text", text: summarizeRequirements(result) }] };
+    })
+  );
+
+  return { toolCount: 10 };
 }

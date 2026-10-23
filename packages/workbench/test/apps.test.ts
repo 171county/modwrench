@@ -214,8 +214,8 @@ test("every tool that points at a page points at one that is registered, the thr
   withUi(undefined, () => {
     const server = new AppsMockServer();
     const { toolCount } = register(server);
-    assert.equal(toolCount, 9);
-    assert.equal(server.tools.size, 9);
+    assert.equal(toolCount, 10);
+    assert.equal(server.tools.size, 10);
     for (const [name, tool] of server.tools) {
       const meta = tool.config._meta as { ui?: { resourceUri?: string } } | undefined;
       if (meta) assert.ok(server.resources.has(meta.ui?.resourceUri ?? ""), `${name} points at a page that isn't registered`);
@@ -242,6 +242,7 @@ test("the full map: which workbench tool points at which page, and the seven pag
       mw_patch_day: "ui://modwrench/patch-day",
       mw_crash_whisperer: "ui://modwrench/crash-whisperer",
       mw_doctor: "ui://modwrench/doctor",
+      mw_loot_requirements: null,
     });
     assert.deepEqual(Object.fromEntries([...server.resources].map(([uri, r]) => [uri, r.name])), {
       "ui://modwrench/deps": "deps_panel",
@@ -262,7 +263,7 @@ test("MODWRENCH_UI=off registers no page and the tools carry no page metadata", 
     withUi(value, () => {
       const server = new AppsMockServer();
       const { toolCount } = register(server);
-      assert.equal(toolCount, 9, value);
+      assert.equal(toolCount, 10, value);
       assert.equal(server.resources.size, 0, `a page was registered with MODWRENCH_UI=${JSON.stringify(value)}`);
       for (const p of PAGES) assert.equal(server.tools.get(p.tool)!.config._meta, undefined, `${p.tool} ${value}`);
     });
@@ -273,7 +274,7 @@ test("a server that can't register pages still gets every tool, as text", () => 
   withUi(undefined, () => {
     const server = new ToolsOnlyServer();
     const { toolCount } = register(server);
-    assert.equal(toolCount, 9);
+    assert.equal(toolCount, 10);
     for (const p of PAGES) {
       const tool = server.tools.get(p.tool);
       assert.ok(tool, `${p.tool} was not registered`);
@@ -286,7 +287,7 @@ test("a server that is already connected refuses the pages and the tools still r
   withUi(undefined, () => {
     const server = new ConnectedServer();
     const { toolCount } = register(server);
-    assert.equal(toolCount, 9);
+    assert.equal(toolCount, 10);
     assert.equal(server.resources.size, 0);
     for (const p of PAGES) {
       assert.ok(server.tools.has(p.tool));
@@ -299,7 +300,7 @@ test("one page that can't be registered doesn't take the others down, and its to
   withUi(undefined, () => {
     const server = new OnePageServer();
     const { toolCount } = register(server);
-    assert.equal(toolCount, 9);
+    assert.equal(toolCount, 10);
     assert.equal(server.resources.size, 1);
     const [registered] = [...server.resources.keys()];
     const advertised = [...server.tools].filter(([, t]) => t.config._meta !== undefined);
