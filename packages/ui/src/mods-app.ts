@@ -126,7 +126,8 @@ const SCRIPT = String.raw`
   }
 
   function row(m, canOpen) {
-    var name = tidy(m.name, 120);
+    // Thunderstore names run to 128 characters. The cut is for hostile input; a real name wraps.
+    var name = tidy(m.name, 300);
     var author = tidy(m.author, 80) || 'unknown';
     var version = tidy(m.version, 40);
     var summary = tidy(m.summary, 300);

@@ -10,6 +10,11 @@ This document is maintained by hand.
 
 ## [Unreleased]
 
+### Fixed
+- **The Mods page shows a long mod name whole.** It cut every name at 120
+  characters, shorter than the 128 Thunderstore allows. The cut is now at 300,
+  against hostile input only, and a long name wraps.
+
 ## [0.3.0] — unreleased
 
 The workbench learns to answer three questions on its own: "is it safe to
