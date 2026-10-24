@@ -8,6 +8,8 @@ An MCP server that connects your AI assistant to mod platforms and to your own m
 
 It runs on your machine. No account, no service, no server anyone operates.
 
+The website, [modwrench.171county.workers.dev](https://modwrench.171county.workers.dev), is a static page. Its [Try section](https://modwrench.171county.workers.dev/#try) reads a crash log or compares crew lists in your browser, with ModWrench's own code, and sends nothing ([how](TRUST.md#the-website)).
+
 ---
 
 **Paste a crash log. Get the mod that caused it.**
