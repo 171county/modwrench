@@ -179,6 +179,8 @@ function parseBraced(lines: string[]): CrashlogParseResult {
     pluginList: loadedPlugins.length > 0 ? "listed" : "absent",
     rawSections,
   };
+  const total = /^Game plugins \((\d+)\)$/i.exec(groups.find((g) => /^Game plugins\b/i.test(g.name))?.name ?? "")?.[1];
+  if (total) result.pluginTotal = Number(total);
   const app = fields["ApplicationName"];
   const version = fields["ApplicationVersion"];
   if (app && version) result.gameVersion = `${app} v${version}`;

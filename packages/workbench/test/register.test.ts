@@ -53,11 +53,11 @@ class MockMcpServer {
 
 // ─── Registration smoke tests ───────────────────────────────────────────────
 
-test("registerWorkbenchTools: registers 9 tools", () => {
+test("registerWorkbenchTools: registers 10 tools", () => {
   const server = new MockMcpServer();
   const result = registerWorkbenchTools(server as unknown as never);
-  assert.equal(result.toolCount, 9);
-  assert.equal(server.tools.size, 9);
+  assert.equal(result.toolCount, 10);
+  assert.equal(server.tools.size, 10);
 });
 
 test("registerWorkbenchTools: every expected tool is present", () => {
@@ -73,6 +73,7 @@ test("registerWorkbenchTools: every expected tool is present", () => {
     "mw_patch_day",
     "mw_crash_whisperer",
     "mw_doctor",
+    "mw_loot_requirements",
   ];
   for (const name of expected) {
     assert.ok(server.tools.has(name), `missing tool: ${name}`);
@@ -228,6 +229,7 @@ const PATH_ARGS: Array<[tool: string, arg: string, others: Record<string, unknow
   ["mw_crash_whisperer", "mo2InstancePath", { logPath: SSE_LOG, compareRecent: 0 }],
   ["mw_doctor", "gamePath", {}],
   ["mw_doctor", "mo2InstancePath", {}],
+  ["mw_loot_requirements", "mo2InstancePath", { gameId: "skyrimspecialedition" }],
 ];
 const NETWORK_FORMS = [
   `${B}${B}127.0.0.1${B}mw-test-share${B}x`,
@@ -241,7 +243,7 @@ test("every path argument of every tool is in the list the next test checks", as
   const { client, close } = await connected();
   try {
     const { tools } = await client.listTools();
-    assert.equal(tools.length, 9);
+    assert.equal(tools.length, 10);
     const listed = new Set(PATH_ARGS.map(([tool, arg]) => `${tool}.${arg}`));
     for (const t of tools) {
       for (const arg of Object.keys(t.inputSchema.properties ?? {})) {
@@ -492,7 +494,7 @@ test("a handler that hits an error it didn't plan for answers in one sentence, w
     assert.doesNotMatch(text, /Jane|Doe|Users|MO2 Portable|modlist/, `${name}: ${text}`);
     checked++;
   }
-  assert.equal(checked, 8);
+  assert.equal(checked, 9);
 });
 
 test("through the real SDK, a tool whose arguments are all optional answers a call that leaves arguments out", async () => {

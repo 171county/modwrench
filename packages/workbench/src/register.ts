@@ -36,6 +36,7 @@ function themeForGameId(gameId: string): string {
   return "lethal";
 }
 import { checkKnownConflicts } from "./conflicts/index.js";
+import { checkLootRequirements, summarizeRequirements } from "./conflicts/requirements.js";
 import { checkPatchDay } from "./patchday/index.js";
 import { summarizePatchDay } from "./patchday/summary.js";
 import { registerCrashWhispererApp, registerDoctorApp, registerPatchDayApp } from "./apps.js";
@@ -432,7 +433,7 @@ export function registerWorkbenchTools(server: McpServer): {
           .array(z.string())
           .min(2)
           .describe(
-            "List of mods/plugins to check pairwise. Entries can be plugin filenames ('Skyrim.esp') or platform-prefixed mod IDs ('nexus:12345', 'modio:67890', 'thunderstore:Author-ModName'). At least 2 required for a conflict to be possible."
+            "List of mods/plugins to check pairwise. Entries can be plugin filenames ('Skyrim.esp') or platform-prefixed mod IDs ('nexus:12345', 'modio:67890', 'thunderstore:Author-ModName'). At least 2 required for a conflict to be possible. A plugin named here is taken to be active when LOOT's conditions are checked, so name only the plugins that are switched on."
           ),
       },
       annotations: {
@@ -485,7 +486,7 @@ export function registerWorkbenchTools(server: McpServer): {
     "mw_diagnose_crash",
     {
       title: "Diagnose a crash",
-      description: "Crash log in, culprit shortlist out. Parses the log, then correlates its suspects with the loaded plugins and (with a gameId) the known-conflict database into one bundle: which suspected mods are actually in the load order, at what index, and which loaded plugins have known conflicts. It lines up the evidence; it does NOT name the cause — that's the model's call, reasoned over the data. Use when the user says \"what's causing my crash\", \"which mod is it\", or pastes a crash log and wants the answer. Opt-in attribution (attributeSuspects=true) links up to 5 suspects to their Nexus mod pages — author, link, and the name it matched, since a name search can mismatch; off by default, so nothing about the suspects leaves the computer. With a gameId the known-conflict check fetches LOOT's public list from GitHub, which sends nothing from the log.",
+      description: "Crash log in, culprit shortlist out. Parses the log, then correlates its suspects with the loaded plugins and (with a gameId) the known-conflict database into one bundle: which suspected mods are actually in the load order, at what index, and which loaded plugins have known conflicts, plus, kept apart and capped at 10, LOOT's notes on the plugins the log lists (general advice, not evidence about the crash). It lines up the evidence; it does NOT name the cause — that's the model's call, reasoned over the data. Use when the user says \"what's causing my crash\", \"which mod is it\", or pastes a crash log and wants the answer. Opt-in attribution (attributeSuspects=true) links up to 5 suspects to their Nexus mod pages — author, link, and the name it matched, since a name search can mismatch; off by default, so nothing about the suspects leaves the computer. With a gameId the known-conflict check fetches LOOT's public list from GitHub, which sends nothing from the log.",
       inputSchema: {
         logContent: z
           .string()
@@ -540,11 +541,12 @@ export function registerWorkbenchTools(server: McpServer): {
       const diagnosis = await correlateCrash({
         parsed,
         ...(gameId !== undefined ? { gameId } : {}),
-        checkConflicts: async (g, modIds) => {
-          const r = await checkKnownConflicts({ gameId: g, modIds });
+        checkConflicts: async (g, modIds, allActive) => {
+          const r = await checkKnownConflicts({ gameId: g, modIds, allActive, withLootNotes: true });
           return {
             conflicts: r.conflicts,
             ...(r.warnings ? { warnings: r.warnings } : {}),
+            ...(r.lootNotes ? { lootNotes: r.lootNotes } : {}),
           };
         },
       });
@@ -893,5 +895,55 @@ export function registerWorkbenchTools(server: McpServer): {
     })
   );
 
-  return { toolCount: 9 };
+  // ─── Tool 10: mw_loot_requirements ─────────────────────────────────────────
+  // LOOT's requirements (req) for the active plugins, checked against the install:
+  // a separate tool the person chooses to run, since it fetches LOOT's list. The
+  // Doctors stay offline. It looks only for files the allow-list in
+  // conflicts/requirements.ts permits, by lstat, and opens none of them. Text only.
+  server.registerTool(
+    "mw_loot_requirements",
+    {
+      title: "Check LOOT's requirements",
+      description: "Check what LOOT's masterlist says the active plugins need. Fetches LOOT's public masterlist from GitHub (the same list the conflict tools read), reads the active plugins the way mw_doctor does (Mod Organizer 2's profile, or the game's own plugins.txt), and for each file LOOT lists as required by an active plugin (another plugin, a DLL such as SKSE/Plugins/x.dll, or a file in the game's folder such as the script extender's loader) says present, missing or unknown, with LOOT's own words for it. It only checks whether a file is there, without opening it, and only inside the game's Data folder, the game's folder and Mod Organizer 2's enabled mods and Overwrite; anything it can't establish is unknown, never missing. LOOT's errors are warnings here. Skyrim Special Edition and Fallout 4. Use when the user asks \"am I missing anything LOOT says I need\", \"does this mod need SKSE or another plugin\", or \"check my requirements\".",
+      inputSchema: {
+        gameId: z
+          .string()
+          .describe("Canonical game ID: 'skyrimspecialedition' or 'fallout4'."),
+        mo2InstancePath: z
+          .string()
+          .optional()
+          .describe(
+            "Mod Organizer 2 instance folder, for a portable instance (such as a Wabbajack list's) that doesn't live where MO2 normally keeps them. Without it a portable instance isn't found, and the game's own plugins.txt and Data folder are checked instead."
+          ),
+        profileName: z
+          .string()
+          .optional()
+          .describe("MO2 profile name. Default: the instance's active profile."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    guarded("mw_loot_requirements", ["mo2InstancePath"], async ({ gameId, mo2InstancePath, profileName }) => {
+      const result = await checkLootRequirements({
+        gameId,
+        ...(mo2InstancePath !== undefined ? { mo2InstancePath } : {}),
+        ...(profileName !== undefined ? { profileName } : {}),
+      });
+
+      // Counts only: nothing from the player's files or folders.
+      log("debug", "workbench.loot_requirements", {
+        ok: result.ok,
+        requirements: result.ok ? result.requirements.length : 0,
+        missing: result.ok ? result.requirements.filter((r) => r.status === "missing").length : 0,
+      });
+
+      return { content: [{ type: "text", text: summarizeRequirements(result) }] };
+    })
+  );
+
+  return { toolCount: 10 };
 }

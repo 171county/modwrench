@@ -10,6 +10,61 @@ This document is maintained by hand.
 
 ## [Unreleased]
 
+### Added
+- **`mw_diagnose_crash` shows LOOT's notes on the plugins the crash log lists.**
+  With a `gameId`, the answer has a `lootNotes` part beside the known conflicts:
+  the messages LOOT's masterlist has for those plugins (`msg`), each shown only
+  when it has no condition or its condition is true, at most 10 (LOOT's warnings
+  and errors first, with the number left out), and labelled as LOOT's notes,
+  general advice about the plugins and not evidence about the crash. LOOT's
+  "error" is shown as a warning. The text is LOOT's English, with its
+  substitutions (`{0}`) filled in, as one plain line of at most 300 characters,
+  as for the conflicts' notes. `mw_check_known_conflicts` doesn't show them.
+- **`mw_loot_requirements`: what LOOT's masterlist says your active plugins
+  need.** A tool of its own, for Skyrim Special Edition and Fallout 4, that you
+  choose to run: it fetches LOOT's list the way the conflict tools do, reads the
+  active plugins the way the Doctors do (Mod Organizer 2's profile, or the
+  game's own `plugins.txt`), and for each file LOOT lists as required by one of
+  them (`req`) says present, missing or unknown, with LOOT's name and note for
+  it, as LOOT's record. A requirement LOOT applies only under a condition is
+  checked when the condition is true, left out when it is false, and unknown,
+  quoting the condition, when ModWrench can't tell. LOOT's errors are warnings.
+  It only looks for whether a file is there, with `lstat`, never opening one,
+  and only where an allow-list permits, whatever path the masterlist names:
+  below the game's Data folder, or directly in the game's folder for one
+  leading `../`, with one of the file endings LOOT's requirements use, and with
+  Mod Organizer 2 in each enabled mod's folder and Overwrite as well. A link or
+  junction on the way isn't followed. It says missing only when that proves
+  it: on Windows, with every folder that could hold the file looked in. Off
+  Windows, where names that differ in capitals are different files, and for a
+  file in the game's folder under Mod Organizer 2, it says unknown. The Doctors
+  stay offline. With MO2 the game folder is the one MO2's settings name
+  (`gamePath`), which for Wabbajack's lists is a copy beside the instance.
+  [TRUST.md](TRUST.md#loot-requirements-what-it-opens) lists every path it may
+  look at.
+
+### Changed
+- **The conflict tools answer LOOT's conditions.** An incompatibility entry LOOT
+  applies only under a condition came back as `informational`, whatever the
+  condition said. ModWrench now reads LOOT's conditions (`not`, `and`, `or`,
+  brackets and LOOT's functions) and answers each one true, false or unknown
+  from the plugins it knows are active: true is reported as incompatible, false
+  isn't reported, and unknown stays `informational`, quoting the condition. It
+  can answer `active()` and `many_active()`, and `file()` and `many()` when they
+  are true of active plugins. Anything that needs the game's files, such as
+  `checksum()`, `version()`, `readable()` or `is_master()`, is unknown, since
+  these tools don't read them; so is a condition it can't parse, one over 2,000
+  characters or nested more than 16 deep, and a regex that JavaScript could take
+  for ever on (LOOT's own regex engine can't). In LOOT's v0.29 lists for all
+  seven games, every one of the 5,529 conditions parses. In
+  `mw_check_known_conflicts` a plugin you name is taken to be active, and one you
+  don't name isn't taken to be inactive, since the list may be partial. In
+  `mw_diagnose_crash` the plugins the log lists are active, and the rest are
+  inactive only when the log says how many plugins it lists and lists that many
+  (Crash Logger SSE's `Total:` line, NetScriptFramework's `Game plugins (N)`), so
+  a log cut short or pasted in part doesn't make a plugin look switched off. The
+  parsed log now carries that count as `pluginTotal`.
+
 ### Fixed
 - **The Mods page shows a long mod name whole.** It cut every name at 120
   characters, shorter than the 128 Thunderstore allows. The cut is now at 300,
@@ -40,6 +95,11 @@ This document is maintained by hand.
   opened, with an answer that names the argument and doesn't repeat it. A
   `selected_profile` in `ModOrganizer.ini` that isn't one folder name is treated
   as missing.
+- **A LOOT entry whose plugin name is a regex gets the same guard as a regex in
+  a condition.** The conflict tools ran a fetched name like `(a+)+\.esp` as it
+  came, and JavaScript can take for ever on one like that. Such an entry is now
+  skipped and matches no plugin. Every regex name in LOOT's v0.29 lists for all
+  seven games passes the guard.
 
 ## [0.3.0] — unreleased
 

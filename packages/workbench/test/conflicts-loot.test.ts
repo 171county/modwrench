@@ -25,6 +25,9 @@ const FALLOUT = [
   // A regex JavaScript can't read: the entry is skipped and the rest of the list still counts.
   "  - name: 'Bad(\\.esp'",
   "    inc: [ 'Other.esp' ]",
+  // A regex that can backtrack for ever in JavaScript (LOOT's engine never backtracks): it isn't run, so it matches nothing.
+  "  - name: '(a+)+\\.esp'",
+  "    inc: [ 'Other.esp' ]",
   "  - name: 'Example.esm'",
   "    inc:",
   "      - 'Other.esp'",
@@ -183,7 +186,7 @@ test("a masterlist over 8 MB is left unread, never parsed in part; one of 8 MB i
 // ─── What an entry says ──────────────────────────────────────────────────────
 
 const LOOT = "loot-masterlist" as const;
-const UNCHECKED = "as incompatible only under this condition, which ModWrench doesn't check yet:";
+const UNCHECKED = "as incompatible only under this condition, and ModWrench couldn't tell whether it holds:";
 
 test("an entry LOOT applies only under a condition is informational, and quotes the condition", async () => {
   const r = await checkKnownConflicts({
@@ -247,23 +250,24 @@ test("LOOT's display and its English detail are quoted as one plain line of at m
 
 // ─── Which entries a plugin matches ──────────────────────────────────────────
 
-test("the slice of LOOT's real list parses: each entry with an inc list, in file order, regex names read as regexes", async () => {
+test("the slice of LOOT's real list parses: each entry with an inc or msg list, in file order, regex names read as regexes", async () => {
   const list = await fetchLootMasterlist("skyrimspecialedition");
   assert.ok(!("failed" in list), JSON.stringify(list));
   const kind = (match: string | RegExp) => (typeof match === "string" ? "exact" : "regex");
   assert.deepEqual(
-    list.rules.map((r) => [r.name, kind(r.match), r.inc.length]),
+    list.rules.map((r) => [r.name, kind(r.match), r.inc.length, r.msg.length]),
     [
-      ["NAT.esp", "exact", 21],
-      ["True Light.esp", "exact", 6],
-      ["3DNPC.esp", "exact", 1],
-      ["Kapotun ARMA .+\\.esp", "regex", 1],
-      ["aMidianBorn_ContentAddon(Light)?\\.esp", "regex", 5],
-      ["aMidianBorn_ContentAddonLight.esp", "exact", 1],
-      ["RUSTIC SOULGEMS - (Sorted|Unsorted)( - ESL)?( - GIST)?\\.esp", "regex", 1],
-      ["MPXP1\\.3 \\[PATCH - (DBPT\\.)?SSkwy\\.LotD\\]( \\(OCS\\))?\\.esp", "regex", 1],
-      ["MPXP1\\.3 \\[PATCH - (DBPT\\.)?SSkwy\\.LotD\\]\\.esp", "regex", 1],
-      ["MPXP1\\.3 \\[PATCH - SSkwy\\.LotD\\]( \\(OCS\\))?\\.esp", "regex", 1],
+      ["NAT.esp", "exact", 21, 1],
+      ["True Light.esp", "exact", 6, 0],
+      ["3DNPC.esp", "exact", 1, 8],
+      ["Kapotun ARMA .+\\.esp", "regex", 1, 0],
+      ["aMidianBorn_ContentAddon(Light)?\\.esp", "regex", 5, 2],
+      ["amidianborn_contentaddon.esp", "exact", 0, 2],
+      ["aMidianBorn_ContentAddonLight.esp", "exact", 1, 1],
+      ["RUSTIC SOULGEMS - (Sorted|Unsorted)( - ESL)?( - GIST)?\\.esp", "regex", 1, 1],
+      ["MPXP1\\.3 \\[PATCH - (DBPT\\.)?SSkwy\\.LotD\\]( \\(OCS\\))?\\.esp", "regex", 1, 1],
+      ["MPXP1\\.3 \\[PATCH - (DBPT\\.)?SSkwy\\.LotD\\]\\.esp", "regex", 1, 1],
+      ["MPXP1\\.3 \\[PATCH - SSkwy\\.LotD\\]( \\(OCS\\))?\\.esp", "regex", 1, 0],
     ]
   );
   // An inc item reached through an alias (*ENBSeries) is read like any other.
@@ -283,8 +287,12 @@ test("the slice of LOOT's real list parses: each entry with an inc list, in file
       ["Weird (Name) [v1.2] + more.esp", "exact"],
       ["Alpha|Beta\\.esp", "regex"],
     ],
-    "the regex JavaScript can't read is left out"
+    "the regex JavaScript can't read and the one safeRegex won't run are left out"
   );
+});
+
+test("a name whose regex safeRegex won't run matches no plugin, not even one it would match", async () => {
+  assert.deepEqual(await pairs("fallout4", ["aaaa.esp", "Other.esp"]), []);
 });
 
 test("an entry whose name is a regex matches the player's plugins, and the pair is named as the player named them", async () => {

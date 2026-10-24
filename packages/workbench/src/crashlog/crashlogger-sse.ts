@@ -419,6 +419,9 @@ export function parseCrashloggerSse(
     pluginList: pluginListState(pluginSection, plugins),
     rawSections: rawSectionsFromMap(sections),
   };
+  // "\tLight: 2\tRegular: 6\tTotal: 8", above the list.
+  const total = pluginSection?.map((line) => /^\s*Light: \d+\s+Regular: \d+\s+Total: (\d+)\s*$/.exec(line)?.[1]).find(Boolean);
+  if (total) result.pluginTotal = Number(total);
   if (gameVersion) result.gameVersion = gameVersion;
   if (loggerVersion) result.loggerVersion = loggerVersion;
   if (timestamp) result.timestamp = timestamp;

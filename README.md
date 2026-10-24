@@ -114,13 +114,13 @@ Four attachments. Install one, some, or all — `@modwrench/cli` composes whiche
 
 **Thunderstore** — browse communities, search mods, read full version history, and resolve dependency trees. No credential needed; the read API is public. *(9 tools)*
 
-**Workbench** — local, on your machine. Find your installed games, mod managers and loaders; read your load order out of MO2, r2modman or Vortex; parse a crash log from Crash Logger SSE, Buffout 4, NetScriptFramework or BepInEx, or have it explained: what happened, which names the log points at and how sure that is, and a help post ready to copy; look a mod up across platforms; check known conflicts; check, before or after a game patch, whether your script extender plugins will survive it (SKSE for Skyrim Special Edition and Anniversary Edition, F4SE for Fallout 4); and run the Doctors, a read-only health check of the setup behind the crash (plugin masters and limits, where things live, MO2's Overwrite folder, and on Linux and the Steam Deck the Steam, Proton and `nxm://` side). *(9 tools)*
+**Workbench** — local, on your machine. Find your installed games, mod managers and loaders; read your load order out of MO2, r2modman or Vortex; parse a crash log from Crash Logger SSE, Buffout 4, NetScriptFramework or BepInEx, or have it explained: what happened, which names the log points at and how sure that is, and a help post ready to copy; look a mod up across platforms; check known conflicts; check, before or after a game patch, whether your script extender plugins will survive it (SKSE for Skyrim Special Edition and Anniversary Edition, F4SE for Fallout 4); run the Doctors, a read-only health check of the setup behind the crash (plugin masters and limits, where things live, MO2's Overwrite folder, and on Linux and the Steam Deck the Steam, Proton and `nxm://` side); and check what LOOT's masterlist says your active plugins need, for Skyrim Special Edition and Fallout 4, which looks only for whether those files are there. *(10 tools)*
 
 The conflict check reads two sources: LOOT's masterlist, fetched live for Bethesda games, and a small conflict list bundled inside the package for games LOOT does not cover. **That bundled list ships empty** — all three files contain `[]` — so today it asserts nothing. It is named here because it is a channel that could carry claims about someone's mod in a future release, and `npx` pulls the latest version automatically unless you pin.
 
 Plus three meta tools: one activates a platform mid-session, one opens the deck, which shows which platforms are connected (a page in clients that support MCP Apps, the connector list as text everywhere else), and one drafts feedback for ModWrench's maintainers as a GitHub issue that you read and post yourself (it sends nothing).
 
-**53 tools. 52 of them read. One writes** — see [The one thing it writes](#the-one-thing-it-writes).
+**54 tools. 53 of them read. One writes** — see [The one thing it writes](#the-one-thing-it-writes).
 
 It also registers **eight slash commands** your MCP client will offer you: `/modwrench` opens the deck, `/mw-find` searches every connected platform at once, `/mw-crash` asks why your game crashed (it reads your newest crash log itself), `/mw-conflicts` checks a game's load order, `/mw-order` reads your load order, `/mw-patch` asks whether a game update is safe, `/mw-doctor` asks whether your setup is ready, and `/mw-critique` drafts feedback for the maintainers. They are shortcuts that call the tools above — they add no capability the tools do not already have.
 
@@ -225,7 +225,7 @@ Everything ModWrench talks to, and nothing else:
 | `users.nexusmods.com` | only while `auth login nexus` completes an OAuth sign-in |
 | `api.mod.io` | mod.io mod data — only if you connected mod.io |
 | `thunderstore.io` | Thunderstore's public read API |
-| `raw.githubusercontent.com` | LOOT's public conflict masterlist |
+| `raw.githubusercontent.com` | LOOT's public masterlist, for the conflict and requirement checks |
 | `127.0.0.1` | a local listener that catches the OAuth redirect, during `auth login` only |
 | whatever CDN host Nexus names in a file's `content_preview_link` | `nexus_file_preview` only — Nexus serves archive listings off-API, so this one call follows a URL Nexus returns rather than a fixed host. Sent with no credential |
 

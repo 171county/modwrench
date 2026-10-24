@@ -17,21 +17,21 @@ The code is on `main`, and none of it is on npm yet. Two checks it hasn't had:
 
 ## After 0.3.0
 
-- **More of LOOT's masterlist.** The conflict check reads only the masterlist's
-  incompatibility entries (`inc`), and reports one that LOOT applies only under a condition
-  as informational, since ModWrench doesn't check conditions yet. The same file also
-  carries LOOT's messages for a plugin, its requirements (`req`) and its dirty-plugin
-  records (`dirty`). The plan, in three stages:
-  1. **Conditions.** An evaluator for LOOT's conditions that answers true, false or
-     "unknown" (a fact ModWrench doesn't have, or a function it doesn't support yet). A note
-     is shown only when its condition is true. This replaces the earlier plan to skip any
-     condition with a function ModWrench doesn't support. Both conflict tools then honour
-     `inc` conditions. LOOT's messages appear in `mw_diagnose_crash` only, capped, and
-     labelled as LOOT's notes, not as evidence about the crash.
-  2. **Requirements.** A separate LOOT tool that you choose to run, which fetches the list
-     and checks `req` entries against the install. The Doctors stay offline and get no
-     switch for it. The tool opens only the paths an allow-list permits, inside the game's
-     folders, whatever path the masterlist names.
+- **More of LOOT's masterlist.** The conflict check reads the masterlist's
+  incompatibility entries (`inc`) and, in `mw_diagnose_crash`, LOOT's messages for a
+  plugin (`msg`). The same file also carries its requirements (`req`) and its
+  dirty-plugin records (`dirty`). The plan, in three stages:
+  1. **Conditions.** Done, not yet released: LOOT's conditions are answered true,
+     false or "unknown" from the plugins a tool knows are active, `inc` entries follow
+     them in both conflict tools, and `mw_diagnose_crash` shows up to 10 of LOOT's
+     messages that have no condition or whose condition is true, labelled as LOOT's notes and not as evidence about
+     the crash. [CHANGELOG.md](CHANGELOG.md) has the details.
+  2. **Requirements.** Done, not yet released: `mw_loot_requirements`, a separate tool that
+     you choose to run, fetches the list and checks the `req` entries of the active plugins
+     against the install, saying present, missing or unknown. The Doctors stay offline and
+     get no switch for it. It only checks whether a file is there, and only at the paths an
+     allow-list permits, inside the game's folders, whatever path the masterlist names.
+     [TRUST.md](TRUST.md#loot-requirements-what-it-opens) lists them.
   3. **Dirty plugins.** Matching a `dirty` record needs the plugin's checksum (CRC), so this
      waits for the real-install check above.
 
