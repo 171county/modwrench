@@ -234,3 +234,19 @@ test("the CSP forbids every request but the page's own script and images, and th
   for (const [, url] of html.matchAll(/\b(?:src|srcset)="([^"]+)"/g)) assert.match(url!, /^\//, `a resource from elsewhere: ${url}`);
   assert.doesNotMatch(html, /<link\b[^>]*rel="(?:stylesheet|preload|prefetch|preconnect|dns-prefetch|icon|manifest)"/);
 });
+
+// ─── Install: pick your app ──────────────────────────────────────────────────
+
+test("the one-click install links carry exactly ModWrench's command, in the form each app documents", () => {
+  const html = readFileSync(join(SITE, "public", "index.html"), "utf8").replaceAll("&amp;", "&");
+  const server = { command: "npx", args: ["-y", "@modwrench/cli"] };
+  const vscode = /href="vscode:mcp\/install\?([^"]+)"/.exec(html);
+  assert.ok(vscode, "the VS Code link");
+  assert.deepEqual(JSON.parse(decodeURIComponent(vscode[1]!)), { name: "modwrench", type: "stdio", ...server });
+  const cursor = /href="cursor:\/\/anysphere\.cursor-deeplink\/mcp\/install\?name=modwrench&config=([A-Za-z0-9+/=]+)"/.exec(html);
+  assert.ok(cursor, "the Cursor link");
+  assert.deepEqual(JSON.parse(Buffer.from(cursor[1]!, "base64").toString("utf8")), server);
+  for (const app of ["Claude Desktop", "Claude Code", "VS Code", "Cursor", "Codex", "Antigravity", "Devin"]) {
+    assert.ok(html.includes(`<span class="app-name">${app}`), app);
+  }
+});

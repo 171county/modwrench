@@ -11,6 +11,14 @@ This document is maintained by hand.
 ## [Unreleased]
 
 ### Added
+- **The website's Install section is a "pick your app" list.** Claude
+  Desktop, Claude Code, VS Code, Cursor, Codex, Antigravity, Devin, and Cline,
+  Windsurf and other apps each get their own steps, taken from that app's
+  documentation (checked 2026-10-24), and a tag saying whether the app draws
+  ModWrench's pages or shows text answers. VS Code and Cursor get one-click
+  install links, and a test checks that both carry exactly ModWrench's command.
+  The page says which apps ModWrench has actually been run in, and that Devin
+  in the cloud can't see the games on your PC.
 - **The website's source is in the repo, and its Try section works in your
   browser.** `site/` holds the static site deployed to
   modwrench.171county.workers.dev; `npm run site:build` bundles it into
