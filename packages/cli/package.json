@@ -55,7 +55,7 @@
     "@modwrench/thunderstore": "0.3.0",
     "@modwrench/ui": "0.3.0",
     "@modwrench/workbench": "0.3.0",
-    "zod": "^3.25.76"
+    "zod": "^4.6.6"
   },
   "engines": {
     "node": ">=20.0.0"
