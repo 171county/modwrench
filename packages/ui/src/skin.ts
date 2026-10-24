@@ -98,7 +98,7 @@ ${THEME_IDS.map((id) => `[data-game="${id}"] .mw-foot .mw-tag[data-for="${id}"]{
 export const SKIN_CSS: string = themeStyleBlock() + "\n" + FRAME_CSS;
 
 /**
- * The page body: #mw-root.mw-app holding the header (brand, `label`, the four skin
+ * The page body: #mw-root.mw-app holding the header (brand, `label` as #mw-label, the four skin
  * swatches), the status line, the problem box, the text-only box, `inner`, and the footer.
  */
 export function skinFrame(label: string, inner: string): string {
@@ -110,7 +110,7 @@ export function skinFrame(label: string, inner: string): string {
   return `
 <div id="mw-root" class="mw-app">
   <header class="mw-top">
-    <div class="mw-brand"><b>&#9881; ModWrench</b><span class="mw-brand-sub">${esc(label)}</span></div>
+    <div class="mw-brand"><b>&#9881; ModWrench</b><span id="mw-label" class="mw-brand-sub">${esc(label)}</span></div>
     <div class="mw-themes" role="group" aria-label="Skin">
       ${swatches}
     </div>
