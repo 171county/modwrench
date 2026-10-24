@@ -38,6 +38,33 @@ The code is on `main`, and none of it is on npm yet. Two checks it hasn't had:
   In every stage LOOT's "error" is shown as a warning, never as a ModWrench "problem", and
   LOOT's text is shown in English only.
 
+## Wave 2
+
+Four tools, built after 0.3.0 on a branch of their own. The same rules hold for each: read-only
+on your computer, nothing written or kept beyond the session, every claim names its source, a
+full text answer first and a page only as an extra, and any network request made by the server,
+never by a page.
+
+- **Pulse: "what has changed for the mods I run?"** Built for Thunderstore mods in r2modman
+  profiles, with a page: `mw_pulse` says which mods have updates, which their authors have
+  deprecated and which Thunderstore no longer has. It asks once before it sends anything, with
+  the exact number of requests and the host, and it never runs on its own
+  ([TRUST.md](TRUST.md#pulse-what-it-reads-and-sends) says what it sends). Next: Nexus mods,
+  from the mod IDs and versions that Mod Organizer 2 (`meta.ini`) and Vortex record, once how
+  ModWrench reaches Nexus is settled; then mod.io.
+- **Trust Card: "who made this, and is it what it says?"** Built: `mw_trust_card` shows one
+  mod's author, uploader, platform and page, versions, dates, the platform's own counts and its
+  permissions where the platform gives them. Facts with their sources, and no score: ModWrench
+  doesn't judge someone's mod. Next: LOOT's notes about the mod, once LOOT's conditions are
+  answered (stage 1 of the LOOT plan).
+- **Crew Check: "do we all have the same mods?"** Built: `mw_crew_check` gives each player a
+  short list of their mods and versions to paste into the chat, and compares the lists. No
+  network at all.
+- **Deck faces.** Built: the deck page lists the five jobs (crash, setup, patch, updates, crew),
+  each with how it last came out in this session as a verdict and counts, and an Ask button
+  that puts the job's question into the chat. Held in memory only, and gone when the server
+  stops.
+
 ## Open questions
 
 - **How ModWrench reaches Nexus Mods.** Whether the read tools can move to Nexus's v2

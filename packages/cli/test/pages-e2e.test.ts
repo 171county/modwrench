@@ -40,6 +40,7 @@ const PAGE_OF: Record<string, string> = {
   mw_patch_day: "ui://modwrench/patch-day",
   mw_crash_whisperer: "ui://modwrench/crash-whisperer",
   mw_doctor: "ui://modwrench/doctor",
+  mw_pulse: "ui://modwrench/pulse",
 };
 const URIS = [...new Set(Object.values(PAGE_OF))].sort();
 

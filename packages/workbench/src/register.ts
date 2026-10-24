@@ -20,10 +20,12 @@ import {
   CRASH_PAGE,
   DEPS_PAGE,
   MODS_PAGE,
+  PULSE_PAGE,
   conflictsView,
   crashView,
   modsView,
   orderView,
+  pulseView,
 } from "@modwrench/ui";
 
 /** Pick the theme skin from a canonical game id. */
@@ -45,6 +47,12 @@ import { runDoctor } from "./doctor/index.js";
 import { summarizeDoctor } from "./doctor/summary.js";
 import { correlateCrash, type CrashSuspect } from "./crashlog/diagnose.js";
 import { isFolderName, isNetworkPath } from "./localpath.js";
+import { runPulse, summarizePulse } from "./pulse/index.js";
+import { CREW_MAX_CHARS, CREW_MAX_LISTS, runCrewCheck, summarizeCrewCheck } from "./crew/index.js";
+import { runTrustCard, summarizeTrustCard } from "./trustcard/index.js";
+import { crashFace, crewFace, noteFace, patchFace, setupFace, updatesFace } from "./faces.js";
+
+export { deckFaces, FACE_JOBS, type Face, type FaceJob } from "./faces.js";
 
 const refusal = (text: string): CallToolResult => ({ content: [{ type: "text", text }], isError: true });
 
@@ -325,7 +333,7 @@ export function registerWorkbenchTools(server: McpServer): {
     "mw_query_mod_metadata",
     {
       title: "Look up a mod across platforms",
-      description: "Put a name and a source on a mod. Looks up metadata across platforms (Nexus, mod.io) in one normalized shape: id, name, author, version, downloads, endorsements, pageUrl, and a permissions block that always carries attribution. Use it to enrich a crashlog suspect or a load-order entry — \"who made this\", \"look up this mod\", \"what version is X\". Thunderstore support is planned.",
+      description: "Put a name and a source on a mod. Looks up metadata across platforms (Nexus, mod.io) in one normalized shape: id, name, author, version, downloads, endorsements, pageUrl, and a permissions block that always carries attribution. Use it to enrich a crashlog suspect or a load-order entry — \"look up this mod\", \"what version is X\". Thunderstore mods are looked up by platform=\"thunderstore\" and their full \"Owner-ModName\" as modId, with no credential.",
       inputSchema: {
         modId: z
           .string()
@@ -684,6 +692,7 @@ export function registerWorkbenchTools(server: McpServer): {
       // page is registered (or when MODWRENCH_STRUCTURED says so). Couldn't run (unsupported
       // game, game not found, a version that isn't one): flagged so a client can show it as a
       // failed call.
+      if (result.ok) noteFace("patch", patchFace(result.verdict));
       return pageAnswer(server, summarizePatchDay(result), result, patchDayPage !== undefined);
     })
   );
@@ -815,6 +824,7 @@ export function registerWorkbenchTools(server: McpServer): {
         checks: result.ok ? result.checks.length : 0,
       });
 
+      if (result.ok) noteFace("crash", crashFace(result.leads.length, result.confidence.evidence));
       return pageAnswer(server, summarizeCrashWhisper(result, packet ? { packet } : {}), result, crashWhispererPage !== undefined);
     })
   );
@@ -891,6 +901,7 @@ export function registerWorkbenchTools(server: McpServer): {
         warnings: result.ok ? result.counts.warn : 0,
       });
 
+      if (result.ok) noteFace("setup", setupFace(result.verdict, result.counts));
       return pageAnswer(server, summarizeDoctor(result), result, doctorPage !== undefined);
     })
   );
@@ -944,6 +955,153 @@ export function registerWorkbenchTools(server: McpServer): {
       return { content: [{ type: "text", text: summarizeRequirements(result) }] };
     })
   );
+  // ─── Tool 11: mw_pulse ──────────────────────────────────────────────────────
+  // "What has changed for the mods I run?" Thunderstore mods in an r2modman profile
+  // for now. The first call sends nothing and answers with the plan; only a call with
+  // confirm=true asks Thunderstore, one request per mod (see pulse/index.ts).
 
-  return { toolCount: 10 };
+  const pulsePage = registerAppPage(server, PULSE_PAGE);
+  server.registerTool(
+    "mw_pulse",
+    {
+      title: "What's changed for my mods",
+      description:
+        "Pulse: \"what has changed for the mods I run?\" Reads the switched-on mods in an r2modman profile and checks each one against Thunderstore: which have updates, which their authors have deprecated, and which Thunderstore no longer has. Thunderstore games only for now (Lethal Company, Valheim); Nexus and mod.io mods aren't checked yet. Behave like this: call it once WITHOUT confirm. That sends nothing and answers with how many requests a check would make and to which host. Show that to the user, and call again with confirm=true only after they say yes. Never pass confirm=true on the first call. Read-only: it never downloads, installs or changes anything. Use when the user says \"are my mods up to date\", \"what's changed for my mods\" or \"any updates for my modpack\".",
+      inputSchema: {
+        gameId: z
+          .string()
+          .describe("Canonical game ID of a Thunderstore game, e.g. 'lethalcompany' or 'valheim'. mw_detect_environment lists the games on this computer."),
+        profileName: z
+          .string()
+          .optional()
+          .describe("r2modman profile name. Defaults to the first profile alphabetically (typically 'Default')."),
+        confirm: z
+          .boolean()
+          .optional()
+          .describe("true sends the requests. Leave it out on the first call, which only says what would be sent; pass true only after the user has said yes to that."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      ...(pulsePage ? { _meta: pulsePage } : {}),
+    },
+    guarded("mw_pulse", [], async ({ gameId, profileName, confirm }) => {
+      const result = await runPulse({
+        gameId,
+        ...(profileName !== undefined ? { profileName } : {}),
+        ...(confirm !== undefined ? { confirm } : {}),
+      });
+      if (result.ok && result.confirmed) {
+        const m = result.mods;
+        noteFace("updates", updatesFace(m.length, m.filter((x) => x.state === "update").length, m.filter((x) => x.deprecated).length, m.filter((x) => x.state === "gone").length));
+      }
+      // The page gets the same facts as the text, and what its button passes back.
+      const page = result.ok
+        ? pulseView({
+            theme: themeForGameId(gameId),
+            game: result.game,
+            profile: result.profile,
+            host: result.host,
+            confirmed: result.confirmed,
+            requests: result.confirmed ? result.mods.length : result.requests,
+            mods: result.confirmed ? result.mods : [],
+            notChecked: result.notChecked,
+            args: { gameId, ...(profileName !== undefined ? { profileName } : {}) },
+          })
+        : null;
+      return {
+        content: [{ type: "text", text: summarizePulse(result) }],
+        ...(page ? pageData(server, page as unknown as Record<string, unknown>, pulsePage !== undefined) : {}),
+        ...(result.ok ? {} : { isError: true as const }),
+      };
+    })
+  );
+
+  // ─── Tool 12: mw_crew_check ─────────────────────────────────────────────────
+  // "Do we all have the same mods?" For co-op games. No network: it makes this
+  // player's crew list, or compares the crew's pasted lists with their profile.
+
+  server.registerTool(
+    "mw_crew_check",
+    {
+      title: "Do we all have the same mods",
+      description:
+        "Crew Check: \"do we all have the same mods?\" for co-op Thunderstore games (Lethal Company, Valheim). Called without crewLists, it answers with the user's crew list: the Thunderstore name and version of each switched-on mod in their r2modman profile, to share with their crew. Called with the crewmates' pasted lists in crewLists, it compares them with the user's profile and names mods some players lack and mods on different versions. No network, read-only. Use when the user says \"do we all have the same mods\", \"why can't my friend join\" or \"compare our modpacks\".",
+      inputSchema: {
+        gameId: z
+          .string()
+          .describe("Canonical game ID of a Thunderstore game, e.g. 'lethalcompany' or 'valheim'. mw_detect_environment lists the games on this computer."),
+        profileName: z
+          .string()
+          .optional()
+          .describe("r2modman profile name. Defaults to the first profile alphabetically (typically 'Default')."),
+        crewLists: z
+          .array(
+            z.object({
+              name: z.string().max(80).optional().describe("The crewmate's name, as the user calls them."),
+              list: z.string().max(CREW_MAX_CHARS).describe("The crew list the crewmate shared, pasted as it is."),
+            })
+          )
+          .max(CREW_MAX_LISTS)
+          .optional()
+          .describe(`Crewmates' crew lists to compare with the user's profile, at most ${CREW_MAX_LISTS}. Leave out to make the user's own list.`),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    guarded("mw_crew_check", [], async ({ gameId, profileName, crewLists }) => {
+      const result = runCrewCheck({
+        gameId,
+        ...(profileName !== undefined ? { profileName } : {}),
+        ...(crewLists !== undefined ? { crewLists } : {}),
+      });
+      if (result.ok && result.mode === "compare") noteFace("crew", crewFace(result.missing.length, result.versions.length, result.same));
+      return { content: [{ type: "text", text: summarizeCrewCheck(result) }] };
+    })
+  );
+
+  // ─── Tool 13: mw_trust_card ─────────────────────────────────────────────────
+  // "Who made this, and is it what it says?" One mod's record on its platform, one
+  // fact to a line, each naming its source, and no score of ModWrench's own.
+
+  server.registerTool(
+    "mw_trust_card",
+    {
+      title: "Who made this mod",
+      description:
+        "Trust Card: \"who made this mod, and is it what it says?\" One mod's record on its own platform, a fact to a line: author, who uploaded it (Nexus, and whether that is someone else than the author), where it lives, version, first published, last updated, deprecated (Thunderstore), the platform's own download and endorsement or rating numbers, and what the platform says about permissions. Facts only, each from the platform: ModWrench adds no score or verdict. Nexus needs a connected Nexus account and the game's Nexus domain as gameId; mod.io a connected account and its numeric game id; Thunderstore needs nothing and takes the full \"Owner-ModName\" as modId. Use when the user asks \"who made this mod\", \"is this the real one\" or \"can I trust this mod\".",
+      inputSchema: {
+        platform: z.enum(["nexus", "modio", "thunderstore"]).describe("The platform the mod lives on."),
+        modId: z
+          .string()
+          .min(1)
+          .max(200)
+          .describe("The mod's id there: Nexus's number, mod.io's number, or Thunderstore's full name \"Owner-ModName\"."),
+        gameId: z
+          .string()
+          .max(100)
+          .optional()
+          .describe("Nexus: the game's domain, e.g. 'skyrimspecialedition'. mod.io: the game's numeric id. Not needed for Thunderstore."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    guarded("mw_trust_card", [], async ({ platform, modId, gameId }) => {
+      const result = await runTrustCard({ platform, modId, ...(gameId !== undefined ? { gameId } : {}) });
+      return { content: [{ type: "text", text: summarizeTrustCard(result, platform) }], ...(result.found ? {} : { isError: true as const }) };
+    })
+  );
+
+  return { toolCount: 13 };
 }

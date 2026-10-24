@@ -21,7 +21,7 @@ import { AppsMockServer, ConnectedServer, DRAWS_PAGES, PLAIN, withEnv, type Tool
 const NO_QUERY = { found: false, reason: "Provide either modId or modName.", attemptedPlatforms: [] };
 const THUNDERSTORE = {
   found: false,
-  reason: `Platform "thunderstore" support is not implemented yet (planned for a later version). Use platform="nexus" or "modio" for now.`,
+  reason: `Thunderstore mods are looked up by their full name, "Owner-ModName" (letters, digits and underscores, joined by one dash), passed as modId.`,
   attemptedPlatforms: [],
 };
 
@@ -124,7 +124,7 @@ test("a server that can't register the page still gets every tool, and mw_query_
   };
   for (const server of [new ConnectedServer(DRAWS_PAGES), toolsOnly()]) {
     assertTextOnly(await run(server, CASES[0]!.args), CASES[0]!.golden, server.constructor.name);
-    assert.equal(server.tools.size, 10);
+    assert.equal(server.tools.size, 13);
     for (const [name, t] of server.tools) assert.equal(t.config._meta, undefined, name);
   }
 });

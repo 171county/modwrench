@@ -53,11 +53,11 @@ class MockMcpServer {
 
 // ─── Registration smoke tests ───────────────────────────────────────────────
 
-test("registerWorkbenchTools: registers 10 tools", () => {
+test("registerWorkbenchTools: registers 13 tools", () => {
   const server = new MockMcpServer();
   const result = registerWorkbenchTools(server as unknown as never);
-  assert.equal(result.toolCount, 10);
-  assert.equal(server.tools.size, 10);
+  assert.equal(result.toolCount, 13);
+  assert.equal(server.tools.size, 13);
 });
 
 test("registerWorkbenchTools: every expected tool is present", () => {
@@ -74,6 +74,9 @@ test("registerWorkbenchTools: every expected tool is present", () => {
     "mw_crash_whisperer",
     "mw_doctor",
     "mw_loot_requirements",
+    "mw_pulse",
+    "mw_crew_check",
+    "mw_trust_card",
   ];
   for (const name of expected) {
     assert.ok(server.tools.has(name), `missing tool: ${name}`);
@@ -243,7 +246,7 @@ test("every path argument of every tool is in the list the next test checks", as
   const { client, close } = await connected();
   try {
     const { tools } = await client.listTools();
-    assert.equal(tools.length, 10);
+    assert.equal(tools.length, 13);
     const listed = new Set(PATH_ARGS.map(([tool, arg]) => `${tool}.${arg}`));
     for (const t of tools) {
       for (const arg of Object.keys(t.inputSchema.properties ?? {})) {
@@ -385,6 +388,9 @@ const PROFILE_TOOLS: Array<[tool: string, others: Record<string, unknown>]> = [
   ["mw_patch_day", {}],
   ["mw_crash_whisperer", { logPath: SSE_LOG, compareRecent: 0 }],
   ["mw_doctor", {}],
+  ["mw_loot_requirements", { gameId: "skyrimspecialedition" }],
+  ["mw_pulse", { gameId: "lethalcompany" }],
+  ["mw_crew_check", { gameId: "lethalcompany" }],
 ];
 
 test("every tool that takes profileName is in the list the next test checks", async () => {
@@ -494,7 +500,7 @@ test("a handler that hits an error it didn't plan for answers in one sentence, w
     assert.doesNotMatch(text, /Jane|Doe|Users|MO2 Portable|modlist/, `${name}: ${text}`);
     checked++;
   }
-  assert.equal(checked, 9);
+  assert.equal(checked, 12);
 });
 
 test("through the real SDK, a tool whose arguments are all optional answers a call that leaves arguments out", async () => {

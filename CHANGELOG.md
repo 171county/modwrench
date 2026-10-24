@@ -42,6 +42,53 @@ This document is maintained by hand.
   (`gamePath`), which for Wabbajack's lists is a copy beside the instance.
   [TRUST.md](TRUST.md#loot-requirements-what-it-opens) lists every path it may
   look at.
+- **Pulse: `mw_pulse` — "what has changed for the mods I run?"** It reads the
+  switched-on mods in an r2modman profile and checks each one against
+  Thunderstore: which have an update, which their authors have marked
+  deprecated, and which Thunderstore no longer has, each named with its author
+  and page. **It asks first:** called without `confirm`, it sends nothing and
+  answers with how many requests a check would make and to which host; only a
+  second call with `confirm=true` sends them, one per mod, each carrying only
+  that mod's Thunderstore name. At most 200 mods in a run, four requests at a
+  time, through the same client and the same `THUNDERSTORE_BASE_URL` as the
+  Thunderstore tools; it never runs on its own and keeps nothing. Thunderstore
+  games only so far: mods from Nexus Mods and mod.io aren't checked yet.
+  [TRUST.md](TRUST.md#pulse-what-it-reads-and-sends) says what it reads and
+  sends.
+- **The Pulse page.** In clients that draw MCP Apps pages, `mw_pulse` points at
+  `ui://modwrench/pulse`. Before a check it shows what one would send, with a
+  Check now button that makes the confirmed call when you press it; after a
+  check it lists updates first, with an Open button for each mod's Thunderstore
+  page where your client can open links, and a Check again button. The page
+  itself makes no network request.
+- **Trust Card: `mw_trust_card` — "who made this mod, and is it what it says?"**
+  One mod's record on Nexus Mods, mod.io or Thunderstore, one fact to a line:
+  author, who uploaded it and whether that is someone else, where it lives,
+  latest version, first published and last updated, deprecated, the platform's
+  own download and endorsement or rating numbers, and what the platform says
+  about permissions. Facts only, each from the platform, and no score of
+  ModWrench's own. [TRUST.md](TRUST.md#trust-card-what-it-shows) says what it
+  asks for.
+- **`mw_query_mod_metadata` looks Thunderstore mods up**, by platform
+  `thunderstore` and the mod's full `Owner-ModName`, with no credential. Its
+  records also carry when a mod was first published, who uploaded it (Nexus)
+  and whether it is deprecated (Thunderstore).
+- **Crew Check: `mw_crew_check` — "do we all have the same mods?"** For co-op
+  Thunderstore games. With no lists it makes your crew list: one line per
+  switched-on mod in your r2modman profile with its Thunderstore name and
+  version, and nothing else, for you to share. With your crewmates' lists pasted
+  in, it names the mods some players don't have and the mods on different
+  versions. No network at all. A pasted list is read only where a line is
+  exactly a name and a version, with caps on how much is read, and the answer
+  says what was left unread.
+  [TRUST.md](TRUST.md#crew-check-what-it-reads-and-compares) has the details.
+- **Deck faces.** The deck page and `mw_deck` list five jobs (Crash Whisperer,
+  the Doctors, Patch Day, Pulse and Crew Check), each with how it last came out
+  in this session: one line built from the job's verdict and counts alone, never
+  a name or a path, held in memory and gone when the server stops. Each row's
+  Ask puts that job's fixed question into the chat. `@modwrench/workbench`
+  exports `deckFaces` and `FACE_JOBS`.
+  [TRUST.md](TRUST.md#the-deck-page) says what the rows hold.
 
 ### Changed
 - **The conflict tools answer LOOT's conditions.** An incompatibility entry LOOT
@@ -89,8 +136,9 @@ This document is maintained by hand.
 - **A profile name can't climb out of the profiles folder.** `profileName` is
   joined onto Mod Organizer 2's or r2modman's profiles folder, so a name like
   `../../somewhere` read a profile's `mods.yml`, `plugins.txt` and `modlist.txt`
-  from outside it. `mw_read_load_order`, `mw_patch_day`, `mw_crash_whisperer`
-  and `mw_doctor` now refuse a `profileName` that isn't one folder name (empty,
+  from outside it. Every tool that takes one (`mw_read_load_order`,
+  `mw_patch_day`, `mw_crash_whisperer`, `mw_doctor`, `mw_loot_requirements`,
+  `mw_pulse` and `mw_crew_check`) now refuses a `profileName` that isn't one folder name (empty,
   `.` or `..`, or holding `/`, `\` or a NUL character) before anything is
   opened, with an answer that names the argument and doesn't repeat it. A
   `selected_profile` in `ModOrganizer.ini` that isn't one folder name is treated

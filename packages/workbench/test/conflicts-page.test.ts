@@ -201,7 +201,7 @@ test("a text-only client gets the text and nothing else: no structured data, no 
 
 test("a client that draws pages: the tool points at the Conflicts page, registered as an MCP App", async () => {
   const server = await registered(new AppsMockServer(DRAWS_PAGES));
-  assert.equal(server.toolCount, 10);
+  assert.equal(server.toolCount, 13);
   assert.deepEqual(server.tools.get(TOOL)!.config._meta, PAGE_META);
   assert.deepEqual(PAGE_META, await withEnv({ MODWRENCH_UI: undefined }, () => appToolMeta(CONFLICTS_APP_URI)));
   const page = server.resources.get(CONFLICTS_APP_URI);
@@ -257,7 +257,7 @@ test("MODWRENCH_UI=off: no page, no page address, no structured data even for a 
   const on = await answers(await registered(new AppsMockServer(DRAWS_PAGES)));
   for (const value of UI_OFF) {
     const server = await registered(new AppsMockServer(DRAWS_PAGES), { MODWRENCH_UI: value });
-    assert.equal(server.toolCount, 10, value);
+    assert.equal(server.toolCount, 13, value);
     assert.equal(server.resources.has(CONFLICTS_APP_URI), false, value);
     assert.equal(server.tools.get(TOOL)!.config._meta, undefined, value);
     const results = await answers(server, { MODWRENCH_UI: value });
@@ -286,8 +286,8 @@ test("a server that refuses the page, or can't take pages at all, still gets eve
   for (const server of [new ConnectedServer(DRAWS_PAGES), new ToolsOnlyServer()]) {
     const label = server.constructor.name;
     const ready = await registered(server);
-    assert.equal(ready.toolCount, 10, label);
-    assert.equal(ready.tools.size, 10, label);
+    assert.equal(ready.toolCount, 13, label);
+    assert.equal(ready.tools.size, 13, label);
     assert.equal(ready.tools.get(TOOL)!.config._meta, undefined, label);
     const results = await answers(ready);
     CASES.forEach((c, i) => assert.deepEqual(results[i], { content: [{ type: "text", text: c.text }] }, `${label}: ${c.label}`));
