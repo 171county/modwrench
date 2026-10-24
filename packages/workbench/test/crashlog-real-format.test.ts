@@ -92,6 +92,17 @@ test("real SSE layout: light plugins with a colon and regular ones both parse", 
   assert.equal(regular?.loadIndex, "05");
 });
 
+test("real SSE layout: the count the log gives above its plugin list is kept, so a list cut short can be told apart", () => {
+  assert.equal(parse(fixture("crash-sse-real-format.log")).pluginTotal, 8);
+  // Cut from a real log of 347 plugins: the fixture keeps the first 24.
+  const cut = parse(fixture("crash-sse-v1-20-quoted.log"));
+  assert.equal(cut.pluginTotal, 347);
+  assert.equal(cut.loadedPlugins.length, 24);
+  // The smaller samples give no count.
+  assert.equal(parse(fixture("crash-sse.log")).pluginTotal, undefined);
+  assert.equal(parse(fixture("crash-buffout4.log")).pluginTotal, undefined);
+});
+
 test("real SSE layout: relevant objects keep the plugin out of the brackets, without the bracket", () => {
   const r = parse(fixture("crash-sse-real-format.log"));
   const sources = (r.suspectedRefs ?? []).map((ref) => ref.likelySource);
@@ -242,6 +253,9 @@ test("NetScriptFramework (real layout): the game's plugins with their indexes, a
   assert.ok(!r.loadedPlugins.some((p) => /custom_skills|Custom Skills/.test(p.name)));
   assert.match(r.rawSections["Modules"] ?? "", /SmoothCam\.dll/);
   assert.match(r.rawSections["Plugins"] ?? "", /Custom Skills/);
+  // "Game plugins (351)": the fixture keeps 25 of them.
+  assert.equal(r.pluginTotal, 351);
+  assert.equal(parse(fixture("crash-netscriptframework.log")).pluginTotal, undefined, "the older layout gives no count");
 });
 
 test("NetScriptFramework: module and offset come apart, with frame numbers", () => {

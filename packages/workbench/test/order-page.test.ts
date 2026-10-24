@@ -142,7 +142,7 @@ test("a client that draws pages: the tool points at the Dependencies page and se
     assert.equal(read.contents.length, 1);
     assert.equal(read.contents[0]!.mimeType, MCP_APP_MIME);
     assert.ok(read.contents[0]!.text.startsWith("<!doctype html>"));
-    assert.ok(read.contents[0]!.text.includes("<title>Dependencies</title>"));
+    assert.ok(read.contents[0]!.text.includes("<title>Dependencies and load order</title>"));
     assert.equal(read.contents[0]!._meta, undefined, "the page asks for no permission");
 
     for (const c of CASES) {
@@ -242,8 +242,8 @@ test("a server that can't take the page still gets every tool, as text, and the 
   await withEnv({ MODWRENCH_UI: undefined, MODWRENCH_STRUCTURED: undefined }, async () => {
     // Already connected: registering a resource throws.
     const connected = new ConnectedServer(DRAWS_PAGES);
-    assert.equal(registerWorkbenchTools(connected as never).toolCount, 9);
-    assert.equal(connected.tools.size, 9);
+    assert.equal(registerWorkbenchTools(connected as never).toolCount, 13);
+    assert.equal(connected.tools.size, 13);
     assert.equal(connected.resources.size, 0);
     assert.equal(connected.tools.get(TOOL)!.config._meta, undefined);
     for (const c of CASES) {
@@ -259,8 +259,8 @@ test("a server that can't take the page still gets every tool, as text, and the 
       registerTool: (name: string, config: { _meta?: unknown }, handler: (a: Record<string, unknown>) => Promise<ToolResult>) =>
         void tools.set(name, { config, handler }),
     };
-    assert.equal(registerWorkbenchTools(toolsOnly as never).toolCount, 9);
-    assert.equal(tools.size, 9);
+    assert.equal(registerWorkbenchTools(toolsOnly as never).toolCount, 13);
+    assert.equal(tools.size, 13);
     assert.equal(tools.get(TOOL)!.config._meta, undefined);
     for (const c of CASES) {
       const result = await tools.get(TOOL)!.handler(c.args);

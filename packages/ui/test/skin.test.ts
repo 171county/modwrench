@@ -74,7 +74,7 @@ const visible = (page: ReturnType<typeof loadPage>) => ({
 
 test("the frame has the brand, the page's label (escaped), a swatch for each skin and the waiting line", () => {
   const html = renderTestPage();
-  assert.match(html, /<span class="mw-brand-sub">Test &lt;page&gt;<\/span>/);
+  assert.match(html, /<span id="mw-label" class="mw-brand-sub">Test &lt;page&gt;<\/span>/);
   for (const id of THEME_IDS) {
     assert.match(html, new RegExp(`<button type="button" id="mw-skin-${id}" class="mw-theme" data-t="${id}"[^>]* aria-pressed="false"></button>`));
   }
@@ -298,7 +298,7 @@ test("h puts text in as text and builds nothing from it; empty builds the empty-
 
 const PAGES = [
   { def: MODS_PAGE, render: renderModsApp, view: "mods", title: "Mods" },
-  { def: DEPS_PAGE, render: renderDepsApp, view: "deps", title: "Dependencies" },
+  { def: DEPS_PAGE, render: renderDepsApp, view: "deps", title: "Dependencies and load order" },
   { def: CRASH_PAGE, render: renderCrashApp, view: "crash", title: "Crash log" },
   { def: CONFLICTS_PAGE, render: renderConflictsApp, view: "conflicts", title: "Conflicts" },
   { def: DECK_PAGE, render: renderDeckApp, view: "deck", title: "Deck" },

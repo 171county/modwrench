@@ -361,6 +361,10 @@ export function registerThunderstoreTools(server: McpServer): {
         author: m.owner,
         rating: m.rating_score,
         latest_version: m.versions?.[0]?.version_number,
+        total_downloads: (m.versions ?? []).reduce(
+          (sum, v) => sum + (v.downloads ?? 0),
+          0
+        ),
         page_url: m.package_url,
       }));
       return {
@@ -485,6 +489,10 @@ export function registerThunderstoreTools(server: McpServer): {
           author: m.owner,
           rating: m.rating_score,
           latest_version: m.versions?.[0]?.version_number,
+          total_downloads: (m.versions ?? []).reduce(
+            (sum, v) => sum + (v.downloads ?? 0),
+            0
+          ),
           page_url: m.package_url,
         }));
       return {

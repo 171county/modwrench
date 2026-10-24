@@ -34,6 +34,7 @@ export * from "./deps-app.js";
 export * from "./crash-app.js";
 export * from "./conflicts-app.js";
 export * from "./deck-app.js";
+export * from "./pulse-app.js";
 
 export {
   THEMES,

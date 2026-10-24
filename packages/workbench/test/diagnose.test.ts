@@ -154,3 +154,47 @@ test("an object from the logger's own list of relevant objects still comes befor
   });
   assert.deepEqual(d.suspects.map((s) => [s.name, s.detail]), [["SomeMod.esp", "formid: 0xFE012800"], ["SomePlugin.dll", undefined]]);
 });
+
+test("the conflict check is told the plugin list is the whole of it only when the log says how many it lists and lists that many", async () => {
+  const told: boolean[] = [];
+  const checkConflicts: ConflictChecker = async (_g, _modIds, allActive) => {
+    told.push(allActive);
+    return { conflicts: [] };
+  };
+  const loadedPlugins = [{ name: "A.esp" }, { name: "B.esp" }];
+  for (const over of [
+    { pluginList: "listed" as const, pluginTotal: 2 },
+    { pluginList: "listed" as const, pluginTotal: 3 }, // cut short, or pasted in part
+    { pluginList: "listed" as const }, // no count
+  ]) {
+    await correlateCrash({ parsed: crash({ loadedPlugins, ...over }), gameId: "skyrimspecialedition", checkConflicts });
+  }
+  assert.deepEqual(told, [true, false, false]);
+});
+
+test("LOOT's notes are kept apart from the evidence, labelled as LOOT's, warnings first, capped at 10", async () => {
+  const parsed = crash({ loadedPlugins: [{ name: "A.esp" }, { name: "B.esp" }] });
+  const lootNotes = [
+    ...Array.from({ length: 8 }, (_, i) => ({ plugin: "A.esp", type: "note" as const, text: `Note ${i + 1}` })),
+    ...Array.from({ length: 4 }, (_, i) => ({ plugin: "B.esp", type: "warning" as const, text: `Warning ${i + 1}` })),
+  ];
+  const d = await correlateCrash({ parsed, gameId: "skyrimspecialedition", checkConflicts: async () => ({ conflicts: [], lootNotes }) });
+  assert.deepEqual(
+    d.lootNotes?.notes.map((n) => n.text),
+    ["Warning 1", "Warning 2", "Warning 3", "Warning 4", "Note 1", "Note 2", "Note 3", "Note 4", "Note 5", "Note 6"]
+  );
+  assert.equal(d.lootNotes?.omitted, 2);
+  assert.match(d.lootNotes?.about ?? "", /^LOOT's notes: .* not evidence about this crash\.$/);
+  assert.deepEqual(d.suspects, []);
+  assert.deepEqual(d.knownConflicts, []);
+
+  const few = await correlateCrash({
+    parsed,
+    gameId: "skyrimspecialedition",
+    checkConflicts: async () => ({ conflicts: [], lootNotes: lootNotes.slice(0, 3) }),
+  });
+  assert.equal(few.lootNotes?.notes.length, 3);
+  assert.equal("omitted" in (few.lootNotes ?? {}), false);
+  const none = await correlateCrash({ parsed, gameId: "skyrimspecialedition", checkConflicts: async () => ({ conflicts: [], lootNotes: [] }) });
+  assert.equal("lootNotes" in none, false);
+});

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DECK_APP_URI, MCP_APP_MIME, appToolMeta, deckView } from "@modwrench/ui";
+import { FACE_JOBS } from "@modwrench/workbench/register";
 import { registerDeckTool } from "../src/deck.js";
 import { AppsMockServer, ConnectedServer, DRAWS_PAGES, PLAIN, withEnv, type ToolResult } from "./helpers/apps-server.js";
 
@@ -59,8 +60,28 @@ const GOLDEN = `{
       "status": "on",
       "toolCount": 9
     }
+  ],
+  "faces": [
+    {
+      "job": "crash"
+    },
+    {
+      "job": "setup"
+    },
+    {
+      "job": "patch"
+    },
+    {
+      "job": "updates"
+    },
+    {
+      "job": "crew"
+    }
   ]
 }`;
+
+/** The five jobs, none run yet in this process. */
+const NO_FACES = FACE_JOBS.map((job) => ({ job }));
 
 test("mw_deck answers with the connectors as JSON, as it always has", async () => {
   const result = await deckServer().call("mw_deck", {});
@@ -151,7 +172,7 @@ test("a client that draws pages gets the deck page, its address on the tool, and
 
   assert.deepEqual(result.content, TEXT_ONLY.content);
   const connectors = (JSON.parse(GOLDEN) as { connectors: never[] }).connectors;
-  assert.deepEqual(result.structuredContent, deckView({ theme: "skyrim", connectors, games: GAMES }));
+  assert.deepEqual(result.structuredContent, deckView({ theme: "skyrim", connectors, games: GAMES, faces: NO_FACES }));
   assert.equal(result.structuredContent!.view, "deck");
   assert.deepEqual(result.structuredContent!.connectors, connectors, "the page shows the connectors the text lists");
 });

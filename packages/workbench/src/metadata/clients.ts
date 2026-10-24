@@ -31,6 +31,19 @@ const APP = appIdentity(import.meta.url);
 
 
 
+// ─── Thunderstore ─────────────────────────────────────────────────────────────
+
+/** Thunderstore's read API is public: no credential, so this always exists. */
+export function createThunderstoreClient(): { request<T>(path: string): Promise<T> } {
+  const http = createHttpClient({
+    baseUrl: getEnv("THUNDERSTORE_BASE_URL", "https://thunderstore.io"),
+    userAgent: APP.userAgent,
+    defaultHeaders: APP.headers,
+    errorCodePrefix: "thunderstore",
+  });
+  return { request: <T>(path: string) => http.request<T>(path) };
+}
+
 // ─── Nexus ────────────────────────────────────────────────────────────────────
 
 export type NexusClient = {

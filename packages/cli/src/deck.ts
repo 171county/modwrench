@@ -1,6 +1,7 @@
 // ─── mw_deck — the ModWrench deck ────────────────────────────────────────────
-// Which platforms are connected, and the four flagship games, read from the
-// catalog on every call; nothing is kept. Every client gets the connector list as
+// Each job's last verdict in this session (the workbench's faces: a verdict and
+// counts, held in memory only), which platforms are connected, and the four
+// flagship games, read on every call. Every client gets the connector list as
 // JSON text. A client that draws MCP Apps pages also gets the deck page
 // (ui://modwrench/deck, from @modwrench/ui) and the same list as structured data
 // for it to draw; a client that doesn't never fetches the page.
@@ -11,6 +12,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DECK_PAGE, THEME_IDS, deckView, pageData, registerAppPage } from "@modwrench/ui";
+import { deckFaces } from "@modwrench/workbench/register";
 import type { MetaCatalog } from "./catalog.js";
 
 const CONNECTOR_META: Record<string, { name: string; tool: string }> = {
@@ -42,7 +44,7 @@ export function registerDeckTool(
     "mw_deck",
     {
       title: "Open the ModWrench deck",
-      description: "Open the ModWrench deck: the active connectors and the flagship games. In clients that support MCP Apps it also shows a page in one of four skins (Skyrim, Fallout Pip-Boy, Lethal Company, Valheim); other clients get the connector list as text. Stateless \u2014 read fresh from the current catalog, holds nothing. Use when the user says \"open the deck\", \"summon/show ModWrench\", or wants a visual dashboard. The optional theme sets the page's starting skin.",
+      description: "Open the ModWrench deck: the active connectors and the flagship games. In clients that support MCP Apps it also shows a page in one of four skins (Skyrim, Fallout Pip-Boy, Lethal Company, Valheim); other clients get the connector list as text. Each job (Crash Whisperer, the Doctors, Patch Day, Pulse, Crew Check) shows how it last came out in this session, as a verdict and counts kept in memory only; the connectors are read fresh from the catalog. Use when the user says \"open the deck\", \"summon/show ModWrench\", or wants a visual dashboard. The optional theme sets the page's starting skin.",
       inputSchema: {
         theme: z
           .enum([...THEME_IDS] as [string, ...string[]])
@@ -62,6 +64,7 @@ export function registerDeckTool(
       ...(deckPage ? { _meta: deckPage } : {}),
     },
     async ({ theme, view }) => {
+      const faces = deckFaces();
       const active = new Map(
         catalog.listActive().map((p) => [p.platformId, p.toolCount] as const)
       );
@@ -81,13 +84,13 @@ export function registerDeckTool(
           {
             type: "text" as const,
             text: JSON.stringify(
-              { view: view ?? "deck", theme: theme ?? "skyrim", connectors },
+              { view: view ?? "deck", theme: theme ?? "skyrim", connectors, faces },
               null,
               2
             ),
           },
         ],
-        ...pageData(server, deckView({ theme, connectors, games: FLAGSHIP_GAMES }), deckPage !== undefined),
+        ...pageData(server, deckView({ theme, connectors, games: FLAGSHIP_GAMES, faces }), deckPage !== undefined),
       };
     }
   );

@@ -53,11 +53,11 @@ class MockMcpServer {
 
 // ─── Registration smoke tests ───────────────────────────────────────────────
 
-test("registerWorkbenchTools: registers 9 tools", () => {
+test("registerWorkbenchTools: registers 13 tools", () => {
   const server = new MockMcpServer();
   const result = registerWorkbenchTools(server as unknown as never);
-  assert.equal(result.toolCount, 9);
-  assert.equal(server.tools.size, 9);
+  assert.equal(result.toolCount, 13);
+  assert.equal(server.tools.size, 13);
 });
 
 test("registerWorkbenchTools: every expected tool is present", () => {
@@ -73,6 +73,10 @@ test("registerWorkbenchTools: every expected tool is present", () => {
     "mw_patch_day",
     "mw_crash_whisperer",
     "mw_doctor",
+    "mw_loot_requirements",
+    "mw_pulse",
+    "mw_crew_check",
+    "mw_trust_card",
   ];
   for (const name of expected) {
     assert.ok(server.tools.has(name), `missing tool: ${name}`);
@@ -180,9 +184,12 @@ const textOf = (r: CallResult): string => r.content.map((c) => c.text ?? "").joi
 /**
  * Record every filesystem call that is handed a path starting with two separators, unless
  * Node opens it as the long spelling of a local drive (\\?\C:\...), and refuse it as if it
- * didn't exist, so not even a broken guard can reach the network here.
+ * didn't exist, so not even a broken guard can reach the network here. `caught` picks out
+ * other paths instead.
  */
-function spyOnNetworkOpens(): { seen: string[]; restore: () => void } {
+function spyOnNetworkOpens(
+  caught: (p: string) => boolean = (p) => /^\s*[\\/]{2}/.test(p) && !/^\\\\\?\\[A-Za-z]:(?:\\|$)/.test(win32.toNamespacedPath(p.trimStart()))
+): { seen: string[]; restore: () => void } {
   const seen: string[] = [];
   const names = ["statSync", "lstatSync", "openSync", "existsSync", "readFileSync", "readdirSync", "accessSync", "statfsSync", "realpathSync", "opendirSync"];
   const target = fs as unknown as Record<string, (...a: unknown[]) => unknown>;
@@ -191,7 +198,7 @@ function spyOnNetworkOpens(): { seen: string[]; restore: () => void } {
     const original = target[name]!;
     originals.set(name, original);
     target[name] = function (this: unknown, p: unknown, ...rest: unknown[]) {
-      if (typeof p === "string" && /^\s*[\\/]{2}/.test(p) && !/^\\\\\?\\[A-Za-z]:(?:\\|$)/.test(win32.toNamespacedPath(p.trimStart()))) {
+      if (typeof p === "string" && caught(p)) {
         seen.push(`${name}(${p})`);
         if (name === "existsSync") return false;
         throw Object.assign(new Error("ENOENT: refused by the test"), { code: "ENOENT" });
@@ -225,6 +232,7 @@ const PATH_ARGS: Array<[tool: string, arg: string, others: Record<string, unknow
   ["mw_crash_whisperer", "mo2InstancePath", { logPath: SSE_LOG, compareRecent: 0 }],
   ["mw_doctor", "gamePath", {}],
   ["mw_doctor", "mo2InstancePath", {}],
+  ["mw_loot_requirements", "mo2InstancePath", { gameId: "skyrimspecialedition" }],
 ];
 const NETWORK_FORMS = [
   `${B}${B}127.0.0.1${B}mw-test-share${B}x`,
@@ -238,7 +246,7 @@ test("every path argument of every tool is in the list the next test checks", as
   const { client, close } = await connected();
   try {
     const { tools } = await client.listTools();
-    assert.equal(tools.length, 9);
+    assert.equal(tools.length, 13);
     const listed = new Set(PATH_ARGS.map(([tool, arg]) => `${tool}.${arg}`));
     for (const t of tools) {
       for (const arg of Object.keys(t.inputSchema.properties ?? {})) {
@@ -369,6 +377,100 @@ test("a mod or profile name in MO2's files can't climb from a long \\\\?\\C:\\ p
   }
 });
 
+// ─── Profile names: one folder only ─────────────────────────────────────────
+// A profileName is joined onto MO2's or r2modman's profiles folder, so "../x" would read
+// a profile's files from somewhere else. One that isn't a single folder name is refused
+// before anything is opened.
+
+const PROFILE_TOOLS: Array<[tool: string, others: Record<string, unknown>]> = [
+  ["mw_read_load_order", { gameId: "skyrimspecialedition", modManager: "mo2" }],
+  ["mw_read_load_order", { gameId: "lethalcompany", modManager: "r2modman" }],
+  ["mw_patch_day", {}],
+  ["mw_crash_whisperer", { logPath: SSE_LOG, compareRecent: 0 }],
+  ["mw_doctor", {}],
+  ["mw_loot_requirements", { gameId: "skyrimspecialedition" }],
+  ["mw_pulse", { gameId: "lethalcompany" }],
+  ["mw_crew_check", { gameId: "lethalcompany" }],
+];
+
+test("every tool that takes profileName is in the list the next test checks", async () => {
+  const { client, close } = await connected();
+  try {
+    const { tools } = await client.listTools();
+    const listed = new Set(PROFILE_TOOLS.map(([tool]) => tool));
+    for (const t of tools) {
+      if ("profileName" in (t.inputSchema.properties ?? {})) assert.ok(listed.has(t.name), `${t.name} takes profileName and isn't checked by the test below`);
+    }
+  } finally {
+    await close();
+  }
+});
+
+test("a profileName that isn't one folder name is refused before any file is opened, without repeating it", async () => {
+  const { client, close } = await connected();
+  const spy = spyOnNetworkOpens(() => true);
+  try {
+    for (const [tool, others] of PROFILE_TOOLS) {
+      for (const bad of ["../x", "a/b", `a${B}b`, "..", ".", "", "a\0b", `..${B}..${B}mw-secret`]) {
+        const r = (await client.callTool({ name: tool, arguments: { ...others, profileName: bad } })) as CallResult;
+        const what = `${tool} profileName=${JSON.stringify(bad)}`;
+        assert.equal(r.isError, true, what);
+        const text = textOf(r);
+        assert.ok(text.includes("profileName"), `${what}: the answer names the argument: ${text}`);
+        assert.match(text, /isn't one folder name/, what);
+        if (bad.length > 2) assert.ok(!text.includes(bad), `${what}: the answer repeats the name: ${text}`);
+      }
+    }
+    assert.deepEqual(spy.seen, [], "a file was opened for a refused profileName");
+  } finally {
+    spy.restore();
+    await close();
+  }
+});
+
+test("a profileName that is one folder name still reads, for MO2 and r2modman", async () => {
+  const sb = createSandbox("mw-profile-name-");
+  sb.start();
+  const { client, close } = await connected();
+  try {
+    const w = sb.makeWorld();
+    const instance = join(w.root, "MO2");
+    put(instance, "ModOrganizer.ini", "[General]\ngameName=Skyrim Special Edition\nselected_profile=Default\n");
+    put(join(instance, "profiles", "My Profile"), "modlist.txt", "+Some Mod\n");
+    put(join(instance, "profiles", "My Profile"), "plugins.txt", "*Some Mod.esp\n");
+    const mo2 = (await client.callTool({
+      name: "mw_read_load_order",
+      arguments: { gameId: "skyrimspecialedition", modManager: "mo2", instancePath: instance, profileName: "My Profile" },
+    })) as CallResult;
+    assert.equal(JSON.parse(textOf(mo2)).profile, "My Profile", textOf(mo2));
+    for (const [tool, args] of [
+      ["mw_patch_day", { gamePath: w.gameDir, mo2InstancePath: instance, profileName: "My Profile" }],
+      ["mw_crash_whisperer", { logPath: SSE_LOG, compareRecent: 0, gamePath: w.gameDir, mo2InstancePath: instance, profileName: "My Profile" }],
+      ["mw_doctor", { gamePath: w.gameDir, mo2InstancePath: instance, profileName: "My Profile" }],
+    ] as const) {
+      const r = (await client.callTool({ name: tool, arguments: args })) as CallResult;
+      assert.notEqual(r.isError, true, `${tool}: ${textOf(r)}`);
+      assert.doesNotMatch(textOf(r), /isn't one folder name|couldn't read the profile|not the profile to read/, `${tool}: ${textOf(r)}`);
+    }
+    // r2modman's folder under the sandbox's home, as r2modman.ts looks for it on this platform.
+    const r2 =
+      process.platform === "win32"
+        ? join(sb.home, "AppData", "Roaming", "r2modmanPlus-local")
+        : process.platform === "darwin"
+          ? join(sb.home, "Library", "Application Support", "r2modmanPlus-local")
+          : join(sb.home, ".config", "r2modmanPlus-local");
+    put(join(r2, "LethalCompany", "profiles", "Friends"), "mods.yml", "- name: Author-Mod\n  displayName: Mod\n  enabled: true\n");
+    const r2r = (await client.callTool({
+      name: "mw_read_load_order",
+      arguments: { gameId: "lethalcompany", modManager: "r2modman", profileName: "Friends" },
+    })) as CallResult;
+    assert.equal(JSON.parse(textOf(r2r)).profile, "Friends", textOf(r2r));
+  } finally {
+    await close();
+    sb.stop();
+  }
+});
+
 // ─── An error nobody planned for ─────────────────────────────────────────────
 // A file another program holds open (EBUSY), or one the account can't read (EPERM),
 // makes Node throw an error whose message is the full path, user name and all. The SDK
@@ -398,7 +500,7 @@ test("a handler that hits an error it didn't plan for answers in one sentence, w
     assert.doesNotMatch(text, /Jane|Doe|Users|MO2 Portable|modlist/, `${name}: ${text}`);
     checked++;
   }
-  assert.equal(checked, 8);
+  assert.equal(checked, 12);
 });
 
 test("through the real SDK, a tool whose arguments are all optional answers a call that leaves arguments out", async () => {

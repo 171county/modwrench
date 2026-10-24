@@ -3,7 +3,7 @@ import { isAbsolute, join, normalize, parse, resolve } from "node:path";
 import { homedir } from "node:os";
 import { pathExists } from "../detect/os.js";
 import { isDir, readText, resolveCI } from "../doctor/fsutil.js";
-import { isNetworkPath } from "../localpath.js";
+import { isFolderName, isNetworkPath } from "../localpath.js";
 import { findSteamRoot, findSteamLibraries } from "../detect/steam.js";
 import { detectInstalledManagers } from "../detect/manager.js";
 import type { GameDef } from "../detect/games.js";
@@ -211,7 +211,21 @@ export function mo2Folder(
   // The instance folder as MO2 names it; under Wine, Z: holds this machine's whole file system.
   const instance = `${windows ? "" : "Z:"}${resolve(instancePath)}`;
   const base = setting("base_directory") ?? instance;
-  let path = (setting(key) ?? `%BASE_DIR%/${name}`).replace(/\\/g, "/").split("%BASE_DIR%").join(base.replace(/\\/g, "/"));
+  const path = (setting(key) ?? `%BASE_DIR%/${name}`).replace(/\\/g, "/").split("%BASE_DIR%").join(base.replace(/\\/g, "/"));
+  return onDisk(path, instancePath, windows);
+}
+
+/**
+ * The game folder an instance plays, from gamePath in its [General] section, found the way mo2Folder finds a folder,
+ * or null. It needn't be the copy Steam installed: Wabbajack's lists play a copy kept beside the instance ("Stock Game").
+ */
+export function mo2GamePath(instancePath: string): string | null {
+  const raw = parseIni(readText(join(instancePath, "ModOrganizer.ini"), 512 * 1024) ?? "")["General"]?.["gamePath"];
+  return raw === undefined ? null : onDisk(qtValue(raw).replace(/\\/g, "/"), instancePath, process.platform === "win32");
+}
+
+/** A folder MO2's settings name, with "/" between its names, as it is spelled on this computer; null as mo2Folder says. */
+function onDisk(path: string, instancePath: string, windows: boolean): string | null {
   if (!windows) {
     if (/^[a-zA-Z]:/.test(path) && !/^[zZ]:/.test(path)) return null;
     path = path.replace(/^[zZ]:/, "");
@@ -283,6 +297,8 @@ export function readMo2LoadOrder(
 
   const profile =
     opts.profileName ?? readInstanceActiveProfile(instancePath) ?? "Default";
+  // The ini's selected_profile is text anyone can plant too: a name that isn't one folder is treated as missing.
+  if (!isFolderName(profile)) return null;
   const profiles = mo2Folder(instancePath, "profiles_directory", "profiles");
   if (profiles === null) return null;
   const profileDir = join(profiles, profile);

@@ -1,4 +1,5 @@
 import {
+  createThunderstoreClient,
   tryCreateNexusClient,
   tryCreateModioClient,
   type NexusClient,
@@ -7,9 +8,13 @@ import {
 import {
   normalizeNexusMod,
   normalizeModioMod,
+  normalizeThunderstorePackage,
   type NexusModResponse,
   type ModioModResponse,
+  type ThunderstorePackageResponse,
 } from "./normalize.js";
+import { THUNDERSTORE_NAME } from "../pulse/profile.js";
+import { ModWrenchError } from "@modwrench/core";
 import type {
   ModPlatform,
   QueryModMetadataInput,
@@ -105,12 +110,28 @@ async function queryModMetadataInner(
     input.modName !== undefined &&
     input.gameId !== undefined;
 
+  // Thunderstore by its "Owner-Name" id, on the public read API: no credential and no gameId needed.
   if (platform === "thunderstore") {
-    return {
-      found: false,
-      reason: `Platform "thunderstore" support is not implemented yet (planned for a later version). Use platform="nexus" or "modio" for now.`,
-      attemptedPlatforms: [],
-    };
+    const match = THUNDERSTORE_NAME.exec(input.modId ?? "");
+    if (!match) {
+      return {
+        found: false,
+        reason: 'Thunderstore mods are looked up by their full name, "Owner-ModName" (letters, digits and underscores, joined by one dash), passed as modId.',
+        attemptedPlatforms: [],
+      };
+    }
+    try {
+      const raw = await createThunderstoreClient().request<ThunderstorePackageResponse>(
+        `/api/experimental/package/${encodeURIComponent(match[1]!)}/${encodeURIComponent(match[2]!)}/`
+      );
+      return { found: true, mod: normalizeThunderstorePackage(raw, input.modId!), attemptedPlatforms: ["thunderstore"] };
+    } catch (err) {
+      return {
+        found: false,
+        reason: err instanceof ModWrenchError && err.status === 404 ? "Thunderstore has no package by that name." : "Thunderstore didn't answer this time.",
+        attemptedPlatforms: ["thunderstore"],
+      };
+    }
   }
 
   // Try Nexus first (it's the dominant home for Bethesda games, which is

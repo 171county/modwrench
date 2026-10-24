@@ -20,10 +20,12 @@ import {
   CRASH_PAGE,
   DEPS_PAGE,
   MODS_PAGE,
+  PULSE_PAGE,
   conflictsView,
   crashView,
   modsView,
   orderView,
+  pulseView,
 } from "@modwrench/ui";
 
 /** Pick the theme skin from a canonical game id. */
@@ -36,6 +38,7 @@ function themeForGameId(gameId: string): string {
   return "lethal";
 }
 import { checkKnownConflicts } from "./conflicts/index.js";
+import { checkLootRequirements, summarizeRequirements } from "./conflicts/requirements.js";
 import { checkPatchDay } from "./patchday/index.js";
 import { summarizePatchDay } from "./patchday/summary.js";
 import { registerCrashWhispererApp, registerDoctorApp, registerPatchDayApp } from "./apps.js";
@@ -43,14 +46,21 @@ import { summarizeCrashWhisper, whisper } from "./crashwhisper/index.js";
 import { runDoctor } from "./doctor/index.js";
 import { summarizeDoctor } from "./doctor/summary.js";
 import { correlateCrash, type CrashSuspect } from "./crashlog/diagnose.js";
-import { isNetworkPath } from "./localpath.js";
+import { isFolderName, isNetworkPath } from "./localpath.js";
+import { runPulse, summarizePulse } from "./pulse/index.js";
+import { CREW_MAX_CHARS, CREW_MAX_LISTS, runCrewCheck, summarizeCrewCheck } from "./crew/index.js";
+import { runTrustCard, summarizeTrustCard } from "./trustcard/index.js";
+import { crashFace, crewFace, noteFace, patchFace, setupFace, updatesFace } from "./faces.js";
+
+export { deckFaces, FACE_JOBS, type Face, type FaceJob } from "./faces.js";
 
 const refusal = (text: string): CallToolResult => ({ content: [{ type: "text", text }], isError: true });
 
 /**
  * Every tool's handler runs through here. A path argument that names another computer
  * or a device is refused before anything opens it (see localpath.ts), and the answer
- * names the argument but never repeats the path. An error nobody planned for, such as
+ * names the argument but never repeats the path. So is a profileName that isn't one
+ * folder name, since it is joined onto a profiles folder. An error nobody planned for, such as
  * a file another program holds open, comes back as one plain sentence with its code:
  * Node puts the full path, user name and all, in the error's message, and the SDK
  * would hand that message to the client as the answer.
@@ -71,6 +81,13 @@ function guarded<A extends unknown[]>(
               "The workbench tools read only this computer's own drives. Copy the file or folder to a local drive and pass that path instead."
           );
         }
+      }
+      const profileName = input?.profileName;
+      if (typeof profileName === "string" && !isFolderName(profileName)) {
+        return refusal(
+          `profileName isn't one folder name (it is empty, "." or "..", or holds a slash, a backslash or a NUL character), so ${tool} didn't open it. ` +
+            "Pass the name of the profile's own folder in the mod manager's profiles folder, such as Default."
+        );
       }
       return await handler(...args);
     } catch (err) {
@@ -316,7 +333,7 @@ export function registerWorkbenchTools(server: McpServer): {
     "mw_query_mod_metadata",
     {
       title: "Look up a mod across platforms",
-      description: "Put a name and a source on a mod. Looks up metadata across platforms (Nexus, mod.io) in one normalized shape: id, name, author, version, downloads, endorsements, pageUrl, and a permissions block that always carries attribution. Use it to enrich a crashlog suspect or a load-order entry — \"who made this\", \"look up this mod\", \"what version is X\". Thunderstore support is planned.",
+      description: "Put a name and a source on a mod. Looks up metadata across platforms (Nexus, mod.io) in one normalized shape: id, name, author, version, downloads, endorsements, pageUrl, and a permissions block that always carries attribution. Use it to enrich a crashlog suspect or a load-order entry — \"look up this mod\", \"what version is X\". Thunderstore mods are looked up by platform=\"thunderstore\" and their full \"Owner-ModName\" as modId, with no credential.",
       inputSchema: {
         modId: z
           .string()
@@ -424,7 +441,7 @@ export function registerWorkbenchTools(server: McpServer): {
           .array(z.string())
           .min(2)
           .describe(
-            "List of mods/plugins to check pairwise. Entries can be plugin filenames ('Skyrim.esp') or platform-prefixed mod IDs ('nexus:12345', 'modio:67890', 'thunderstore:Author-ModName'). At least 2 required for a conflict to be possible."
+            "List of mods/plugins to check pairwise. Entries can be plugin filenames ('Skyrim.esp') or platform-prefixed mod IDs ('nexus:12345', 'modio:67890', 'thunderstore:Author-ModName'). At least 2 required for a conflict to be possible. A plugin named here is taken to be active when LOOT's conditions are checked, so name only the plugins that are switched on."
           ),
       },
       annotations: {
@@ -477,7 +494,7 @@ export function registerWorkbenchTools(server: McpServer): {
     "mw_diagnose_crash",
     {
       title: "Diagnose a crash",
-      description: "Crash log in, culprit shortlist out. Parses the log, then correlates its suspects with the loaded plugins and (with a gameId) the known-conflict database into one bundle: which suspected mods are actually in the load order, at what index, and which loaded plugins have known conflicts. It lines up the evidence; it does NOT name the cause — that's the model's call, reasoned over the data. Use when the user says \"what's causing my crash\", \"which mod is it\", or pastes a crash log and wants the answer. Opt-in attribution (attributeSuspects=true) links up to 5 suspects to their Nexus mod pages — author, link, and the name it matched, since a name search can mismatch; off by default, so nothing about the suspects leaves the computer. With a gameId the known-conflict check fetches LOOT's public list from GitHub, which sends nothing from the log.",
+      description: "Crash log in, culprit shortlist out. Parses the log, then correlates its suspects with the loaded plugins and (with a gameId) the known-conflict database into one bundle: which suspected mods are actually in the load order, at what index, and which loaded plugins have known conflicts, plus, kept apart and capped at 10, LOOT's notes on the plugins the log lists (general advice, not evidence about the crash). It lines up the evidence; it does NOT name the cause — that's the model's call, reasoned over the data. Use when the user says \"what's causing my crash\", \"which mod is it\", or pastes a crash log and wants the answer. Opt-in attribution (attributeSuspects=true) links up to 5 suspects to their Nexus mod pages — author, link, and the name it matched, since a name search can mismatch; off by default, so nothing about the suspects leaves the computer. With a gameId the known-conflict check fetches LOOT's public list from GitHub, which sends nothing from the log.",
       inputSchema: {
         logContent: z
           .string()
@@ -532,11 +549,12 @@ export function registerWorkbenchTools(server: McpServer): {
       const diagnosis = await correlateCrash({
         parsed,
         ...(gameId !== undefined ? { gameId } : {}),
-        checkConflicts: async (g, modIds) => {
-          const r = await checkKnownConflicts({ gameId: g, modIds });
+        checkConflicts: async (g, modIds, allActive) => {
+          const r = await checkKnownConflicts({ gameId: g, modIds, allActive, withLootNotes: true });
           return {
             conflicts: r.conflicts,
             ...(r.warnings ? { warnings: r.warnings } : {}),
+            ...(r.lootNotes ? { lootNotes: r.lootNotes } : {}),
           };
         },
       });
@@ -674,6 +692,7 @@ export function registerWorkbenchTools(server: McpServer): {
       // page is registered (or when MODWRENCH_STRUCTURED says so). Couldn't run (unsupported
       // game, game not found, a version that isn't one): flagged so a client can show it as a
       // failed call.
+      if (result.ok) noteFace("patch", patchFace(result.verdict));
       return pageAnswer(server, summarizePatchDay(result), result, patchDayPage !== undefined);
     })
   );
@@ -805,6 +824,7 @@ export function registerWorkbenchTools(server: McpServer): {
         checks: result.ok ? result.checks.length : 0,
       });
 
+      if (result.ok) noteFace("crash", crashFace(result.leads.length, result.confidence.evidence));
       return pageAnswer(server, summarizeCrashWhisper(result, packet ? { packet } : {}), result, crashWhispererPage !== undefined);
     })
   );
@@ -881,9 +901,207 @@ export function registerWorkbenchTools(server: McpServer): {
         warnings: result.ok ? result.counts.warn : 0,
       });
 
+      if (result.ok) noteFace("setup", setupFace(result.verdict, result.counts));
       return pageAnswer(server, summarizeDoctor(result), result, doctorPage !== undefined);
     })
   );
 
-  return { toolCount: 9 };
+  // ─── Tool 10: mw_loot_requirements ─────────────────────────────────────────
+  // LOOT's requirements (req) for the active plugins, checked against the install:
+  // a separate tool the person chooses to run, since it fetches LOOT's list. The
+  // Doctors stay offline. It looks only for files the allow-list in
+  // conflicts/requirements.ts permits, by lstat, and opens none of them. Text only.
+  server.registerTool(
+    "mw_loot_requirements",
+    {
+      title: "Check LOOT's requirements",
+      description: "Check what LOOT's masterlist says the active plugins need. Fetches LOOT's public masterlist from GitHub (the same list the conflict tools read), reads the active plugins the way mw_doctor does (Mod Organizer 2's profile, or the game's own plugins.txt), and for each file LOOT lists as required by an active plugin (another plugin, a DLL such as SKSE/Plugins/x.dll, or a file in the game's folder such as the script extender's loader) says present, missing or unknown, with LOOT's own words for it. It only checks whether a file is there, without opening it, and only inside the game's Data folder, the game's folder and Mod Organizer 2's enabled mods and Overwrite; anything it can't establish is unknown, never missing. LOOT's errors are warnings here. Skyrim Special Edition and Fallout 4. Use when the user asks \"am I missing anything LOOT says I need\", \"does this mod need SKSE or another plugin\", or \"check my requirements\".",
+      inputSchema: {
+        gameId: z
+          .string()
+          .describe("Canonical game ID: 'skyrimspecialedition' or 'fallout4'."),
+        mo2InstancePath: z
+          .string()
+          .optional()
+          .describe(
+            "Mod Organizer 2 instance folder, for a portable instance (such as a Wabbajack list's) that doesn't live where MO2 normally keeps them. Without it a portable instance isn't found, and the game's own plugins.txt and Data folder are checked instead."
+          ),
+        profileName: z
+          .string()
+          .optional()
+          .describe("MO2 profile name. Default: the instance's active profile."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    guarded("mw_loot_requirements", ["mo2InstancePath"], async ({ gameId, mo2InstancePath, profileName }) => {
+      const result = await checkLootRequirements({
+        gameId,
+        ...(mo2InstancePath !== undefined ? { mo2InstancePath } : {}),
+        ...(profileName !== undefined ? { profileName } : {}),
+      });
+
+      // Counts only: nothing from the player's files or folders.
+      log("debug", "workbench.loot_requirements", {
+        ok: result.ok,
+        requirements: result.ok ? result.requirements.length : 0,
+        missing: result.ok ? result.requirements.filter((r) => r.status === "missing").length : 0,
+      });
+
+      return { content: [{ type: "text", text: summarizeRequirements(result) }] };
+    })
+  );
+  // ─── Tool 11: mw_pulse ──────────────────────────────────────────────────────
+  // "What has changed for the mods I run?" Thunderstore mods in an r2modman profile
+  // for now. The first call sends nothing and answers with the plan; only a call with
+  // confirm=true asks Thunderstore, one request per mod (see pulse/index.ts).
+
+  const pulsePage = registerAppPage(server, PULSE_PAGE);
+  server.registerTool(
+    "mw_pulse",
+    {
+      title: "What's changed for my mods",
+      description:
+        "Pulse: \"what has changed for the mods I run?\" Reads the switched-on mods in an r2modman profile and checks each one against Thunderstore: which have updates, which their authors have deprecated, and which Thunderstore no longer has. Thunderstore games only for now (Lethal Company, Valheim); Nexus and mod.io mods aren't checked yet. Behave like this: call it once WITHOUT confirm. That sends nothing and answers with how many requests a check would make and to which host. Show that to the user, and call again with confirm=true only after they say yes. Never pass confirm=true on the first call. Read-only: it never downloads, installs or changes anything. Use when the user says \"are my mods up to date\", \"what's changed for my mods\" or \"any updates for my modpack\".",
+      inputSchema: {
+        gameId: z
+          .string()
+          .describe("Canonical game ID of a Thunderstore game, e.g. 'lethalcompany' or 'valheim'. mw_detect_environment lists the games on this computer."),
+        profileName: z
+          .string()
+          .optional()
+          .describe("r2modman profile name. Defaults to the first profile alphabetically (typically 'Default')."),
+        confirm: z
+          .boolean()
+          .optional()
+          .describe("true sends the requests. Leave it out on the first call, which only says what would be sent; pass true only after the user has said yes to that."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      ...(pulsePage ? { _meta: pulsePage } : {}),
+    },
+    guarded("mw_pulse", [], async ({ gameId, profileName, confirm }) => {
+      const result = await runPulse({
+        gameId,
+        ...(profileName !== undefined ? { profileName } : {}),
+        ...(confirm !== undefined ? { confirm } : {}),
+      });
+      if (result.ok && result.confirmed) {
+        const m = result.mods;
+        noteFace("updates", updatesFace(m.length, m.filter((x) => x.state === "update").length, m.filter((x) => x.deprecated).length, m.filter((x) => x.state === "gone").length));
+      }
+      // The page gets the same facts as the text, and what its button passes back.
+      const page = result.ok
+        ? pulseView({
+            theme: themeForGameId(gameId),
+            game: result.game,
+            profile: result.profile,
+            host: result.host,
+            confirmed: result.confirmed,
+            requests: result.confirmed ? result.mods.length : result.requests,
+            mods: result.confirmed ? result.mods : [],
+            notChecked: result.notChecked,
+            args: { gameId, ...(profileName !== undefined ? { profileName } : {}) },
+          })
+        : null;
+      return {
+        content: [{ type: "text", text: summarizePulse(result) }],
+        ...(page ? pageData(server, page as unknown as Record<string, unknown>, pulsePage !== undefined) : {}),
+        ...(result.ok ? {} : { isError: true as const }),
+      };
+    })
+  );
+
+  // ─── Tool 12: mw_crew_check ─────────────────────────────────────────────────
+  // "Do we all have the same mods?" For co-op games. No network: it makes this
+  // player's crew list, or compares the crew's pasted lists with their profile.
+
+  server.registerTool(
+    "mw_crew_check",
+    {
+      title: "Do we all have the same mods",
+      description:
+        "Crew Check: \"do we all have the same mods?\" for co-op Thunderstore games (Lethal Company, Valheim). Called without crewLists, it answers with the user's crew list: the Thunderstore name and version of each switched-on mod in their r2modman profile, to share with their crew. Called with the crewmates' pasted lists in crewLists, it compares them with the user's profile and names mods some players lack and mods on different versions. No network, read-only. Use when the user says \"do we all have the same mods\", \"why can't my friend join\" or \"compare our modpacks\".",
+      inputSchema: {
+        gameId: z
+          .string()
+          .describe("Canonical game ID of a Thunderstore game, e.g. 'lethalcompany' or 'valheim'. mw_detect_environment lists the games on this computer."),
+        profileName: z
+          .string()
+          .optional()
+          .describe("r2modman profile name. Defaults to the first profile alphabetically (typically 'Default')."),
+        crewLists: z
+          .array(
+            z.object({
+              name: z.string().max(80).optional().describe("The crewmate's name, as the user calls them."),
+              list: z.string().max(CREW_MAX_CHARS).describe("The crew list the crewmate shared, pasted as it is."),
+            })
+          )
+          .max(CREW_MAX_LISTS)
+          .optional()
+          .describe(`Crewmates' crew lists to compare with the user's profile, at most ${CREW_MAX_LISTS}. Leave out to make the user's own list.`),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    guarded("mw_crew_check", [], async ({ gameId, profileName, crewLists }) => {
+      const result = runCrewCheck({
+        gameId,
+        ...(profileName !== undefined ? { profileName } : {}),
+        ...(crewLists !== undefined ? { crewLists } : {}),
+      });
+      if (result.ok && result.mode === "compare") noteFace("crew", crewFace(result.missing.length, result.versions.length, result.same));
+      return { content: [{ type: "text", text: summarizeCrewCheck(result) }] };
+    })
+  );
+
+  // ─── Tool 13: mw_trust_card ─────────────────────────────────────────────────
+  // "Who made this, and is it what it says?" One mod's record on its platform, one
+  // fact to a line, each naming its source, and no score of ModWrench's own.
+
+  server.registerTool(
+    "mw_trust_card",
+    {
+      title: "Who made this mod",
+      description:
+        "Trust Card: \"who made this mod, and is it what it says?\" One mod's record on its own platform, a fact to a line: author, who uploaded it (Nexus, and whether that is someone else than the author), where it lives, version, first published, last updated, deprecated (Thunderstore), the platform's own download and endorsement or rating numbers, and what the platform says about permissions. Facts only, each from the platform: ModWrench adds no score or verdict. Nexus needs a connected Nexus account and the game's Nexus domain as gameId; mod.io a connected account and its numeric game id; Thunderstore needs nothing and takes the full \"Owner-ModName\" as modId. Use when the user asks \"who made this mod\", \"is this the real one\" or \"can I trust this mod\".",
+      inputSchema: {
+        platform: z.enum(["nexus", "modio", "thunderstore"]).describe("The platform the mod lives on."),
+        modId: z
+          .string()
+          .min(1)
+          .max(200)
+          .describe("The mod's id there: Nexus's number, mod.io's number, or Thunderstore's full name \"Owner-ModName\"."),
+        gameId: z
+          .string()
+          .max(100)
+          .optional()
+          .describe("Nexus: the game's domain, e.g. 'skyrimspecialedition'. mod.io: the game's numeric id. Not needed for Thunderstore."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    guarded("mw_trust_card", [], async ({ platform, modId, gameId }) => {
+      const result = await runTrustCard({ platform, modId, ...(gameId !== undefined ? { gameId } : {}) });
+      return { content: [{ type: "text", text: summarizeTrustCard(result, platform) }], ...(result.found ? {} : { isError: true as const }) };
+    })
+  );
+
+  return { toolCount: 13 };
 }

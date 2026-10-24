@@ -50,7 +50,9 @@ function servePackages(): void {
     new Response(JSON.stringify(PACKAGES), { status: 200, headers: { "content-type": "application/json" } });
 }
 
-// The text answers, exactly as they were before the page existed.
+// The text answers, as they were before the page existed, but for the total
+// downloads that search and top mods now carry as the list does (the Mods page
+// showed "—" for them).
 const GOLDEN = {
   thunderstore_list_mods:
     "Showing 2 of 2 mods in lethal-company:\n\n" +
@@ -94,6 +96,7 @@ const GOLDEN = {
           author: "Evil​Author",
           rating: 7,
           latest_version: "1.2.3",
+          total_downloads: 2000,
           page_url: "https://thunderstore.io/c/lethal-company/p/Evil/CoolMod/",
         },
       ],
@@ -111,6 +114,7 @@ const GOLDEN = {
           author: "BepInEx",
           rating: 900,
           latest_version: "5.4.2100",
+          total_downloads: 2000000,
           page_url: "https://thunderstore.io/c/lethal-company/p/BepInEx/BepInExPack/",
         },
         {
@@ -120,6 +124,7 @@ const GOLDEN = {
           author: "Evil​Author",
           rating: 7,
           latest_version: "1.2.3",
+          total_downloads: 2000,
           page_url: "https://thunderstore.io/c/lethal-company/p/Evil/CoolMod/",
         },
       ],
@@ -136,7 +141,7 @@ const ARGS: Record<keyof typeof GOLDEN, Record<string, unknown>> = {
 
 const TOOLS = Object.keys(GOLDEN) as Array<keyof typeof GOLDEN>;
 
-test("each Thunderstore list tool's text answer is the one it has always given", async () => {
+test("each Thunderstore list tool's text answer is the one pinned above", async () => {
   for (const tool of TOOLS) {
     servePackages();
     const server = new AppsMockServer(PLAIN);
@@ -171,8 +176,13 @@ const VIEWS: Record<keyof typeof GOLDEN, Record<string, unknown>> = {
     query: "lethal-company mods",
     mods: [{ ...COOL, downloads: 2000 }, { ...BEPINEX, downloads: 2000000 }],
   },
-  thunderstore_search_mods: { view: "mods", theme: "lethal", query: "cool", mods: [COOL] },
-  thunderstore_top_mods: { view: "mods", theme: "lethal", query: "Top lethal-company", mods: [BEPINEX, COOL] },
+  thunderstore_search_mods: { view: "mods", theme: "lethal", query: "cool", mods: [{ ...COOL, downloads: 2000 }] },
+  thunderstore_top_mods: {
+    view: "mods",
+    theme: "lethal",
+    query: "Top lethal-company",
+    mods: [{ ...BEPINEX, downloads: 2000000 }, { ...COOL, downloads: 2000 }],
+  },
 };
 
 const CLEAN_ENV = { MODWRENCH_UI: undefined, MODWRENCH_STRUCTURED: undefined };

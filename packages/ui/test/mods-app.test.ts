@@ -159,6 +159,20 @@ test("a mod with nothing but a name shows dashes for its counts, no version, sum
   assert.equal(buttonsOf(page).length, 0);
 });
 
+// Thunderstore takes package names of up to 128 characters, and the page once cut a
+// name at 120. A name that long is shown whole and wraps; only a hostile one is cut.
+test("a long mod name is shown whole, and wraps rather than running past the row", async () => {
+  const name = "Some_Very_Long_Thunderstore_Package_Name_".repeat(3) + "End";
+  assert.ok(name.length > 120 && name.length <= 128, String(name.length));
+  const page = await showMods({ theme: "lethal", mods: [{ name, author: "a", platform: "thunderstore" }] });
+  assert.equal(textOf(one(rowsOf(page)[0]!, "mw-mtitle")!), name);
+  const css = /<style>([\s\S]*?)<\/style>/.exec(renderModsApp())![1]!;
+  const rule = css.match(/\.mw-mtitle\{[^}]*\}/)?.[0];
+  assert.ok(rule, ".mw-mtitle rule not found");
+  assert.match(rule, /overflow-wrap:\s*anywhere/, "a long name without spaces can't break");
+  assert.match(rule, /min-width:\s*0/, "the name can't shrink below its longest word");
+});
+
 test("a row with no name, no author and wrong types still draws, with its attribution as far as it goes", async () => {
   const page = await showMods({
     theme: "skyrim",
@@ -238,7 +252,7 @@ test("hostile names, authors, summaries and addresses go on the page as text onl
   assert.equal(textOf(one(hidden!, "mw-mtitle")!), "a b c d e", "invisible characters are gone");
   assert.equal(textOf(one(hidden!, "mw-mby")!), "by a b c d e");
   assert.equal(textOf(one(hidden!, "mw-url")!), "https://evil.example/ x");
-  assert.equal(textOf(one(long!, "mw-mtitle")!), "x".repeat(119) + "…");
+  assert.equal(textOf(one(long!, "mw-mtitle")!), "x".repeat(299) + "…");
   assert.equal(textOf(one(long!, "mw-mby")!), "by " + "y".repeat(79) + "…");
   assert.equal(textOf(one(long!, "mw-msum")!), "z".repeat(299) + "…");
   assert.equal(Array.from(textOf(one(long!, "mw-url")!)).length, 300);

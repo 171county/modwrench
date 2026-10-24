@@ -1,6 +1,7 @@
 import { load as yamlLoad } from "js-yaml";
 import { appIdentity, getEnv, log } from "@modwrench/core";
 import { clean } from "../patchday/summary.js";
+import { parseCondition, safeRegex, type Condition } from "./condition.js";
 
 const APP = appIdentity(import.meta.url);
 
@@ -17,16 +18,24 @@ const APP = appIdentity(import.meta.url);
 //         - name: 'ConditionalInc.esp'
 //           display: 'Conditional Inc'  # LOOT's name for the file (CommonMark)
 //           detail: 'Only the v2 files.' # or a list of { lang, text }
-//           condition: 'file("...")'    # not evaluated: such an entry is
-//                                       # reported as informational
+//           condition: 'active("...")' # see condition.ts
+//       req:                            # files it needs, written like inc's
+//         - name: 'SKSE/Plugins/x.dll'  # a path from the Data folder
+//           display: 'X'
+//           constraint: 'version(...)'  # the file counts as there only when this is true
+//       msg:
+//         - type: say                   # or warn, or error
+//           content: 'Use {0}.'         # or a list of { lang, text }
+//           subs: [ 'Another.esp' ]     # put in place of {0}, {1}, ...
+//           condition: 'active("...")'
 //
-// display, detail and condition are someone else's text, read by a model:
-// they're kept as one plain line, cut at TEXT_MAX (the longest in Skyrim SE's
-// and Fallout 4's lists is 177 characters). One entry even has its name and
-// display swapped.
+// display, detail, content, condition and constraint are someone else's text,
+// read by a model: they're kept as one plain line, cut at TEXT_MAX (the longest
+// detail in Skyrim SE's and Fallout 4's lists is 177 characters). One entry even
+// has its name and display swapped.
 //
-// Other LOOT fields (after, req, msg, group, etc.) aren't used by this tool
-// — they're for load-order optimization, not incompatibility detection.
+// inc and msg are for the conflict tools, req for mw_loot_requirements. Other
+// LOOT fields (after, group, dirty, etc.) aren't used.
 
 // Pinned to the branch LOOT itself reads by default (DEFAULT_MASTERLIST_BRANCH
 // in loot/loot's game_settings.h), v0.29 since LOOT 0.29.0. A version branch
@@ -73,14 +82,29 @@ export type LootUnavailable = { failed: string };
 
 const TEXT_MAX = 300;
 
+/** One of LOOT's files: an inc or a req entry. */
 export type LootIncEntry = {
   plugin: string;
   /** LOOT's name for the file, as plain text. */
   display?: string;
   /** LOOT's note on the entry, in English, as plain text. */
   detail?: string;
-  /** The condition LOOT applies the entry under, as LOOT wrote it on one line. ModWrench doesn't evaluate it. */
+  /** The condition LOOT applies the entry under, as LOOT wrote it, on one line. */
   condition?: string;
+  /** That condition, read. */
+  when?: Condition;
+  /** What else must be true for the file to count as there, as LOOT wrote it, on one line. Read only for req. */
+  constraint?: string;
+  /** That constraint, read. */
+  must?: Condition;
+};
+
+/** One of LOOT's messages about a plugin. */
+export type LootMessage = {
+  type: "say" | "warn" | "error";
+  /** In English, with its substitutions made, as plain text. */
+  text: string;
+  when?: Condition;
 };
 
 export type LootPluginRule = {
@@ -88,6 +112,8 @@ export type LootPluginRule = {
   /** What a plugin's name is checked against: LOOT's name lowercased, or the regex it is. */
   match: string | RegExp;
   inc: LootIncEntry[];
+  req: LootIncEntry[];
+  msg: LootMessage[];
 };
 
 export type LootMasterlist = {
@@ -95,8 +121,8 @@ export type LootMasterlist = {
   branch: string;
   fetchedAt: number;
   /**
-   * Every entry with an inc list, in file order. A plugin can match several (its
-   * exact name and any number of regexes), and LOOT merges them all, in this order.
+   * Every entry with an inc, req or msg list, in file order. A plugin can match several
+   * (its exact name and any number of regexes), and LOOT merges them all, in this order.
    */
   rules: LootPluginRule[];
 };
@@ -106,15 +132,15 @@ export type LootMasterlist = {
 // matches it case-insensitively (libloot's plugin_metadata.rs).
 const REGEX_NAME = /[:\\*?|]/;
 
-/** How an entry's name matches a plugin, or null for a regex JavaScript can't read (the entry is skipped). */
+/**
+ * How an entry's name matches a plugin, or null for a regex JavaScript can't read or that safeRegex won't run
+ * (the entry is skipped). Every regex name in LOOT's v0.29 lists for all seven games passes safeRegex.
+ */
 function nameMatch(name: string, gameId: string): string | RegExp | null {
   if (!REGEX_NAME.test(name)) return name.toLowerCase();
-  try {
-    return new RegExp(`^${name}$`, "iu");
-  } catch {
-    log("warn", "workbench.loot.bad_regex", { gameId, name });
-    return null;
-  }
+  const regex = safeRegex(name);
+  if (!regex) log("warn", "workbench.loot.bad_regex", { gameId, name });
+  return regex;
 }
 
 const memCache = new Map<string, LootMasterlist | Promise<LootMasterlist | LootUnavailable>>();
@@ -152,15 +178,54 @@ function normalizeIncEntry(raw: unknown): LootIncEntry | null {
       const detail = plainText(english(obj["detail"]));
       if (detail) entry.detail = detail;
       // Conditions are code, so only made one line; they never hold a backtick, which would end the quote.
-      const condition = obj["condition"];
-      if (typeof condition === "string") {
-        const line = clean(condition.replace(/`/g, "'"), TEXT_MAX);
-        if (line) entry.condition = line;
-      }
+      // What is read is LOOT's own text, whole.
+      const read = (text: unknown): [string, Condition] | null => {
+        if (typeof text !== "string") return null;
+        const line = clean(text.replace(/`/g, "'"), TEXT_MAX);
+        return line ? [line, parseCondition(text)] : null;
+      };
+      const condition = read(obj["condition"]);
+      if (condition) [entry.condition, entry.when] = condition;
+      const constraint = read(obj["constraint"]);
+      if (constraint) [entry.constraint, entry.must] = constraint;
       return entry;
     }
   }
   return null;
+}
+
+/** An inc or req list's entries, leaving out any that isn't one. */
+function fileEntries(list: unknown): LootIncEntry[] {
+  const out: LootIncEntry[] = [];
+  if (Array.isArray(list)) {
+    for (const item of list) {
+      const normalized = normalizeIncEntry(item);
+      if (normalized) out.push(normalized);
+    }
+  }
+  return out;
+}
+
+/** A message LOOT shows for a plugin, or null for one without a type or English text. */
+function normalizeMessage(raw: unknown): LootMessage | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const type = obj["type"];
+  if (type !== "say" && type !== "warn" && type !== "error") return null;
+  const content = english(obj["content"]);
+  if (typeof content !== "string") return null;
+  // {0}, {1}, ... take the substitutions in order; one without a substitution stays as written.
+  const subs: unknown[] = Array.isArray(obj["subs"]) ? obj["subs"] : [];
+  const filled = content.replace(/\{(\d+)\}/g, (whole, n: string) => {
+    const sub = subs[Number(n)];
+    return typeof sub === "string" ? sub : whole;
+  });
+  const text = plainText(filled);
+  if (!text) return null;
+  const message: LootMessage = { type, text };
+  const condition = obj["condition"];
+  if (typeof condition === "string" && condition.trim()) message.when = parseCondition(condition);
+  return message;
 }
 
 function parseLootMasterlist(
@@ -188,17 +253,18 @@ function parseLootMasterlist(
     const entry = raw as Record<string, unknown>;
     const name = entry["name"];
     if (typeof name !== "string") continue;
-    const incRaw = entry["inc"];
-    const inc: LootIncEntry[] = [];
-    if (Array.isArray(incRaw)) {
-      for (const i of incRaw) {
-        const normalized = normalizeIncEntry(i);
-        if (normalized) inc.push(normalized);
+    const inc = fileEntries(entry["inc"]);
+    const req = fileEntries(entry["req"]);
+    const msg: LootMessage[] = [];
+    if (Array.isArray(entry["msg"])) {
+      for (const m of entry["msg"]) {
+        const normalized = normalizeMessage(m);
+        if (normalized) msg.push(normalized);
       }
     }
-    if (inc.length === 0) continue;
+    if (inc.length === 0 && req.length === 0 && msg.length === 0) continue;
     const match = nameMatch(name, gameId);
-    if (match !== null) rules.push({ name, match, inc });
+    if (match !== null) rules.push({ name, match, inc, req, msg });
   }
 
   return {
