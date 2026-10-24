@@ -9,6 +9,7 @@
 <meta property="og:description" content="Your AI's wrench for game mods. Runs on your machine. Free and open source.">
 <meta property="og:image" content="/media/social-preview.png">
 <meta name="color-scheme" content="dark light">
+<script src="/try.js" defer></script>
 <style>
 :root {
   --bg: #0f1216;
@@ -20,6 +21,7 @@
   --accent: #e0a43a;
   --accent-ink: #1a1408;
   --good: #7cc68a;
+  --bad: #f08a7e;
   --code: #0b0d10;
   --radius: 10px;
 }
@@ -34,6 +36,7 @@
     --accent: #b5741a;
     --accent-ink: #ffffff;
     --good: #2f7a3e;
+    --bad: #b3261e;
     --code: #1d1f23;
   }
 }
@@ -117,6 +120,52 @@ p code, li code { background: var(--panel-2); padding: 1px 5px; border-radius: 4
 .tag.now { color: var(--good); border-color: var(--good); }
 .tag { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; margin-bottom: 8px; }
 
+.tool { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin-bottom: 18px; min-width: 0; }
+.tool h3 { margin: 0 0 6px; font-size: 21px; }
+.tool > p { color: var(--muted); margin: 0 0 12px; max-width: 70ch; }
+.tool pre { margin: 0 0 4px; }
+label.field { display: block; font-weight: 600; font-size: 14px; margin: 12px 0 4px; }
+textarea, input[type=text] { display: block; width: 100%; max-width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+input[type=text] { font-family: inherit; font-size: 15px; }
+textarea { resize: vertical; }
+textarea:focus, input:focus, button:focus-visible, summary:focus-visible, .btn.file:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.btn { font: inherit; font-weight: 600; cursor: pointer; }
+button.btn:disabled { opacity: 0.5; cursor: default; }
+.btn.file { position: relative; cursor: pointer; }
+.btn.file input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; align-items: center; }
+.status { min-height: 1.6em; margin: 10px 0 0; color: var(--muted); font-size: 15px; }
+.status.error { color: var(--bad); }
+.result { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 4px; overflow-wrap: anywhere; scroll-margin-top: 12px; }
+.result h4 { margin: 20px 0 8px; font-size: 17px; }
+.result p { margin: 8px 0 0; }
+.result .headline { font-size: 17px; font-weight: 600; }
+.small { color: var(--muted); font-size: 14px; }
+dl.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; margin: 12px 0 0; font-size: 15px; }
+dl.facts dt { color: var(--muted); }
+dl.facts dd { margin: 0; }
+ol.leads { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 10px; }
+ol.leads > li, ul.checks > li, ul.crew-out > li { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+.lead-head { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+.lead-rank, .lead-name { font-weight: 700; }
+.strength, .sev { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; color: var(--muted); }
+.strength.strong, .sev.problem { color: var(--accent); border-color: var(--accent); }
+.strength.possible { color: var(--text); }
+ul.evidence { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 15px; }
+ul.evidence li { margin-bottom: 4px; }
+.basis { display: inline-block; font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin-right: 6px; color: var(--muted); }
+ul.checks, ul.crew-out { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 10px; font-size: 15px; }
+ul.checks .sev { margin-right: 6px; }
+ul.checks .fix { color: var(--muted); }
+ul.notes { padding-left: 20px; margin: 12px 0 0; }
+details.post { border: 1px solid var(--line); border-radius: 8px; margin-top: 10px; background: var(--panel-2); }
+details.post summary { cursor: pointer; padding: 10px 12px; font-weight: 600; }
+details.post .body { padding: 0 12px 12px; }
+details.post textarea { margin-top: 10px; }
+.copied { color: var(--good); font-size: 14px; }
+.crew-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 4px 18px; }
+.crew-lists > * { min-width: 0; }
+
 footer { border-top: 1px solid var(--line); padding: 28px 0 calc(96px + env(safe-area-inset-bottom)); color: var(--muted); font-size: 14px; }
 footer .wrap { display: grid; gap: 8px; }
 </style>
@@ -131,6 +180,7 @@ footer .wrap { display: grid; gap: 8px; }
     </a>
     <nav class="links" aria-label="Sections">
       <a href="#what">What it does</a>
+      <a href="#try">Try it</a>
       <a href="#promises">Promises</a>
       <a href="#install">Install</a>
       <a href="https://github.com/171county/modwrench">GitHub</a>
@@ -157,7 +207,7 @@ footer .wrap { display: grid; gap: 8px; }
   <section id="what">
     <div class="wrap">
       <h2>Ask it what you'd ask a modding friend</h2>
-      <p class="sub">You don't pick tools. You ask, and your AI picks the right one. Cards marked <b>Next release</b> arrive with ModWrench 0.3.0; the ones marked <b>Works today</b> are in the version you install now, which can also read a crash log you paste in.</p>
+      <p class="sub">You don't pick tools. You ask, and your AI picks the right one. Cards marked <b>Next release</b> arrive with ModWrench 0.3.0; the ones marked <b>Works today</b> are in the version you install now, which can also read a crash log you paste in. Two you can <a href="#try">try in your browser</a> below: Crash Whisperer's reading of a crash log, and Crew Check.</p>
       <div class="ask">
         <div class="card"><span class="tag soon">Next release</span><p class="who">Crash Whisperer</p><p class="q">"Why did my game crash?"</p><p>Finds your newest crash log on its own, says what happened, which mods the log points at and how sure that is, and writes a help post you can copy.</p></div>
         <div class="card"><span class="tag soon">Next release</span><p class="who">The Doctors</p><p class="q">"Why do my mods keep breaking?"</p><p>A read-only health check of the setup behind the crashes: missing masters, plugin limits, folders Windows protects or syncs, MO2's Overwrite folder, and Steam, Proton and the Steam Deck on Linux.</p></div>
@@ -167,6 +217,45 @@ footer .wrap { display: grid; gap: 8px; }
         <div class="card"><span class="tag soon">Next release</span><p class="who">Trust Card</p><p class="q">"Who made this mod?"</p><p>Author, uploader, where it lives and the platform's own numbers. Facts with their source, and no score: ModWrench doesn't judge anyone's mod.</p></div>
         <div class="card"><span class="tag now">Works today</span><p class="who">Load order and LOOT</p><p class="q">"Do any of my mods clash?"</p><p>Reads your load order from Mod Organizer 2, Vortex or r2modman and checks it against LOOT's public masterlist and the community's list of known conflicts.</p></div>
         <div class="card"><span class="tag now">Works today</span><p class="who">Finding mods</p><p class="q">"Find me a mod that…"</p><p>Searches Thunderstore with no account, and Nexus Mods and mod.io once you connect them, with the author on every result.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="try">
+    <div class="wrap">
+      <span class="tag now">Works in your browser now</span>
+      <h2>Try it in your browser</h2>
+      <p class="sub">Two of ModWrench's tools run right here, on this page, with the same tested code ModWrench ships. What you paste or pick stays in your browser: nothing is uploaded, and the page's own security policy forbids it from sending anything anywhere. There is no AI on this website. It lays out the facts the log holds; talking them through with you, and checking your install (the Doctors, Patch Day, finding your newest crash log on its own), need ModWrench installed.</p>
+      <noscript><p class="sub">These two tools need JavaScript. The rest of the page doesn't.</p></noscript>
+
+      <div class="tool">
+        <h3>Crash log reader</h3>
+        <p>Paste a crash log from Crash Logger SSE, Buffout 4, NetScriptFramework or BepInEx, or choose its file. It reads the log the way Crash Whisperer does: what happened, the names the log points at and how strongly, and a help post for each place you might ask. Before anything reads the log, it takes out what it recognises as personal: folder paths (your user name in them goes too), a name after a label like <code>USERNAME=</code> or <code>Computer Name:</code> wherever else the log has it, network and email addresses, keys and account IDs. Installed, ModWrench also knows your account and computer name and looks for them everywhere. A web page can't know them, so here your name stays where it isn't in a path or after such a label. Read a post before you share it.</p>
+        <label class="field" for="log-text">Crash log</label>
+        <textarea id="log-text" rows="8" spellcheck="false" autocomplete="off" placeholder="Paste the whole log here, or drop its file on this box."></textarea>
+        <div class="row">
+          <button type="button" class="btn primary" id="log-read">Read the log</button>
+          <label class="btn file">Choose a file<input type="file" id="log-file" accept=".log,.txt,text/plain"></label>
+          <button type="button" class="btn" id="log-clear">Clear</button>
+        </div>
+        <p class="status" id="log-status" role="status" aria-live="polite"></p>
+        <div class="result" id="log-result" hidden></div>
+      </div>
+
+      <div class="tool">
+        <h3>Crew Check</h3>
+        <p>For co-op nights on Thunderstore games: paste two or more crew lists to see who's missing which mod, and which mods are on different versions. From 0.3.0, ModWrench makes your crew list from your r2modman profile; until then you can write one by hand. It looks like this:</p>
+<pre>ModWrench crew list 1 · Lethal Company · 3 mods
+BepInEx-BepInExPack 5.4.2100
+x753-More_Suits 1.4.3
+notnotnotswipez-MoreCompany 1.9.1</pre>
+        <div class="crew-lists" id="crew-lists"></div>
+        <div class="row">
+          <button type="button" class="btn primary" id="crew-compare">Compare</button>
+          <button type="button" class="btn" id="crew-add">Add another list</button>
+        </div>
+        <p class="status" id="crew-status" role="status" aria-live="polite"></p>
+        <div class="result" id="crew-result" hidden></div>
       </div>
     </div>
   </section>
@@ -285,7 +374,7 @@ footer .wrap { display: grid; gap: 8px; }
 <footer>
   <div class="wrap">
     <div>ModWrench is free and open source under the MIT license. <a href="https://github.com/171county/modwrench">Source on GitHub</a> · <a href="https://github.com/171county/modwrench/blob/main/TRUST.md">Trust page</a> · <a href="https://github.com/171county/modwrench/issues">Report a problem</a></div>
-    <div>This site has no cookies, no analytics and no trackers. It loads nothing from anywhere else.</div>
+    <div>This site has no cookies, no analytics and no trackers. It loads nothing from anywhere else. Its one script runs the Try section in your browser and sends nothing.</div>
     <div>Skyrim, Fallout, Lethal Company, Valheim, Nexus Mods, mod.io, Thunderstore and LOOT belong to their owners. ModWrench isn't affiliated with or endorsed by any of them.</div>
   </div>
 </footer>

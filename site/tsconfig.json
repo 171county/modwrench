@@ -1,0 +1,16 @@
+{
+  // Typechecks the website's script and its tests. esbuild (site/build.mjs) only strips types, so this is what
+  // checks them; the root `npm run typecheck` runs it.
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "allowJs": true,
+    "checkJs": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false
+  },
+  "include": ["src/**/*", "test/**/*.ts"]
+}
