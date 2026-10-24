@@ -182,7 +182,7 @@ test("mw_crash_whisperer: what the arguments accept and refuse", () => {
 });
 
 test("mw_crash_whisperer: the places a packet can be asked for are the places there are packets for", () => {
-  const packet = tool().config.inputSchema!.packet as z.ZodOptional<z.ZodEnum<[string, ...string[]]>>;
+  const packet = tool().config.inputSchema!.packet as z.ZodOptional<z.ZodEnum>;
   assert.deepEqual([...packet.unwrap().options].sort(), [...VENUES].sort());
 });
 
