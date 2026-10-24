@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ModWrench</title>
+<meta name="description" content="Ask your AI why your game crashed, whether it's safe to update, and whether your mod setup is ready. ModWrench runs on your machine. Free, open source, MIT.">
+<meta property="og:title" content="ModWrench">
+<meta property="og:description" content="Your AI's wrench for game mods. Runs on your machine. Free and open source.">
+<meta property="og:image" content="/media/social-preview.png">
+<meta name="color-scheme" content="dark light">
+<style>
+:root {
+  --bg: #0f1216;
+  --panel: #171b21;
+  --panel-2: #1e232b;
+  --line: #2b323c;
+  --text: #e8e6e1;
+  --muted: #a3a8b0;
+  --accent: #e0a43a;
+  --accent-ink: #1a1408;
+  --good: #7cc68a;
+  --code: #0b0d10;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f6f4ef;
+    --panel: #ffffff;
+    --panel-2: #f0ede6;
+    --line: #ddd8cd;
+    --text: #1d1f23;
+    --muted: #5b6068;
+    --accent: #b5741a;
+    --accent-ink: #ffffff;
+    --good: #2f7a3e;
+    --code: #1d1f23;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, sans-serif;
+}
+a { color: var(--accent); }
+a:hover { text-decoration-thickness: 2px; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+header.top {
+  border-bottom: 1px solid var(--line);
+}
+header.top .wrap {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding-top: 14px; padding-bottom: 14px; flex-wrap: wrap;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--text); text-decoration: none; }
+.brand svg { flex: none; }
+nav.links { display: flex; gap: 18px; flex-wrap: wrap; font-size: 15px; }
+nav.links a { color: var(--muted); text-decoration: none; }
+nav.links a:hover { color: var(--text); }
+
+.hero { padding-top: 64px; padding-bottom: 40px; }
+.hero h1 { font-size: clamp(32px, 6vw, 54px); line-height: 1.08; margin: 0 0 18px; letter-spacing: -0.02em; max-width: 16ch; }
+.hero p.lede { font-size: clamp(17px, 2.2vw, 20px); color: var(--muted); max-width: 60ch; margin: 0 0 28px; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 28px; padding: 0; list-style: none; }
+.pills li { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 12px; font-size: 14px; color: var(--muted); }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; }
+.btn { display: inline-block; padding: 11px 18px; border-radius: var(--radius); font-weight: 600; text-decoration: none; border: 1px solid var(--line); color: var(--text); background: var(--panel); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+section { padding: 44px 0; border-top: 1px solid var(--line); }
+section h2 { font-size: clamp(24px, 3.4vw, 32px); margin: 0 0 10px; letter-spacing: -0.01em; }
+section p.sub { color: var(--muted); margin: 0 0 28px; max-width: 65ch; }
+
+.ask { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); gap: 14px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+.card .q { font-weight: 700; font-size: 17px; margin: 0 0 6px; }
+.card .who { font-size: 13px; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 8px; }
+.card p { margin: 0; color: var(--muted); font-size: 15px; }
+
+figure { margin: 0 0 28px; }
+figure img { width: 100%; height: auto; display: block; border-radius: var(--radius); border: 1px solid var(--line); background: var(--panel); }
+figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; }
+.shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 20px; }
+
+.promises { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.promises li { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--good); border-radius: var(--radius); padding: 14px 16px; }
+.promises b { display: block; margin-bottom: 2px; }
+.promises span { color: var(--muted); font-size: 15px; }
+
+.games { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 12px; }
+.game { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+.game b { display: block; }
+.game span { color: var(--muted); font-size: 14px; }
+
+.steps { display: grid; gap: 18px; }
+.steps > *, .ask > *, .shots > *, .games > *, .honest > *, .next > * { min-width: 0; }
+.step { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+.step h3 { margin: 0 0 8px; font-size: 18px; }
+pre {
+  margin: 10px 0 0; padding: 14px; overflow-x: auto;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+  background: var(--code); color: #e8e6e1; border-radius: 8px;
+  font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; }
+p code, li code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
+
+.honest { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 14px; }
+.honest ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); }
+.honest li { margin-bottom: 6px; }
+
+.next { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 14px; }
+.tag.soon { color: var(--accent); border-color: var(--accent); }
+.tag.now { color: var(--good); border-color: var(--good); }
+.tag { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; margin-bottom: 8px; }
+
+footer { border-top: 1px solid var(--line); padding: 28px 0 calc(96px + env(safe-area-inset-bottom)); color: var(--muted); font-size: 14px; }
+footer .wrap { display: grid; gap: 8px; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/">
+      <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.7 6.3a1 1 0 0 0-1.6-.3l-2.6 2.6-2.1-.5-.5-2.1 2.6-2.6a1 1 0 0 0-.3-1.6 6 6 0 0 0-8 7.2L2.4 15.8a2.8 2.8 0 0 0 4 4l6.8-6.8a6 6 0 0 0 7.2-8z"/></svg>
+      ModWrench
+    </a>
+    <nav class="links" aria-label="Sections">
+      <a href="#what">What it does</a>
+      <a href="#promises">Promises</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/171county/modwrench">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <h1>Your AI's wrench for game mods.</h1>
+    <p class="lede">Ask in plain words why your game crashed, whether it's safe to update, or why your mods keep breaking. ModWrench reads your crash logs and your setup on your own computer and gives your AI the facts to answer with.</p>
+    <ul class="pills" aria-label="At a glance">
+      <li>Free and open source (MIT)</li>
+      <li>Runs on your machine</li>
+      <li>No account needed</li>
+      <li>Nothing sent to us, ever</li>
+    </ul>
+    <div class="cta">
+      <a class="btn primary" href="#install">Install it</a>
+      <a class="btn" href="https://github.com/171county/modwrench/blob/main/TRUST.md">Read the trust page</a>
+    </div>
+  </div>
+
+  <section id="what">
+    <div class="wrap">
+      <h2>Ask it what you'd ask a modding friend</h2>
+      <p class="sub">You don't pick tools. You ask, and your AI picks the right one. Cards marked <b>Next release</b> arrive with ModWrench 0.3.0; the ones marked <b>Works today</b> are in the version you install now, which can also read a crash log you paste in.</p>
+      <div class="ask">
+        <div class="card"><span class="tag soon">Next release</span><p class="who">Crash Whisperer</p><p class="q">"Why did my game crash?"</p><p>Finds your newest crash log on its own, says what happened, which mods the log points at and how sure that is, and writes a help post you can copy.</p></div>
+        <div class="card"><span class="tag soon">Next release</span><p class="who">The Doctors</p><p class="q">"Why do my mods keep breaking?"</p><p>A read-only health check of the setup behind the crashes: missing masters, plugin limits, folders Windows protects or syncs, MO2's Overwrite folder, and Steam, Proton and the Steam Deck on Linux.</p></div>
+        <div class="card"><span class="tag soon">Next release</span><p class="who">Patch Day</p><p class="q">"Is it safe to update the game?"</p><p>Checks whether your script extender plugins (SKSE, F4SE) will survive a game patch, before or after it lands.</p></div>
+        <div class="card"><span class="tag soon">Next release</span><p class="who">Pulse</p><p class="q">"Are my mods up to date?"</p><p>Checks the Thunderstore mods in your r2modman profile for updates and deprecated mods. It tells you exactly what it would send and waits for your yes.</p></div>
+        <div class="card"><span class="tag soon">Next release</span><p class="who">Crew Check</p><p class="q">"Do we all have the same mods?"</p><p>For co-op nights: each player shares a short mod list, and ModWrench says who's missing what. No network at all.</p></div>
+        <div class="card"><span class="tag soon">Next release</span><p class="who">Trust Card</p><p class="q">"Who made this mod?"</p><p>Author, uploader, where it lives and the platform's own numbers. Facts with their source, and no score: ModWrench doesn't judge anyone's mod.</p></div>
+        <div class="card"><span class="tag now">Works today</span><p class="who">Load order and LOOT</p><p class="q">"Do any of my mods clash?"</p><p>Reads your load order from Mod Organizer 2, Vortex or r2modman and checks it against LOOT's public masterlist and the community's list of known conflicts.</p></div>
+        <div class="card"><span class="tag now">Works today</span><p class="who">Finding mods</p><p class="q">"Find me a mod that…"</p><p>Searches Thunderstore with no account, and Nexus Mods and mod.io once you connect them, with the author on every result.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="see">
+    <div class="wrap">
+      <h2>Answers you can see</h2>
+      <p class="sub">Every answer comes as text any AI app can show. In apps that support MCP Apps, some answers also open as a page beside the chat. The pages can't reach the internet and keep nothing. They arrive with the next release, 0.3.0.</p>
+      <div class="shots">
+        <figure>
+          <img src="/media/crash-panel.png" width="2080" height="1288" loading="lazy" alt="The crash log page: an access violation laid out into its exception, suspected form IDs, call stack, registers and loaded plugins.">
+          <figcaption>A crash log, laid out. ModWrench shows what's in the log; deciding the cause is your AI's job, and the page says so.</figcaption>
+        </figure>
+        <figure>
+          <img src="/media/mods-panel.png" width="2080" height="1028" loading="lazy" alt="The mods page: three Skyrim mods, each with author, platform, version, download and endorsement counts.">
+          <figcaption>Search results with the author on every row.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="games">
+    <div class="wrap">
+      <h2>Made for the games people mod most</h2>
+      <p class="sub">Searching and load-order reading work across many more games. These four get the deepest support today.</p>
+      <div class="games">
+        <div class="game"><b>Skyrim Special Edition</b><span>Nexus · Mod Organizer 2 · Vortex · SKSE</span></div>
+        <div class="game"><b>Fallout 4</b><span>Nexus · Mod Organizer 2 · Vortex · F4SE</span></div>
+        <div class="game"><b>Lethal Company</b><span>Thunderstore · r2modman · BepInEx</span></div>
+        <div class="game"><b>Valheim</b><span>Thunderstore · r2modman · BepInEx</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="promises">
+    <div class="wrap">
+      <h2>It's yours. Here's what that means.</h2>
+      <p class="sub">ModWrench runs on your computer. There is no ModWrench service and no server of ours for it to talk to. These promises are written down in full, with how to check each one yourself, on the <a href="https://github.com/171county/modwrench/blob/main/TRUST.md">trust page</a>.</p>
+      <ul class="promises">
+        <li><b>It never downloads, installs or deletes a mod.</b><span>There is no download code in it.</span></li>
+        <li><b>It never changes your load order, your mods or your game files.</b><span>Every local tool opens files read-only.</span></li>
+        <li><b>It never stores your data.</b><span>Nothing is written to disk. What it reads lives in memory only until the answer reaches your AI.</span></li>
+        <li><b>It never sends anything to us.</b><span>No analytics, no crash reporting, no telemetry. No network address in its code belongs to us.</span></li>
+        <li><b>One write action, and only when you say yes.</b><span>It can endorse a mod on Nexus to credit its author. It shows you exactly what it will do first, every time.</span></li>
+        <li><b>It never rates or scores a mod.</b><span>It tells you what a mod is. It doesn't review someone's work back at them.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <h2>Install</h2>
+      <p class="sub">You need <a href="https://nodejs.org/">Node.js</a> 20 or newer and an AI app that supports MCP and can start a program on your computer. Thunderstore and the local tools work straight away, with no account and no key.</p>
+      <div class="steps">
+        <div class="step">
+          <h3>Claude Code</h3>
+          <p>In a terminal, or in VS Code's terminal if you use the Claude Code extension:</p>
+<pre>claude mcp add --scope user modwrench -- npx -y @modwrench/cli</pre>
+        </div>
+        <div class="step">
+          <h3>VS Code (Copilot Chat)</h3>
+          <p>Open the Command Palette (<code>Ctrl+Shift+P</code>), run <b>MCP: Add Server</b>, choose <b>Command (stdio)</b> and enter <code>npx -y @modwrench/cli</code>. Then switch the chat to <b>Agent</b> mode.</p>
+        </div>
+        <div class="step">
+          <h3>Claude Desktop, Cursor, Cline, Continue, Roo Code</h3>
+          <p>Add this to your app's MCP config and restart the app:</p>
+<pre>{
+  "mcpServers": {
+    "modwrench": {
+      "command": "npx",
+      "args": ["-y", "@modwrench/cli"]
+    }
+  }
+}</pre>
+        </div>
+      </div>
+      <p class="sub" style="margin-top:18px">Then just ask: "Why did my game crash?"</p>
+    </div>
+  </section>
+
+  <section id="honest">
+    <div class="wrap">
+      <h2>Honest about where it is</h2>
+      <div class="honest">
+        <div class="card">
+          <p class="q">Still being tested</p>
+          <ul>
+            <li>The pages have been tested against a stand-in for an AI app, not yet inside Claude, VS Code or the others.</li>
+            <li>The newest tools haven't been run against a real game install yet. Testers on PC are welcome.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <p class="q">What it can't do</p>
+          <ul>
+            <li>It can't promise a mod is safe to run. It shows what the platform records and what your files say.</li>
+            <li>It only knows the conflicts LOOT and the community have written down.</li>
+            <li>What it reads goes to your AI app. Where that goes is up to the app you use.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="next">
+    <div class="wrap">
+      <h2>Coming next</h2>
+      <div class="next">
+        <div class="card"><span class="tag">Planned</span><p class="q">One-click install</p><p>A single file you open to add ModWrench to Claude Desktop.</p></div>
+        <div class="card"><span class="tag">Planned</span><p class="q">Recipes</p><p>One button for a whole job, like "before I update: Patch Day, then Pulse, then the Doctors".</p></div>
+        <div class="card"><span class="tag">Planned</span><p class="q">Your Play Save</p><p>A snapshot of your setup under your own name, so you can see what changed since it last worked. Off until you turn it on, saved only where you choose, and never sent anywhere.</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>ModWrench is free and open source under the MIT license. <a href="https://github.com/171county/modwrench">Source on GitHub</a> · <a href="https://github.com/171county/modwrench/blob/main/TRUST.md">Trust page</a> · <a href="https://github.com/171county/modwrench/issues">Report a problem</a></div>
+    <div>This site has no cookies, no analytics and no trackers. It loads nothing from anywhere else.</div>
+    <div>Skyrim, Fallout, Lethal Company, Valheim, Nexus Mods, mod.io, Thunderstore and LOOT belong to their owners. ModWrench isn't affiliated with or endorsed by any of them.</div>
+  </div>
+</footer>
+
+</body>
+</html>
