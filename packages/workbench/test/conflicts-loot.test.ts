@@ -159,11 +159,19 @@ test("a fetch that stalls gives up after 30 seconds, before the answer starts or
     return timeout(10);
   });
   const reason = "LOOT masterlist fetch timed out after 30 seconds." + FALLBACK;
-  for (const gameId of ["falloutnv", "oblivion"]) {
-    const r = await checkKnownConflicts({ gameId, modIds: ["Example.esm", "Other.esp"] });
-    assert.deepEqual(r.conflicts, [], gameId);
-    assert.deepEqual(r.sources.loot, { available: false, reason }, gameId);
-    assert.deepEqual(r.warnings, [reason], gameId);
+  // AbortSignal.timeout's timer doesn't keep the process alive, and a stalled fetch
+  // holds nothing open, so without this the event loop can empty before the 10
+  // milliseconds are up and the runner cancels this test and every one after it.
+  const awake = setInterval(() => {}, 1000);
+  try {
+    for (const gameId of ["falloutnv", "oblivion"]) {
+      const r = await checkKnownConflicts({ gameId, modIds: ["Example.esm", "Other.esp"] });
+      assert.deepEqual(r.conflicts, [], gameId);
+      assert.deepEqual(r.sources.loot, { available: false, reason }, gameId);
+      assert.deepEqual(r.warnings, [reason], gameId);
+    }
+  } finally {
+    clearInterval(awake);
   }
   assert.deepEqual(asked, [30_000, 30_000]);
 });
