@@ -71,7 +71,7 @@
     "@modwrench/core": "0.3.0",
     "@modwrench/ui": "0.3.0",
     "js-yaml": "^4.1.0",
-    "zod": "^3.23.8"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9"

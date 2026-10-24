@@ -149,6 +149,17 @@ This document is maintained by hand.
   skipped and matches no plugin. Every regex name in LOOT's v0.29 lists for all
   seven games passes the guard.
 
+### Security
+- **Dependencies brought up to date; `npm audit` finds nothing.** zod, which
+  checks every tool's input, moves from 3 to 4 (4.6.6 or later), because zod 3
+  can run out of memory validating an oversized list
+  ([GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)) and
+  has no fixed 3.x release. The MCP SDK supports zod 4, and the tools' inputs and
+  descriptions are unchanged. The web-server libraries the MCP SDK brings in
+  (`body-parser`, `proxy-addr`, `hono`, `ip-address`, `fast-uri`) get their
+  fixed versions in the lockfile. Those matter to `@modwrench/remote`, the HTTP
+  server; the local server doesn't listen on the network.
+
 ## [0.3.0] — unreleased
 
 The workbench learns to answer three questions on its own: "is it safe to
