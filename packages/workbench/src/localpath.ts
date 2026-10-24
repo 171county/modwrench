@@ -25,3 +25,12 @@ export function isNetworkPath(path: string): boolean {
   const p = path.trimStart();
   return TWO_SEPARATORS.test(p) && !LOCAL_LONG_PATH.test(win32.resolve(p));
 }
+
+// A profile name, from the model or from Mod Organizer 2's ModOrganizer.ini, is joined onto a
+// manager's profiles folder. "." or "..", or a "/" or "\" (Windows reads both as separators),
+// would step out of it or below it, so a name is used only when it is one folder.
+
+/** True when `name` is one folder name: not empty, "." or "..", and no "/", "\" or NUL in it. */
+export function isFolderName(name: string): boolean {
+  return name !== "" && name !== "." && name !== ".." && !/[\\/\0]/.test(name);
+}

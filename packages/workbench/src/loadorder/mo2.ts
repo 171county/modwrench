@@ -3,7 +3,7 @@ import { isAbsolute, join, normalize, parse, resolve } from "node:path";
 import { homedir } from "node:os";
 import { pathExists } from "../detect/os.js";
 import { isDir, readText, resolveCI } from "../doctor/fsutil.js";
-import { isNetworkPath } from "../localpath.js";
+import { isFolderName, isNetworkPath } from "../localpath.js";
 import { findSteamRoot, findSteamLibraries } from "../detect/steam.js";
 import { detectInstalledManagers } from "../detect/manager.js";
 import type { GameDef } from "../detect/games.js";
@@ -283,6 +283,8 @@ export function readMo2LoadOrder(
 
   const profile =
     opts.profileName ?? readInstanceActiveProfile(instancePath) ?? "Default";
+  // The ini's selected_profile is text anyone can plant too: a name that isn't one folder is treated as missing.
+  if (!isFolderName(profile)) return null;
   const profiles = mo2Folder(instancePath, "profiles_directory", "profiles");
   if (profiles === null) return null;
   const profileDir = join(profiles, profile);

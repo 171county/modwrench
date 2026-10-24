@@ -43,14 +43,15 @@ import { summarizeCrashWhisper, whisper } from "./crashwhisper/index.js";
 import { runDoctor } from "./doctor/index.js";
 import { summarizeDoctor } from "./doctor/summary.js";
 import { correlateCrash, type CrashSuspect } from "./crashlog/diagnose.js";
-import { isNetworkPath } from "./localpath.js";
+import { isFolderName, isNetworkPath } from "./localpath.js";
 
 const refusal = (text: string): CallToolResult => ({ content: [{ type: "text", text }], isError: true });
 
 /**
  * Every tool's handler runs through here. A path argument that names another computer
  * or a device is refused before anything opens it (see localpath.ts), and the answer
- * names the argument but never repeats the path. An error nobody planned for, such as
+ * names the argument but never repeats the path. So is a profileName that isn't one
+ * folder name, since it is joined onto a profiles folder. An error nobody planned for, such as
  * a file another program holds open, comes back as one plain sentence with its code:
  * Node puts the full path, user name and all, in the error's message, and the SDK
  * would hand that message to the client as the answer.
@@ -71,6 +72,13 @@ function guarded<A extends unknown[]>(
               "The workbench tools read only this computer's own drives. Copy the file or folder to a local drive and pass that path instead."
           );
         }
+      }
+      const profileName = input?.profileName;
+      if (typeof profileName === "string" && !isFolderName(profileName)) {
+        return refusal(
+          `profileName isn't one folder name (it is empty, "." or "..", or holds a slash, a backslash or a NUL character), so ${tool} didn't open it. ` +
+            "Pass the name of the profile's own folder in the mod manager's profiles folder, such as Default."
+        );
       }
       return await handler(...args);
     } catch (err) {
