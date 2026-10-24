@@ -146,6 +146,16 @@ async function main() {
       }
     }
 
+    // The sample log button, for a visitor with no log of their own.
+    {
+      const { context, page } = await newPage(browser, origin, 390, "dark", seen);
+      await page.click("#log-sample");
+      await page.waitForSelector("#log-result:not([hidden]) ol.leads > li");
+      assert.equal(await page.textContent("#log-result ol.leads > li .lead-name"), "CloakAndDaggerFix.dll", "the sample's lead");
+      seen.violations.push(...(await page.evaluate(() => window.__violations)));
+      await context.close();
+    }
+
     // A hostile log and a hostile crewmate's name stay text.
     const { context, page } = await newPage(browser, origin, 1280, "dark", seen);
     for (const payload of HOSTILE) {

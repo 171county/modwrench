@@ -11,6 +11,8 @@ import {
   type CrewCompare,
   type Lead,
 } from "./run.js";
+// A made-up Skyrim crash from ModWrench's own tests, for a visitor with no crash log to hand.
+import SAMPLE_LOG from "../../packages/workbench/test/fixtures/crash-sse-real-format.log";
 
 // The Try section of the website. Everything a log or a crew list holds is someone else's text, so it reaches the page
 // only through text nodes (el() below): never as markup. The page sends nothing; its Content-Security-Policy (site/
@@ -188,6 +190,11 @@ function setUpCrashReader(): void {
   };
 
   byId("log-read").addEventListener("click", run);
+  byId("log-sample").addEventListener("click", () => {
+    text.value = SAMPLE_LOG;
+    file.value = "";
+    run();
+  });
   byId("log-clear").addEventListener("click", () => {
     text.value = "";
     file.value = "";

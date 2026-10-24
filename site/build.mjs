@@ -26,6 +26,8 @@ export function bundleOptions(entry) {
     target: "es2020",
     minify: true,
     legalComments: "none",
+    // The sample crash log the page offers is bundled as text, since the page may not fetch anything.
+    loader: { ".log": "text" },
     logLevel: "warning",
     plugins: [
       {

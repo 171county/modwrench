@@ -209,6 +209,15 @@ test("the page's script has no way to send anything, store anything or write mar
   assert.ok(code.length < 300_000, `the bundle is ${code.length} bytes`);
 });
 
+test("the sample log the page offers is bundled whole, and is the made-up one from the tests", async () => {
+  const out = await build({ ...bundleOptions(join(SITE, "src", "try.ts")), format: "iife", write: false });
+  const code = out.outputFiles[0]!.text;
+  for (const line of fixture("crash-sse-real-format.log").split(/\r?\n/).filter((l) => /^(CRASH TIME|Skyrim SSE|CrashLoggerSSE) /.test(l))) {
+    assert.ok(code.includes(line), `the bundle has the sample's line "${line}"`);
+  }
+  assert.ok(readFileSync(join(SITE, "public", "index.html"), "utf8").includes('id="log-sample"'));
+});
+
 test("the CSP forbids every request but the page's own script and images, and the page has no inline script", () => {
   const headers = readFileSync(join(SITE, "public", "_headers"), "utf8");
   const csp = /Content-Security-Policy: (.+)/.exec(headers)?.[1]?.trim();
