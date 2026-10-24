@@ -88,7 +88,7 @@ export type WhisperOptions = {
 };
 
 /** The most text taken from a paste: a crash log is tens of kilobytes, and BepInEx logs are the exception. */
-const MAX_PASTE = 4_000_000;
+export const MAX_PASTE = 4_000_000;
 const DEFAULT_RECENT = 5;
 const MAX_RECENT = 10;
 /** The largest log read in full for comparison. */
@@ -656,8 +656,6 @@ export function whisper(options: WhisperOptions = {}): CrashWhisperResult {
 
   if (text.trim().length === 0) return fail("The log is empty.", "Paste the whole log, or pick the file with logPath.");
 
-  const hash = signature(text);
-
   // 2. Take the person out of it before anything else reads it. The log and the other recent logs share one time allowance.
   const shared: RedactOptions = { ...redactOptions, deadline: cleaningDeadline(redactOptions) };
   const scrubbed = redact(text, shared);
@@ -712,7 +710,7 @@ export function whisper(options: WhisperOptions = {}): CrashWhisperResult {
       gameId: game.id,
       ...(options.gamePath !== undefined ? { gamePath: options.gamePath } : {}),
     }).logs;
-    const compared = recentLeadKeys(siblings, { hash, ...(abs !== undefined ? { abs } : {}) }, parsed.detectedType, wantRecent, shared);
+    const compared = recentLeadKeys(siblings, { hash: signature(text), ...(abs !== undefined ? { abs } : {}) }, parsed.detectedType, wantRecent, shared);
     recent = compared.sets;
     recentOutOfTime = compared.outOfTime;
   }

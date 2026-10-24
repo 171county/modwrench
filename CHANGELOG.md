@@ -11,6 +11,23 @@ This document is maintained by hand.
 ## [Unreleased]
 
 ### Added
+- **The website's source is in the repo, and its Try section works in your
+  browser.** `site/` holds the static site deployed to
+  modwrench.171county.workers.dev; `npm run site:build` bundles it into
+  `site/dist`. The new Try section runs two pieces of ModWrench's own code on
+  the page: Crash Whisperer's reading of a pasted or chosen crash log (what
+  happened, the leads with their strength and reasons, and the four help posts
+  with a Copy button each), with no install check and no other logs compared,
+  and Crew Check's comparison of 2 to 16 pasted crew lists. A Try a sample log
+  button reads a made-up Skyrim crash from the tests, bundled into the script.
+  Nothing is sent:
+  the site's Content-Security-Policy now allows its own script and still has
+  no `connect-src`, so the browser refuses any request the page might make.
+  Node's built-in modules are swapped for stubs in the browser build, and
+  `site/test` runs the bundle with no Node behind it to show none is reached.
+  TRUST.md has a section on the website. Crew Check's comparison is now
+  `compareCrewLists`, which `mw_crew_check` calls with your profile first and
+  the website calls without one.
 - **`mw_diagnose_crash` shows LOOT's notes on the plugins the crash log lists.**
   With a `gameId`, the answer has a `lootNotes` part beside the known conflicts:
   the messages LOOT's masterlist has for those plugins (`msg`), each shown only

@@ -53,3 +53,4 @@ _old-node_modules-*/
 *.html
 !tiles/*.html
 !packages/**/*.html
+!site/public/*.html
