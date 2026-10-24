@@ -98,10 +98,14 @@ figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; }
 .game b { display: block; }
 .game span { color: var(--muted); font-size: 14px; }
 
-.steps { display: grid; gap: 18px; }
-.steps > *, .ask > *, .shots > *, .games > *, .honest > *, .next > * { min-width: 0; }
-.step { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
-.step h3 { margin: 0 0 8px; font-size: 18px; }
+.apps > *, .ask > *, .shots > *, .games > *, .honest > *, .next > * { min-width: 0; }
+.apps { display: grid; gap: 10px; }
+details.app { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+details.app summary { cursor: pointer; padding: 14px 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+details.app summary .tag { margin-bottom: 0; }
+.app-name { font-weight: 700; font-size: 17px; }
+.app-body { padding: 0 18px 16px; min-width: 0; }
+.app-body ol { padding-left: 20px; margin: 0; }
 pre {
   margin: 10px 0 0; padding: 14px; overflow-x: auto;
   white-space: pre-wrap; overflow-wrap: anywhere;
@@ -309,30 +313,131 @@ notnotnotswipez-MoreCompany 1.9.1</pre>
 
   <section id="install">
     <div class="wrap">
-      <h2>Install</h2>
-      <p class="sub">You need <a href="https://nodejs.org/">Node.js</a> 20 or newer and an AI app that supports MCP and can start a program on your computer. Thunderstore and the local tools work straight away, with no account and no key.</p>
-      <div class="steps">
-        <div class="step">
-          <h3>Claude Code</h3>
-          <p>In a terminal, or in VS Code's terminal if you use the Claude Code extension:</p>
-<pre>claude mcp add --scope user modwrench -- npx -y @modwrench/cli</pre>
-        </div>
-        <div class="step">
-          <h3>VS Code (Copilot Chat)</h3>
-          <p>Open the Command Palette (<code>Ctrl+Shift+P</code>), run <b>MCP: Add Server</b>, choose <b>Command (stdio)</b> and enter <code>npx -y @modwrench/cli</code>. Then switch the chat to <b>Agent</b> mode.</p>
-        </div>
-        <div class="step">
-          <h3>Claude Desktop, Cursor, Cline, Continue, Roo Code</h3>
-          <p>Add this to your app's MCP config and restart the app:</p>
+      <h2>Install: pick your app</h2>
+      <p class="sub">You need <a href="https://nodejs.org/">Node.js</a> 20 or newer, and an AI app that supports MCP and runs on the computer your games are on. Thunderstore and the local tools work straight away, with no account and no key. Each app's steps come from its own documentation (checked 2026-10-24). ModWrench has been run in Claude Code; in the others it hasn't been tried yet, so <a href="https://github.com/171county/modwrench/issues">tell us</a> how it goes.</p>
+      <div class="apps">
+        <details class="app" open>
+          <summary><span class="app-name">Claude Desktop</span><span class="tag now">Draws ModWrench's pages</span></summary>
+          <div class="app-body">
+            <ol>
+              <li>Open <b>Settings</b> → <b>Developer</b> → <b>Edit Config</b>. That opens <code>claude_desktop_config.json</code>.</li>
+              <li>Put this in it (if the file already has other servers, add the <code>"modwrench"</code> entry inside its <code>"mcpServers"</code>):</li>
+            </ol>
 <pre>{
-  "mcpServers": {
-    "modwrench": {
-      "command": "npx",
-      "args": ["-y", "@modwrench/cli"]
+  &quot;mcpServers&quot;: {
+    &quot;modwrench&quot;: {
+      &quot;command&quot;: &quot;npx&quot;,
+      &quot;args&quot;: [
+        &quot;-y&quot;,
+        &quot;@modwrench/cli&quot;
+      ]
     }
   }
 }</pre>
-        </div>
+            <p>Quit Claude Desktop completely (from the icon by the clock, or the menu bar on a Mac) and open it again.</p>
+          </div>
+        </details>
+        <details class="app">
+          <summary><span class="app-name">Claude Code</span><span class="tag">Text answers</span></summary>
+          <div class="app-body">
+            <p>In a terminal, or in VS Code's terminal if you use the Claude Code extension:</p>
+<pre>claude mcp add --transport stdio --scope user modwrench -- npx -y @modwrench/cli</pre>
+            <p>Then start a new conversation and run <code>/mcp</code>: ModWrench should say <b>connected</b>. On Windows, if its tools don't load, use <code>cmd /c npx -y @modwrench/cli</code> after the <code>--</code> instead.</p>
+          </div>
+        </details>
+        <details class="app">
+          <summary><span class="app-name">VS Code (Copilot Chat)</span><span class="tag now">Draws ModWrench's pages</span></summary>
+          <div class="app-body">
+            <p><a class="btn primary" href="vscode:mcp/install?%7B%22name%22%3A%22modwrench%22%2C%22type%22%3A%22stdio%22%2C%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40modwrench%2Fcli%22%5D%7D">Install in VS Code</a></p>
+            <p>VS Code asks you to confirm, then adds it. Or open the Command Palette (<code>Ctrl+Shift+P</code>), run <b>MCP: Open User Configuration</b>, and add:</p>
+<pre>{
+  &quot;servers&quot;: {
+    &quot;modwrench&quot;: {
+      &quot;type&quot;: &quot;stdio&quot;,
+      &quot;command&quot;: &quot;npx&quot;,
+      &quot;args&quot;: [
+        &quot;-y&quot;,
+        &quot;@modwrench/cli&quot;
+      ]
+    }
+  }
+}</pre>
+            <p>Switch the chat to <b>Agent</b> mode. To see ModWrench's pages in the chat, turn on the experimental setting <code>chat.mcp.apps.enabled</code>.</p>
+          </div>
+        </details>
+        <details class="app">
+          <summary><span class="app-name">Cursor</span><span class="tag now">Draws ModWrench's pages</span></summary>
+          <div class="app-body">
+            <p><a class="btn primary" href="cursor://anysphere.cursor-deeplink/mcp/install?name=modwrench&amp;config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBtb2R3cmVuY2gvY2xpIl19">Add to Cursor</a></p>
+            <p>Cursor asks you to confirm, then adds it. If the button doesn't fill it in, add this to <code>~/.cursor/mcp.json</code> yourself:</p>
+<pre>{
+  &quot;mcpServers&quot;: {
+    &quot;modwrench&quot;: {
+      &quot;command&quot;: &quot;npx&quot;,
+      &quot;args&quot;: [
+        &quot;-y&quot;,
+        &quot;@modwrench/cli&quot;
+      ]
+    }
+  }
+}</pre>
+          </div>
+        </details>
+        <details class="app">
+          <summary><span class="app-name">Codex</span><span class="tag">Text answers</span></summary>
+          <div class="app-body">
+            <p>In a terminal (the Codex CLI, IDE extension and desktop app share one configuration):</p>
+<pre>codex mcp add modwrench -- npx -y @modwrench/cli</pre>
+            <p>Or add this to <code>~/.codex/config.toml</code>:</p>
+<pre>[mcp_servers.modwrench]
+command = "npx"
+args = ["-y", "@modwrench/cli"]</pre>
+            <p>On Windows, some people have needed <code>command = "cmd"</code> and <code>args = ["/c", "npx", "-y", "@modwrench/cli"]</code> instead.</p>
+          </div>
+        </details>
+        <details class="app">
+          <summary><span class="app-name">Antigravity</span></summary>
+          <div class="app-body">
+            <p>In the agent panel's <b>…</b> menu: <b>MCP Servers</b> → <b>Manage MCP Servers</b> → <b>View raw config</b>, and add:</p>
+<pre>{
+  &quot;mcpServers&quot;: {
+    &quot;modwrench&quot;: {
+      &quot;command&quot;: &quot;npx&quot;,
+      &quot;args&quot;: [
+        &quot;-y&quot;,
+        &quot;@modwrench/cli&quot;
+      ]
+    }
+  }
+}</pre>
+          </div>
+        </details>
+        <details class="app">
+          <summary><span class="app-name">Devin</span></summary>
+          <div class="app-body">
+            <p><b>Devin on your computer</b> (the Devin CLI, and Devin Desktop's local agent):</p>
+<pre>devin mcp add -s user modwrench -- npx -y @modwrench/cli</pre>
+            <p><b>Devin in the cloud</b> runs on its own virtual machine, so ModWrench there can't see the games on your PC. Searching mods works; reading your crash logs and setup doesn't.</p>
+          </div>
+        </details>
+        <details class="app">
+          <summary><span class="app-name">Cline, Windsurf and other apps</span></summary>
+          <div class="app-body">
+            <p>Most apps that support MCP take this, in their MCP settings file:</p>
+<pre>{
+  &quot;mcpServers&quot;: {
+    &quot;modwrench&quot;: {
+      &quot;command&quot;: &quot;npx&quot;,
+      &quot;args&quot;: [
+        &quot;-y&quot;,
+        &quot;@modwrench/cli&quot;
+      ]
+    }
+  }
+}</pre>
+            <p>Cline: <b>MCP Servers</b> → <b>Configure</b>. Windsurf's Cascade: <code>~/.codeium/windsurf/mcp_config.json</code>.</p>
+          </div>
+        </details>
       </div>
       <p class="sub" style="margin-top:18px">Then just ask: "Why did my game crash?"</p>
     </div>
