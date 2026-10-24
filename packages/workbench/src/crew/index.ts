@@ -24,7 +24,7 @@ export type CrewList = { name?: string; list: string };
 export type CrewInput = { gameId: string; profileName?: string; crewLists?: CrewList[] };
 
 /** One crewmate's list as read: lower-cased id → [id as written, version]. */
-type ParsedList = {
+export type ParsedList = {
   label: string;
   /** The game the list's header names, when it has one. */
   game?: string;
@@ -102,26 +102,39 @@ export function runCrewCheck(input: CrewInput): CrewResult {
     };
   }
 
-  const warnings: string[] = [];
-  if (lists.length > CREW_MAX_LISTS) warnings.push(`Only the first ${CREW_MAX_LISTS} of the ${lists.length} lists were compared.`);
   const mine: ParsedList = {
     label: "You",
     mods: new Map(read.mods.map((m) => [m.fullName.toLowerCase(), { id: m.fullName, version: m.installed !== undefined && VERSION.test(m.installed) ? m.installed : "?" }])),
     unread: 0,
     overflow: 0,
   };
+  return { ok: true, mode: "compare", ...compareCrewLists(lists, { game: read.game, mine }), game: read.game, profile: read.profile };
+}
+
+/**
+ * Reads the crew's pasted lists and compares them, with `mine` (the player's own profile) first when there is one:
+ * the mods some players don't have, and the mods on different versions. It reads no file, so ModWrench's website runs
+ * it on lists pasted there. Without `game`, a list is checked against the game the first list's header names.
+ */
+export function compareCrewLists(
+  lists: CrewList[],
+  options: { game?: string; mine?: ParsedList } = {}
+): Omit<Extract<CrewResult, { mode: "compare" }>, "ok" | "mode" | "game" | "profile"> & { game?: string } {
+  const warnings: string[] = [];
+  if (lists.length > CREW_MAX_LISTS) warnings.push(`Only the first ${CREW_MAX_LISTS} of the ${lists.length} lists were compared.`);
   const crew = lists.slice(0, CREW_MAX_LISTS).map((l, i) => {
     const name = l.name !== undefined ? clean(l.name, 40) : "";
     return parseCrewList(l.list, name !== "" && name.toLowerCase() !== "you" ? name : `Crewmate ${i + 1}`);
   });
+  const game = options.game ?? crew.find((c) => c.game !== undefined)?.game;
   for (const c of crew) {
     if (c.mods.size === 0) warnings.push(`${c.label}'s list had no mod lines ModWrench could read.`);
-    if (c.game !== undefined && c.game !== read.game) warnings.push(`${c.label}'s list is for ${c.game}, not ${read.game}.`);
+    if (c.game !== undefined && game !== undefined && c.game !== game) warnings.push(`${c.label}'s list is for ${c.game}, not ${game}.`);
     if (c.unread > 0) warnings.push(`${c.label}'s list had ${c.unread} line${c.unread === 1 ? "" : "s"} that weren't a mod and a version, left unread.`);
     if (c.overflow > 0) warnings.push(`${c.label}'s list had more than ${CREW_MAX_LINES} mods; the last ${c.overflow} weren't read.`);
   }
 
-  const everyone = [mine, ...crew];
+  const everyone = options.mine ? [options.mine, ...crew] : crew;
   const ids = new Map<string, string>();
   for (const p of everyone) for (const [key, m] of p.mods) if (!ids.has(key)) ids.set(key, m.id);
 
@@ -139,7 +152,7 @@ export function runCrewCheck(input: CrewInput): CrewResult {
     else same++;
   }
 
-  return { ok: true, mode: "compare", game: read.game, profile: read.profile, players: everyone.map((p) => p.label), missing, versions, same, warnings };
+  return { ...(game !== undefined ? { game } : {}), players: everyone.map((p) => p.label), missing, versions, same, warnings };
 }
 
 // ─── The text answer ─────────────────────────────────────────────────────────
