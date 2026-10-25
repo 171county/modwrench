@@ -116,6 +116,15 @@ This document is maintained by hand.
   [TRUST.md](TRUST.md#the-deck-page) says what the rows hold.
 
 ### Changed
+- **An AI asked "why did my game crash?" is pointed at Crash Whisperer, and at
+  the log's path.** In a test in Cline, the AI read the crash log into the
+  conversation itself and then called `mw_diagnose_crash`, because the two
+  lower-level crash tools listed the same trigger phrases as
+  `mw_crash_whisperer`. Now `mw_parse_crashlog` and `mw_diagnose_crash` call
+  themselves lower-level and name `mw_crash_whisperer` for that question, and
+  `mw_crash_whisperer` asks for a named log file as `logPath` rather than read
+  into the chat first, since it takes out the personal details it recognises
+  before anything reads the log. A test holds all three descriptions to that.
 - **The conflict tools answer LOOT's conditions.** An incompatibility entry LOOT
   applies only under a condition came back as `informational`, whatever the
   condition said. ModWrench now reads LOOT's conditions (`not`, `and`, `or`,

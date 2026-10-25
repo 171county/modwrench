@@ -181,6 +181,17 @@ test("mw_crash_whisperer: what the arguments accept and refuse", () => {
   }
 });
 
+test("for \"my game crashed\", the descriptions steer an AI to mw_crash_whisperer and to pass the log's path, not read the file itself", () => {
+  const server = new MockMcpServer(DRAWS_PAGES);
+  registerWorkbenchTools(server as unknown as never);
+  const describe = (name: string): string => server.tools.get(name)!.config.description;
+  assert.match(describe("mw_crash_whisperer"), /pass it as logPath instead of reading the file into the conversation first/);
+  for (const lower of ["mw_parse_crashlog", "mw_diagnose_crash"]) {
+    assert.match(describe(lower), /Lower-level: when the user asks why their game crashed[^.]*use mw_crash_whisperer instead/, lower);
+    assert.doesNotMatch(describe(lower), /Use when the user says/, `${lower} shouldn't claim the same phrases as mw_crash_whisperer`);
+  }
+});
+
 test("mw_crash_whisperer: the places a packet can be asked for are the places there are packets for", () => {
   const packet = tool().config.inputSchema!.packet as z.ZodOptional<z.ZodEnum>;
   assert.deepEqual([...packet.unwrap().options].sort(), [...VENUES].sort());
