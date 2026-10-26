@@ -232,7 +232,7 @@ The limits:
 - **Two check boxes**: compare with your other recent crashes or not (shown only for Crash Logger SSE and Buffout 4 logs of a game ModWrench knows, the only ones the comparison reads), and leave your plugin lists out of the help posts or not (the leads, the call stack, and the objects, game files and Papyrus functions the log names, with the plugins that changed those objects, stay in). They ask your client to run the same read-only tool again.
 - **Ask about this**, shown only if your client supports it, sends a fixed request into your chat asking your AI to walk you through the latest result, with nothing from the result in it, and only when you press it. If your client declines the message, the page says so.
 
-It has been exercised in a real browser against a stand-in for an MCP Apps host. It has not been run inside Claude, Cursor, VS Code, ChatGPT or any other real client.
+It has been exercised in a real browser against a stand-in for an MCP Apps host, and on 2026-10-25, on Windows 11, it ran in two real hosts: MCP Inspector v2.12, and Claude Desktop, where Claude called `mw_crash_whisperer` on its own with the log's path and the page drew in the chat, with its **Ask about this** button because Claude Desktop accepts messages from a page. It has not been run in Cursor, VS Code, ChatGPT or any other client yet.
 
 ## The Doctors: what they open
 
@@ -362,7 +362,7 @@ In a client that supports MCP Apps, `mw_parse_crashlog` and `mw_diagnose_crash` 
 
 Its **Jobs** list has one row for each of five jobs (Crash Whisperer, the Doctors, Patch Day, Pulse and Crew Check) saying how that job last came out in this session, or that it hasn't run. Each row is one line the server builds from the job's verdict and counts alone, such as "attention: 1 problem, 2 warnings" or "3 updates, 0 deprecated, 0 gone, of 40 mods checked", with the time it ran. No mod name, folder, file text or crewmate name goes into it. The lines are held in the server's memory, written nowhere, and gone when it stops. Pulse adds a line only for a confirmed check, and Crew Check only when it compares lists. A row's **Ask** puts that job's fixed question into your chat, such as "Are my mods up to date?"; nothing from the row goes with it.
 
-What has not been checked: these five pages were exercised in a real browser against a stand-in for an MCP Apps host, and their message handling is tested against a fake host. They have not been run inside Claude, Cursor, VS Code, ChatGPT or any other real client.
+What has not been checked: these five pages were exercised in a real browser against a stand-in for an MCP Apps host, and their message handling is tested against a fake host. Of them, only the deck page has run in a real host: MCP Inspector v2.12 on Windows 11 drew it with real data on 2026-10-25. The other four have not been run inside Claude, Cursor, VS Code, ChatGPT or any other real client.
 
 ### The Pulse page
 

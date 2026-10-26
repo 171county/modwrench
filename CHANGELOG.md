@@ -116,6 +116,13 @@ This document is maintained by hand.
   [TRUST.md](TRUST.md#the-deck-page) says what the rows hold.
 
 ### Changed
+- **The first runs in real AI apps are written down.** On 2026-10-25, on
+  Windows 11, Claude Desktop called `mw_crash_whisperer` on its own and drew
+  its page in the chat, MCP Inspector v2.12 drew the Crash Whisperer and deck
+  pages, and Cline used ModWrench as text. TRUST.md, the README and the website
+  now say so, and still say which pages haven't run in a real app. The website's
+  Cline panel says that coding agents may open a crash log themselves, and how
+  to keep it out of the chat.
 - **An AI asked "why did my game crash?" is pointed at Crash Whisperer, and at
   the log's path.** In a test in Cline, the AI read the crash log into the
   conversation itself and then called `mw_diagnose_crash`, because the two
