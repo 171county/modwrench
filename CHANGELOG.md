@@ -116,6 +116,21 @@ This document is maintained by hand.
   [TRUST.md](TRUST.md#the-deck-page) says what the rows hold.
 
 ### Changed
+- **The startup log line says how long starting took.** `modwrench.started`
+  now carries `loaded_ms`, the time from the process starting to all of
+  ModWrench's code being loaded, and `ready_ms`, the time to being ready for
+  the AI app, so a slow start can be traced to loading the code (Windows reads
+  and scans each of the roughly 360 files) or to what comes after. It is
+  written to the server's own log, on your computer, like the rest of the line.
+- **Releases can move `latest` onto the tried beta.** A latest release of a
+  version a beta run already published runs `npm dist-tag add` on it instead of
+  skipping it, so what becomes `latest` is the very files that were tried. With
+  trusted publishing this needs npm 11.21.0 (already pinned) and "npm dist-tag"
+  ticked as an allowed action next to "npm publish". The release build no longer
+  uses a download cache. The workflows move to the Node 24 versions of GitHub's
+  actions (`actions/checkout@v7`, `actions/setup-node@v7`,
+  `gitleaks/gitleaks-action@v3`), ahead of GitHub removing Node 20 from its
+  runners.
 - **The first runs in real AI apps are written down.** On 2026-10-25, on
   Windows 11, Claude Desktop called `mw_crash_whisperer` on its own and drew
   its page in the chat, MCP Inspector v2.12 drew the Crash Whisperer and deck
@@ -154,6 +169,13 @@ This document is maintained by hand.
   parsed log now carries that count as `pluginTotal`.
 
 ### Fixed
+- **Crash Whisperer says when a log has lost its line breaks.** A log pasted
+  into a box that holds one line (MCP Inspector's text field does this) arrives
+  as one long line, and Crash Whisperer answered that it couldn't find a crash
+  in it. A log of three lines or fewer that still names three or more of a
+  log's sections or entries is now refused with what happened and what to do:
+  give the file in `logPath`, or paste it somewhere that keeps the line breaks.
+  A log whose line breaks are lone carriage returns is read like any other.
 - **The Mods page shows a long mod name whole.** It cut every name at 120
   characters, shorter than the 128 Thunderstore allows. The cut is now at 300,
   against hostile input only, and a long name wraps.

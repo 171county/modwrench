@@ -16,6 +16,11 @@ import { registerDeckTool } from "./deck.js";
 import { registerCritiqueTool } from "./critique.js";
 import { SERVER_INSTRUCTIONS } from "./instructions.js";
 
+// Milliseconds from the process starting to every module above being read and run. The startup log line carries it,
+// so a slow start can be told apart: loading the code (many small files, each one read and, on Windows, scanned)
+// or the steps after it.
+const LOADED_MS = Math.round(performance.now());
+
 // ─── Subcommand dispatch ─────────────────────────────────────────────────────
 // Must run before the MCP boot block below. Two routes today:
 //   `modwrench --version | -v`         → print version, exit
@@ -295,6 +300,8 @@ async function main() {
       activeAtBoot.reduce((sum, p) => sum + p.toolCount, 0) + 3, // +3 for mw_activate_platform, mw_deck and mw_critique
     prompts: promptCount,
     catalog_dynamic: true,
+    loaded_ms: LOADED_MS,
+    ready_ms: Math.round(performance.now()),
   });
 }
 
