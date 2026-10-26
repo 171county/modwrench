@@ -34,13 +34,15 @@ jobs:
           echo "::error::This repository is private. npm provenance needs a public source repository, and TRUST.md promises the source is public. Make the repository public, then run the release again."
           exit 1
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: npm
           registry-url: https://registry.npmjs.org
+          # No download cache in a release build: what is published is built only from
+          # what npm ci fetched in this run (npm's own advice for trusted publishing).
+          package-manager-cache: false
 
       - name: Install
         run: npm ci
@@ -68,12 +70,17 @@ jobs:
       #     Repository:           modwrench
       #     Workflow filename:    release.yml
       #     Environment name:     leave empty, this job has none
-      #     Allowed actions:      npm publish (a new one allows only
-      #                           npm stage publish, which this job doesn't run)
+      #     Allowed actions:      npm publish, and npm dist-tag (a new one allows
+      #                           only npm stage publish, which this job doesn't
+      #                           run; npm dist-tag is what moves latest onto a
+      #                           version a beta run already published)
       # npm falls back to NPM_TOKEN without saying so, so after the release check
       # all eight: `npm view @modwrench/<package>@<version> _npmUser` names
       # GitHub Actions for a trusted publish. Then delete the NPM_TOKEN secret
       # and revoke the token on npmjs.com.
+      #
+      # 11.21.0 is also the first npm that runs `npm dist-tag` with trusted
+      # publishing.
       - name: Install an npm that supports trusted publishing
         run: npm install -g npm@11.21.0
 
@@ -81,6 +88,10 @@ jobs:
       # that depends on it. @modwrench/ui in particular is required by five
       # other packages — publishing them without it makes all five uninstallable.
       #   core -> ui -> {nexus, modio, thunderstore, workbench} -> remote -> cli
+      #
+      # A version already on npm isn't published again. A latest release of one
+      # that a beta run published moves latest onto it instead, so the release is
+      # the very files that were tried as the beta.
       - name: Publish packages in dependency order
         run: |
           set -e
@@ -88,7 +99,13 @@ jobs:
             name="@modwrench/${pkg}"
             version=$(node -p "require('./packages/${pkg}/package.json').version")
             if npm view "${name}@${version}" version >/dev/null 2>&1; then
-              echo "SKIP  ${name}@${version} already published"
+              current=$(npm view "${name}" "dist-tags.${DIST_TAG}" 2>/dev/null || true)
+              if [ "${current}" = "${version}" ]; then
+                echo "SKIP  ${name}@${version} already published as ${DIST_TAG}"
+              else
+                echo "TAG   ${name}@${version} as ${DIST_TAG} (was ${current:-none})"
+                npm dist-tag add "${name}@${version}" "${DIST_TAG}"
+              fi
             else
               echo "PUBLISH ${name}@${version} --tag ${DIST_TAG}"
               npm publish --workspace "${name}" --provenance --access public --tag "${DIST_TAG}"
@@ -112,7 +129,7 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Verify server.json matches the published package
         run: |
@@ -184,7 +201,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The body is this repo's own CHANGELOG section for the tagged version,
       # not GitHub's auto-generated commit list — the changelog is maintained

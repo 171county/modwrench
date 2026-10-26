@@ -485,6 +485,35 @@ test("an empty log, a blank one and a log nobody can read are plain errors", () 
   }
 });
 
+test("a log whose line breaks were lost is named as that, for each format, with a way forward", () => {
+  const logs = [SSE, BEPINEX, fixture("crash-buffout4.log"), fixture("crash-netscriptframework-real-format.log")];
+  for (const log of logs) {
+    for (const joined of [log.replace(/\r?\n/g, " "), log.replace(/\r?\n/g, "")]) {
+      const r = whisper({ logContent: joined, compareRecent: 0, checkInstall: false, redactOptions: quiet });
+      assert.equal(r.ok, false, log.slice(0, 40));
+      if (!r.ok) {
+        assert.match(r.error, /lost its line breaks/);
+        assert.match(r.hint ?? "", /logPath/);
+      }
+    }
+  }
+  const w = sandbox.makeWorld();
+  put(join(w.root, "copies"), "joined.log", SSE.replace(/\r?\n/g, " "));
+  const file = join(w.root, "copies", "joined.log");
+  const fromFile = whisper({ logPath: file, compareRecent: 0, checkInstall: false, redactOptions: quiet });
+  assert.equal(fromFile.ok, false);
+  if (!fromFile.ok) assert.match(fromFile.error, /log file has lost its line breaks/);
+});
+
+test("a log with lone carriage returns for line breaks reads like any other", () => {
+  assert.equal(run(SSE.replace(/\r?\n/g, "\r")).crash.format, "crashlogger-sse");
+});
+
+test("a short piece of a log is not taken for one that lost its line breaks", () => {
+  const r = whisper({ logContent: "Unhandled exception at 0x7FF6A1234567 Fallout4.exe+1234567\n", redactOptions: quiet });
+  if (!r.ok) assert.doesNotMatch(r.error, /line breaks/);
+});
+
 test("a paste past four million characters is refused with a way forward", () => {
   const r = whisper({ logContent: "x".repeat(4_000_001), redactOptions: quiet });
   assert.equal(r.ok, false);

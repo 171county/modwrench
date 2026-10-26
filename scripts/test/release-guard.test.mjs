@@ -71,3 +71,20 @@ test("every package release.yml publishes gives this repository as its repositor
     assert.equal(manifest.repository?.url, "git+https://github.com/171county/modwrench.git", manifest.name);
   }
 });
+
+// A latest release of a version that a beta run already published moves latest onto it with npm dist-tag, so what
+// is released is the very files that were tried. npm runs dist-tag with trusted publishing from 11.21.0 on.
+const NPM_FOR_TRUSTED_DIST_TAG = [11, 21, 0];
+
+test("release.yml moves the tag onto a version that is already published, with an npm that can", () => {
+  const workflow = read(".github/workflows/release.yml");
+  const npmJob = workflow.slice(workflow.indexOf("\n  npm:"), workflow.indexOf("\n  mcp-registry:"));
+  const install = npmJob.match(/\n\s+run: npm install -g npm@(\d+)\.(\d+)\.(\d+)\n/);
+  assert.ok(atLeast(install.slice(1, 4).map(Number), NPM_FOR_TRUSTED_DIST_TAG), "npm 11.21.0 or newer");
+  const published = npmJob.indexOf('if npm view "${name}@${version}" version');
+  const tag = npmJob.indexOf('npm dist-tag add "${name}@${version}" "${DIST_TAG}"');
+  const publish = npmJob.search(/\n\s+npm publish /);
+  assert.ok(published > 0 && tag > published, "an already published version gets the tag");
+  assert.ok(tag < publish, "instead of being published again");
+  assert.match(npmJob, /\n\s+package-manager-cache: false\n/, "a release build uses no download cache");
+});

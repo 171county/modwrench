@@ -100,6 +100,18 @@ function fail(error: string, hint?: string, looked?: string[]): CrashWhisperResu
 
 const SUPPORTED_FORMATS = "Crash Logger SSE, Buffout 4, NetScriptFramework or BepInEx";
 
+// Where a log's sections and entries start, in each of the formats. A log whose line breaks were lost (pasted into a box
+// that holds one line, or copied through an app that joins lines) still names several of them, on a line or two.
+const SECTION_MARKS =
+  /call ?stack|registers|modules|system specs|plugins|process info|relevant objects|frameworkname:|unhandled (?:native |managed )?exception|\[(?:message|info|warning|error|fatal|debug)\s*:/gi;
+
+/** True when the text reads like a whole log run together on three lines or fewer, which no format can be read from. */
+function lostLineBreaks(text: string): boolean {
+  let lines = 0;
+  for (const line of text.split("\n")) if (line.trim() !== "" && ++lines > 3) return false;
+  return (text.match(SECTION_MARKS)?.length ?? 0) >= 3;
+}
+
 // ─── Reading the log's own sections ──────────────────────────────────────────
 
 function readPluginList(section: string | undefined): Array<{ name: string; version?: string }> {
@@ -655,6 +667,20 @@ export function whisper(options: WhisperOptions = {}): CrashWhisperResult {
   }
 
   if (text.trim().length === 0) return fail("The log is empty.", "Paste the whole log, or pick the file with logPath.");
+  // Line breaks written as a lone carriage return, which the formats' readers don't split on.
+  if (!text.includes("\n") && text.includes("\r")) text = text.replace(/\r/g, "\n");
+  if (lostLineBreaks(text)) {
+    return source === "pasted"
+      ? fail(
+          "This log has lost its line breaks: it arrived as one long line, so ModWrench can't tell its parts apart.",
+          "That happens when a log is pasted into a box that holds one line. Give the log's file in logPath instead, and ModWrench will read it itself, or paste it somewhere that keeps the line breaks."
+        )
+      : fail(
+          "This log file has lost its line breaks: the whole log is on one line, so ModWrench can't tell its parts apart.",
+          "It may be a copy that was pasted or saved somewhere that joined the lines. Use the crash log the game itself wrote" +
+            (source === "path" ? ", or leave logPath out and ModWrench will look for the newest one." : ".")
+        );
+  }
 
   // 2. Take the person out of it before anything else reads it. The log and the other recent logs share one time allowance.
   const shared: RedactOptions = { ...redactOptions, deadline: cleaningDeadline(redactOptions) };

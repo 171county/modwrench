@@ -24,14 +24,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (full history for gitleaks)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # gitleaks scans the full commit history, not just the working
           # tree — fetch-depth: 0 disables the default shallow clone.
           fetch-depth: 0
 
       - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           # Required by gitleaks-action for PR comment posting and to
           # check the org/repo license tier. For public repos this is
