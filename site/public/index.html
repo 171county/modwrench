@@ -314,7 +314,7 @@ notnotnotswipez-MoreCompany 1.9.1</pre>
   <section id="install">
     <div class="wrap">
       <h2>Install: pick your app</h2>
-      <p class="sub">You need <a href="https://nodejs.org/">Node.js</a> 20 or newer, and an AI app that supports MCP and runs on the computer your games are on. Thunderstore and the local tools work straight away, with no account and no key. Each app's steps come from its own documentation (checked 2026-10-24). ModWrench has been run in Claude Code; in the others it hasn't been tried yet, so <a href="https://github.com/171county/modwrench/issues">tell us</a> how it goes.</p>
+      <p class="sub">You need <a href="https://nodejs.org/">Node.js</a> 20 or newer, and an AI app that supports MCP and runs on the computer your games are on. Thunderstore and the local tools work straight away, with no account and no key. Each app's steps come from its own documentation (checked 2026-10-24). ModWrench has been run in Claude Code, Claude Desktop and Cline; in the others it hasn't been tried yet, so <a href="https://github.com/171county/modwrench/issues">tell us</a> how it goes.</p>
       <div class="apps">
         <details class="app" open>
           <summary><span class="app-name">Claude Desktop</span><span class="tag now">Draws ModWrench's pages</span></summary>
@@ -436,6 +436,7 @@ args = ["-y", "@modwrench/cli"]</pre>
   }
 }</pre>
             <p>Cline: <b>MCP Servers</b> → <b>Configure</b>. Windsurf's Cascade: <code>~/.codeium/windsurf/mcp_config.json</code>.</p>
+            <p>Coding agents like Cline sometimes open a crash log themselves as well as asking ModWrench, which puts the raw log, with your folder names, in the chat. To keep it out, leave the app's approval for reading files on and decline that read, or ask it to "use ModWrench to read my crash log".</p>
           </div>
         </details>
       </div>
@@ -450,7 +451,7 @@ args = ["-y", "@modwrench/cli"]</pre>
         <div class="card">
           <p class="q">Still being tested</p>
           <ul>
-            <li>The pages have been tested against a stand-in for an AI app, not yet inside Claude, VS Code or the others.</li>
+            <li>Crash Whisperer's page has run inside Claude Desktop and the MCP Inspector on Windows. The other pages have only been tested against a stand-in for an AI app so far.</li>
             <li>The newest tools haven't been run against a real game install yet. Testers on PC are welcome.</li>
           </ul>
         </div>
