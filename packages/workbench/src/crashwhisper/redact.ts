@@ -291,14 +291,17 @@ const EMAIL_SPELLED = new RegExp(
 );
 // git@host.example:owner/repo.git: the host, the owner and the repository are all someone's.
 const SCP_ADDRESS = /(?<![\p{L}\p{N}._%+-])[\p{L}\p{N}._-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+:(?!\d)[\p{L}\p{N}_./~-]+/gu;
-/** A file name's ending is not a top-level domain: "icon@2x.png" and "Preloader@ver2.dll" are not addresses. */
+/** A file name's ending is not a top-level domain: "icon@2x.png", "Preloader@ver2.dll" and "MyMod@1.2.3.dll" are not addresses. */
 const FILE_ENDINGS = new Set([
   "png", "jpg", "jpeg", "gif", "bmp", "tga", "dds", "nif", "hkx", "dll", "exe", "esp", "esm", "esl", "pex", "psc",
   "ini", "cfg", "toml", "json", "yaml", "yml", "xml", "txt", "log", "pdb", "lib", "obj", "dat", "bin", "bsa", "ba2",
   "wav", "ogg", "xwm", "fuz", "mp3", "mp4", "bik", "dylib", "pyc", "cpp", "hpp", "swf", "svg", "css", "html", "htm",
 ]);
-/** The ending right after the "@" (or "(at)") and one name, where the file name ends. "jane@example.com.esl" has a domain before its ending, so it has none. */
-const AT_FILE = /(?:@|\[at\]|\(at\)|\{at\})[ \t]*[\p{L}\p{N}-]+\.([A-Za-z0-9]{1,5})(?![\p{L}\p{N}-]|\.[\p{L}\p{N}])/iu;
+/**
+ * The ending after the "@" (or "(at)") and one name, where the file name ends. A version may sit between the name and the
+ * ending ("MyMod@1.2.3.dll"), numbers only. "jane@example.com.esl" has a domain before its ending, so it has none.
+ */
+const AT_FILE = /(?:@|\[at\]|\(at\)|\{at\})[ \t]*[\p{L}\p{N}-]+(?:\.\d+)*\.([A-Za-z0-9]{1,5})(?![\p{L}\p{N}-]|\.[\p{L}\p{N}])/iu;
 
 const STEAM_ID64 = /(?<!\d)7656119\d{10}(?!\d)/g;
 const STEAM3_ID = /\[?\bU:1:\d{3,12}\]?/g;
