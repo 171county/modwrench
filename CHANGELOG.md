@@ -169,6 +169,14 @@ This document is maintained by hand.
   parsed log now carries that count as `pluginTotal`.
 
 ### Fixed
+- **A mod file named with an `@` and a version stays in the answer.** Crash
+  Whisperer took `MyMod@1.2.3.dll` for an email address and removed it, so a
+  crash log naming a versioned mod lost the one name a helper needs. As the help
+  posts write it, `MyMod(at)1.2.3.dll`, the word after the name went too. A
+  version made of numbers may now sit between the `@` and the file ending, and
+  the name stays. Real addresses still go, `jane.doe@mail2.example.com`
+  included. Found first in MyneWrench's copy of the same check, on Minecraft
+  mod files.
 - **Crash Whisperer says when a log has lost its line breaks.** A log pasted
   into a box that holds one line (MCP Inspector's text field does this) arrives
   as one long line, and Crash Whisperer answered that it couldn't find a crash

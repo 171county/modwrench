@@ -358,6 +358,12 @@ test("an address in an email, a git address and a webhook is taken out as what i
   untouched("textures icon@2x.png and Preloader@ver2.dll");
   untouched("textures icon(at)2x.png and Preloader(at)ver2.dll");
   untouched("it points at Preloader(at)ver2.dll. It ranks names");
+  // A version may sit between the name and the ending.
+  untouched("Loaded MyMod@1.2.3.dll and MyMod(at)1.2.3.dll");
+  untouched("it points at MyMod(at)1.2.3.dll. It ranks names");
+  untouched("MyMod [at] 1.2.3.dll");
+  // The version allowance is digits only: an address with a domain still goes, and the file name next to it stays.
+  assert.match(gone("ask jane.doe@mail2.example.com about MyMod@1.2.3.dll", ["jane.doe", "mail2.example.com"]), /about MyMod@1\.2\.3\.dll$/);
   gone("contact jane(at)example.com now", ["jane", "example.com"]);
   // An address with a file ending glued on is still an address.
   gone("reported by jane.doe@example.com.esl", ["jane.doe", "example.com"]);
