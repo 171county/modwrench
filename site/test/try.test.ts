@@ -232,7 +232,10 @@ test("the CSP forbids every request but the page's own script and images, and th
   assert.match(html, /<script src="\/try\.js" defer><\/script>/);
   assert.doesNotMatch(html, /\son[a-z]+=/i, "an inline event handler");
   for (const [, url] of html.matchAll(/\b(?:src|srcset)="([^"]+)"/g)) assert.match(url!, /^\//, `a resource from elsewhere: ${url}`);
-  assert.doesNotMatch(html, /<link\b[^>]*rel="(?:stylesheet|preload|prefetch|preconnect|dns-prefetch|icon|manifest)"/);
+  assert.doesNotMatch(html, /<link\b[^>]*rel="(?:stylesheet|preload|prefetch|preconnect|dns-prefetch|manifest)"/);
+  const icons = [...html.matchAll(/<link\b[^>]*rel="(?:icon|apple-touch-icon)"[^>]*href="([^"]+)"/g)].map((m) => m[1]!);
+  assert.equal(icons.length, (html.match(/<link\b/g) ?? []).length, "a link that isn't a tab icon");
+  for (const url of icons) assert.match(url, /^\/(?!\/)/, `an icon from elsewhere: ${url}`);
 });
 
 // ─── Install: pick your app ──────────────────────────────────────────────────

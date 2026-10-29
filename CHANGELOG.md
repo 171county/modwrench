@@ -34,6 +34,16 @@ This document is maintained by hand.
   updated-in-the-last-day list showed 68 of the newest 100), and an unknown
   game domain, which Nexus answers with a "Game not found" error, gets
   ModWrench's plain "no game with that domain name".
+- **The website has its own trust page, the ModWrench logo and a tab icon.**
+  Its trust links opened TRUST.md on GitHub; they now open `/trust`, which
+  `npm run site:build` makes from TRUST.md every time it builds the site
+  (with `marked`, a new build-only dev dependency), so the site and the
+  repository can't make different promises. The page keeps TRUST.md's
+  section links and links to the file on GitHub, where every change to it is
+  recorded. A test checks every one of its links has its heading and that it
+  runs no script, and the site's browser check opens it from the home page at
+  phone and desktop widths. The header shows the logo, and the browser tab a
+  small icon made to stay readable at 16 pixels.
 - **The website's Install section is a "pick your app" list.** Claude
   Desktop, Claude Code, VS Code, Cursor, Codex, Antigravity, Devin, and Cline,
   Windsurf and other apps each get their own steps, taken from that app's
