@@ -34,6 +34,11 @@ This document is maintained by hand.
   updated-in-the-last-day list showed 68 of the newest 100), and an unknown
   game domain, which Nexus answers with a "Game not found" error, gets
   ModWrench's plain "no game with that domain name".
+- **Copy buttons on the website's install steps.** Every command and config in
+  the Install section has a Copy button, so the apps without a one-click link
+  (Claude Desktop, Claude Code, Codex, Antigravity, Devin and the rest) take a
+  copy and a paste. The site's browser check copies one and checks the
+  clipboard holds exactly the command shown.
 - **The website has its own trust page, the ModWrench logo and a tab icon.**
   Its trust links opened TRUST.md on GitHub; they now open `/trust`, which
   `npm run site:build` makes from TRUST.md every time it builds the site

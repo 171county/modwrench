@@ -5,9 +5,9 @@
 //   NODE_PATH="$(npm root -g)" node site/test/browser-check.mjs [folder for screenshots]
 //
 // It serves site/dist with the headers in its _headers file (the CSP above all), reads a crash log and compares crew
-// lists in the page, opens the trust page from the home page's button, and fails if a page makes any request but for
-// its own files, if anything breaks the CSP, if a hostile log or crew list turns into markup, or if a page scrolls
-// sideways at 390 or 1280 pixels, light or dark.
+// lists in the page, copies an install command, opens the trust page from the home page's button, and fails if a
+// page makes any request but for its own files, if anything breaks the CSP, if a hostile log or crew list turns into
+// markup, or if a page scrolls sideways at 390 or 1280 pixels, light or dark.
 
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
@@ -160,6 +160,20 @@ async function main() {
       await page.click("#log-sample");
       await page.waitForSelector("#log-result:not([hidden]) ol.leads > li");
       assert.equal(await page.textContent("#log-result ol.leads > li .lead-name"), "CloakAndDaggerFix.dll", "the sample's lead");
+      seen.violations.push(...(await page.evaluate(() => window.__violations)));
+      await context.close();
+    }
+
+    // Install: a Copy button under every command and config, copying exactly what the box shows.
+    {
+      const { context, page } = await newPage(browser, origin, 390, "light", seen);
+      assert.equal(await page.locator("#install pre + .row button").count(), await page.locator("#install pre").count(), "a Copy button per box");
+      await page.click("#install summary:has-text('Claude Code')");
+      const box = page.locator("#install details[open] pre", { hasText: "claude mcp add" });
+      await box.locator("xpath=following-sibling::div[1]//button").click();
+      await page.waitForSelector("#install .copied:has-text('Copied.')");
+      assert.equal(await page.evaluate(() => navigator.clipboard.readText()), await box.textContent(), "the copied command");
+      assert.equal(await page.evaluate(() => navigator.clipboard.readText()), "claude mcp add --transport stdio --scope user modwrench -- npx -y @modwrench/cli");
       seen.violations.push(...(await page.evaluate(() => window.__violations)));
       await context.close();
     }
