@@ -27,8 +27,8 @@ the default:
   1. **The Setup Doctor for GTA V:** the right ASI loader for the edition (`dinput8.dll` for
      Legacy, `xinput1_4.dll` for Enhanced) and a leftover `dsound.dll`; plugins that failed
      to load (`asiloader.log`); mods built for the other edition; BattlEye off for Story
-     Mode; a plain warning before GTA Online when mods are in place; and the setups other
-     tools leave, such as ModDrop V's stash of mods moved out for Online, RageOpenV and
+     Mode; a plain warning before GTA Online when mods are in place; and the setups mod
+     managers and loaders leave behind, such as mods moved aside for Online, RageOpenV and
      Onigiri.
   2. **Crash Whisperer for GTA V:** the scripts Script Hook V and ScriptHookVDotNet name in
      their logs when one fails. GTA V writes no crash log of its own, so these are the mod
@@ -65,6 +65,18 @@ the default:
      from Steam and that ModWrench keeps in the system's keychain, like a Nexus key.
 - **One-click install for Claude Desktop.** A `.mcpb` bundle, so there is no config file to
   edit and no wait for `npx` to fetch the package on first start.
+- **Hand the install to your mod manager.** ModWrench still never changes a game's files:
+  where a mod would help, it gives the link your own mod manager or Steam acts on, and you
+  click it.
+  1. **Thunderstore:** the "Install with Mod Manager" link that r2modman opens and installs
+     from. Its exact format is to be confirmed in r2modman's source first.
+  2. **Nexus Mods:** a link to the mod's Files tab, where "Mod Manager Download" hands it
+     to Vortex or Mod Organizer 2.
+  3. **Steam Workshop:** a `steam://` link that opens the mod in the Steam app, where you
+     subscribe and Steam downloads it.
+
+  Some AI apps may not open links that don't start with `https://`; there the link is still
+  shown, to click or copy.
 - **Recipes:** one button for a whole job, like "before I update: Patch Day, then Pulse,
   then the Doctors".
 - **Your Play Save:** a snapshot of your setup under your own name, so you can see what
