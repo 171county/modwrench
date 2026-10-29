@@ -14,9 +14,10 @@ import {
 // A made-up Skyrim crash from ModWrench's own tests, for a visitor with no crash log to hand.
 import SAMPLE_LOG from "../../packages/workbench/test/fixtures/crash-sse-real-format.log";
 
-// The Try section of the website. Everything a log or a crew list holds is someone else's text, so it reaches the page
-// only through text nodes (el() below): never as markup. The page sends nothing; its Content-Security-Policy (site/
-// public/_headers) has no connect-src, so it couldn't if it tried.
+// The Try section of the website, and the Copy buttons under the Install section's commands. Everything a log or a
+// crew list holds is someone else's text, so it reaches the page only through text nodes (el() below): never as
+// markup. The page sends nothing; its Content-Security-Policy (site/public/_headers) has no connect-src, so it couldn't
+// if it tried.
 
 type Child = Node | string | undefined | false;
 
@@ -69,14 +70,16 @@ function leadItem(lead: Lead): HTMLLIElement {
   );
 }
 
-function copyButton(text: string, area: HTMLTextAreaElement): HTMLElement {
+function copyButton(text: string, target: HTMLTextAreaElement | HTMLPreElement): HTMLElement {
   const done = el("span", { className: "copied" });
   done.setAttribute("role", "status");
   const button = el("button", { type: "button", className: "btn" }, "Copy");
   button.addEventListener("click", () => {
     const fallback = (): void => {
-      area.focus();
-      area.select();
+      if (target instanceof HTMLTextAreaElement) {
+        target.focus();
+        target.select();
+      } else window.getSelection()?.selectAllChildren(target);
       done.textContent = "Selected: press Ctrl+C (or Cmd+C) to copy.";
     };
     if (!navigator.clipboard) return fallback();
@@ -307,5 +310,12 @@ function setUpCrewCheck(): void {
   });
 }
 
+// ─── Install: a Copy button under each command and config ────────────────────
+
+function setUpInstallCopy(): void {
+  for (const pre of document.querySelectorAll<HTMLPreElement>("#install pre")) pre.after(copyButton(pre.textContent ?? "", pre));
+}
+
 setUpCrashReader();
 setUpCrewCheck();
+setUpInstallCopy();
