@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { appIdentity, createHttpClient, getEnv, log, ModWrenchError } from "@modwrench/core";
-import { adultContentAllowed, applyAdultPolicy } from "./adult.js";
+import { adultContentAllowed, applyAdultPolicy, filterAdultContent } from "./adult.js";
 
 const APP = appIdentity(import.meta.url);
 
@@ -104,6 +104,16 @@ export function registerNexusPublicTools(server: McpServer): { toolCount: number
       );
     }
   }
+
+  /** A list's mods with the adult-tagged ones taken out, and how many were, so the answer can say so. */
+  function allowed<T>(nodes: T[]): { kept: T[]; withheld: number } {
+    if (adultContentAllowed()) return { kept: nodes, withheld: 0 };
+    const { value, removed } = filterAdultContent(nodes);
+    if (removed > 0) log("info", "nexus.adult_filtered", { context: "graphql", removed });
+    return { kept: value, withheld: removed };
+  }
+  const withheldNote = (n: number): string =>
+    n === 1 ? "1 adult-tagged mod was withheld." : `${n} adult-tagged mods were withheld.`;
 
   type GqlMod = {
     modId: number;
@@ -243,10 +253,10 @@ export function registerNexusPublicTools(server: McpServer): { toolCount: number
       if (adultContentAllowed()) {
         // Opted in, so there is nothing to filter and no reason to ask for the
         // flag at all.
-        data = await nexusGraphQL<SearchData>(buildQuery(false), { filter, count });
+        data = await nexusGraphQL<SearchData>(buildQuery(false), { filter, count }, false);
       } else {
         try {
-          data = await nexusGraphQL<SearchData>(buildQuery(true), { filter, count });
+          data = await nexusGraphQL<SearchData>(buildQuery(true), { filter, count }, false);
         } catch (err) {
           if (!isUnknownAdultFieldError(err)) throw err;
           // The schema has no field by that name, so results from this endpoint
@@ -264,7 +274,8 @@ export function registerNexusPublicTools(server: McpServer): { toolCount: number
         }
       }
 
-      const hits = data.mods.nodes.map((m) => ({
+      const { kept, withheld } = allowed(data.mods.nodes);
+      const hits = kept.map((m) => ({
         mod_id: m.modId,
         name: m.name,
         summary: m.summary,
@@ -284,7 +295,9 @@ export function registerNexusPublicTools(server: McpServer): { toolCount: number
             type: "text",
             text: `Found ${data.mods.totalCount} total match(es) for "${query}"${
               game_domain ? ` in ${game_domain}` : ""
-            }; showing ${hits.length}:\n\n${JSON.stringify(hits, null, 2)}`,
+            }; showing ${hits.length}${
+              withheld > 0 ? ` (${withheld} more ${withheld === 1 ? "is" : "are"} adult-tagged and withheld)` : ""
+            }:\n\n${JSON.stringify(hits, null, 2)}`,
           },
         ],
       };
@@ -331,7 +344,7 @@ export function registerNexusPublicTools(server: McpServer): { toolCount: number
       annotations: READ,
     },
     async ({ game_domain }) => {
-      const data = await nexusGraphQL<{
+      type GameData = {
         game: {
           id: number;
           domainName: string;
@@ -345,16 +358,26 @@ export function registerNexusPublicTools(server: McpServer): { toolCount: number
           forumUrl?: string | null;
           supportsVortex?: boolean;
         } | null;
-      }>(
-        `query ModWrenchGame($domain: String!) {
+      };
+      const notFound = () =>
+        new ModWrenchError("nexus_not_found", `Nexus has no game with the domain name "${game_domain}". Use nexus_list_games to find it.`);
+      let data: GameData;
+      try {
+        data = await nexusGraphQL<GameData>(
+          `query ModWrenchGame($domain: String!) {
   game(domainName: $domain) {
     id domainName name genre modCount downloadCount uniqueDownloadCount collectionCount approvedAt forumUrl supportsVortex
   }
 }`,
-        { domain: game_domain }
-      );
+          { domain: game_domain }
+        );
+      } catch (err) {
+        // Nexus answers an unknown domain with an error ("Game not found…") rather than a null game.
+        if (err instanceof ModWrenchError && err.code === "nexus_graphql_error" && /game not found/i.test(err.message)) throw notFound();
+        throw err;
+      }
       const g = data.game;
-      if (!g) throw new ModWrenchError("nexus_not_found", `Nexus has no game with the domain name "${game_domain}". Use nexus_list_games to find it.`);
+      if (!g) throw notFound();
       const game = {
         id: g.id,
         domain: g.domainName,
@@ -429,7 +452,7 @@ export function registerNexusPublicTools(server: McpServer): { toolCount: number
   );
 
   /** The newest or most recently updated mods of a game. */
-  const recent = async (game_domain: string, by: "createdAt" | "updatedAt"): Promise<Record<string, unknown>[]> => {
+  const recent = async (game_domain: string, by: "createdAt" | "updatedAt"): Promise<string> => {
     const data = await modRead<{ mods: { nodes: GqlMod[] } }>(
       `query ModWrenchRecent($filter: ModsFilter, $count: Int!) {
   mods(filter: $filter, count: $count, sort: [{ ${by}: { direction: DESC } }]) {
@@ -438,9 +461,12 @@ export function registerNexusPublicTools(server: McpServer): { toolCount: number
     }
   }
 }`,
-      { filter: { gameDomainName: [{ value: game_domain, op: "EQUALS" }] }, count: 10 }
+      { filter: { gameDomainName: [{ value: game_domain, op: "EQUALS" }] }, count: 10 },
+      false
     );
-    return data.mods.nodes.map((m) => row(m, game_domain));
+    const { kept, withheld } = allowed(data.mods.nodes);
+    const json = JSON.stringify(kept.map((m) => row(m, game_domain)), null, 2);
+    return withheld > 0 ? `${withheldNote(withheld)}\n\n${json}` : json;
   };
 
   server.registerTool(
@@ -452,7 +478,7 @@ export function registerNexusPublicTools(server: McpServer): { toolCount: number
       annotations: READ,
     },
     async ({ game_domain }) => ({
-      content: [{ type: "text" as const, text: JSON.stringify(await recent(game_domain, "createdAt"), null, 2) }],
+      content: [{ type: "text" as const, text: await recent(game_domain, "createdAt") }],
     })
   );
 
@@ -465,7 +491,7 @@ export function registerNexusPublicTools(server: McpServer): { toolCount: number
       annotations: READ,
     },
     async ({ game_domain }) => ({
-      content: [{ type: "text" as const, text: JSON.stringify(await recent(game_domain, "updatedAt"), null, 2) }],
+      content: [{ type: "text" as const, text: await recent(game_domain, "updatedAt") }],
     })
   );
 
@@ -501,11 +527,19 @@ export function registerNexusPublicTools(server: McpServer): { toolCount: number
             updatedAt: [{ value: String(since), op: "GTE" }],
           },
           count: UPDATED_COUNT,
-        }
+        },
+        false
       );
-      const mods = data.mods.nodes.map((m) => row(m, game_domain));
+      const { kept, withheld } = allowed(data.mods.nodes);
+      const mods = kept.map((m) => row(m, game_domain));
       const total = data.mods.totalCount;
-      const shown = total > mods.length ? `; showing the newest ${mods.length}` : "";
+      const fetched = data.mods.nodes.length;
+      const shown =
+        withheld > 0
+          ? `; of the newest ${fetched}, ${withheld} ${withheld === 1 ? "is" : "are"} adult-tagged and withheld, so ${mods.length} ${mods.length === 1 ? "is" : "are"} shown`
+          : total > mods.length
+            ? `; showing the newest ${mods.length}`
+            : "";
       return {
         content: [
           { type: "text" as const, text: `${total} mods updated in the last ${p} for ${game_domain}${shown}:\n\n${JSON.stringify(mods, null, 2)}` },
