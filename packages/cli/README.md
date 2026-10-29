@@ -1,4 +1,4 @@
-# ModWrench
+# ModWrench™
 
 One MCP server for mod platforms and local modding diagnostics. Built for people who mod games.
 
@@ -57,3 +57,7 @@ Full documentation, tool reference, and source: <https://github.com/171county/mo
 ## License
 
 MIT
+
+## Trademark
+
+ModWrench™ and the ModWrench logo are trademarks of Seanson. The MIT license covers the code, not the name or the logo: the [trademark policy](https://github.com/171county/modwrench/blob/main/TRADEMARKS.md) says how you can use them.

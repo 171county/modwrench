@@ -127,12 +127,14 @@ test("NO arguments still starts the MCP server — this is how every client laun
 
   const line = stdout.split("\n").find((l) => l.trim().startsWith("{"));
   assert.ok(line, `no JSON-RPC response on stdout. stderr was: ${stderr.slice(0, 400)}`);
-  const parsed = JSON.parse(line) as { result?: { serverInfo?: { name?: string } } };
+  const parsed = JSON.parse(line) as { result?: { serverInfo?: { name?: string; icons?: Array<{ src?: string }> } } };
   assert.equal(
     parsed.result?.serverInfo?.name,
     "modwrench",
     "the initialize handshake did not come back from the server"
   );
+  // The logo travels in the handshake itself, so a client showing it fetches nothing.
+  assert.match(parsed.result?.serverInfo?.icons?.[0]?.src ?? "", /^data:image\/png;base64,/, "the server's logo is missing from its handshake");
 
   // Usage text on stdout would corrupt the JSON-RPC stream a client is reading.
   assert.doesNotMatch(stdout, /claude mcp add/, "usage text leaked into the JSON-RPC stream");

@@ -1,4 +1,4 @@
-# ModWrench
+# ModWrench™
 
 [![CI](https://github.com/171county/modwrench/actions/workflows/ci.yml/badge.svg)](https://github.com/171county/modwrench/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@modwrench/cli)](https://www.npmjs.com/package/@modwrench/cli)
@@ -268,3 +268,7 @@ The source is open so you can check anything on this page rather than taking it 
 ## License
 
 MIT
+
+## Trademark
+
+ModWrench™ and the ModWrench logo are trademarks of Seanson. The MIT license covers the code, not the name or the logo: [TRADEMARKS.md](TRADEMARKS.md) says how you can use them. In short, say what's true ("works with ModWrench", "based on ModWrench") freely, and give a fork its own name.
