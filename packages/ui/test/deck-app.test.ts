@@ -5,7 +5,7 @@ import { pageHygieneTests } from "./helpers/hygiene.js";
 import { loadPage, textOf, tick, type Fake } from "./helpers/page-harness.js";
 
 // ─── The Deck page (mw_deck) ─────────────────────────────────────────────────
-// Which platforms are connected and the four flagship games, in the game skins.
+// Which platforms are connected and the five flagship games, in the game skins.
 // Its only control is Ask, which puts one of the page's own fixed sentences in the
 // chat: nothing from the result is ever sent, and an id the page doesn't know gets
 // no Ask.
@@ -17,6 +17,7 @@ const GAMES: DeckView["games"] = [
   { id: "fallout", name: "Fallout 4", note: "Nexus · Bethesda" },
   { id: "lethal", name: "Lethal Company", note: "Thunderstore · BepInEx" },
   { id: "valheim", name: "Valheim", note: "Thunderstore · BepInEx" },
+  { id: "gta", name: "GTA V", note: "Nexus · Script Hook V" },
 ];
 
 const CONNECTORS: DeckConnector[] = [
@@ -36,6 +37,7 @@ const SENTENCES: Record<string, string> = {
   fallout: "Show me the top Fallout 4 mods.",
   lethal: "Show me the top Lethal Company mods.",
   valheim: "Show me the top Valheim mods.",
+  gta: "Show me the top GTA V mods.",
 };
 
 const typical = (): DeckView => deckView({ theme: "lethal", connectors: CONNECTORS, games: GAMES });
@@ -59,7 +61,7 @@ test("deckView carries the connectors and games as given, in the skin asked for"
   assert.deepEqual(typical(), { view: "deck", theme: "lethal", connectors: CONNECTORS, games: GAMES, faces: [] });
 });
 
-test("deckView's skin is one of the four, and anything else, including names every object has, is Skyrim", () => {
+test("deckView's skin is one of the five, and anything else, including names every object has, is Skyrim", () => {
   for (const id of THEME_IDS) assert.equal(deckView({ theme: id, connectors: [], games: [] }).theme, id);
   for (const theme of ["constructor", "toString", "__proto__", "", "morrowind", undefined]) {
     assert.equal(deckView({ theme, connectors: [], games: [] }).theme, "skyrim", String(theme));
@@ -227,7 +229,7 @@ test("with a client that takes messages, each connector and game has an Ask that
   const page = loadPage(renderDeckApp());
   await page.show(typical());
   const asks = [...rows(page).map((r, i) => [CONNECTORS[i]!.id, askIn(r)]), ...tiles(page).map((t, i) => [GAMES[i]!.id, askIn(t)])] as Array<[string, Fake]>;
-  assert.equal(asks.length, 8);
+  assert.equal(asks.length, 9);
   for (const [id, button] of asks) {
     assert.ok(button, id);
     assert.equal(textOf(button), "Ask");

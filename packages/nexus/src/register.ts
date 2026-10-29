@@ -39,7 +39,8 @@ type NexusRow = {
 };
 
 /** Nexus discovery lists -> the Mods page's data, Skyrim-skinned (Nexus is
- * Bethesda-dominant, so the SkyUI/MO2 look is the natural fit). */
+ * Bethesda-dominant, so the SkyUI/MO2 look is the natural fit), except GTA V
+ * (Legacy `gta5` and Enhanced `gta5enhanced`), which gets the GTA skin. */
 function nexusModsView(query: string, domain: string, rows: NexusRow[]): ModsView {
   const mods: ModRow[] = rows.map((r) => ({
     name: r.name,
@@ -51,7 +52,8 @@ function nexusModsView(query: string, domain: string, rows: NexusRow[]): ModsVie
     summary: r.summary,
     pageUrl: `https://www.nexusmods.com/${domain}/mods/${r.mod_id}`,
   }));
-  return modsView({ theme: "skyrim", query, mods });
+  const theme = domain === "gta5" || domain === "gta5enhanced" ? "gta" : "skyrim";
+  return modsView({ theme, query, mods });
 }
 
 export function registerNexusTools(

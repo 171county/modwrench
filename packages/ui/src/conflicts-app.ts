@@ -1,6 +1,6 @@
 // ─── The Conflicts page ─────────────────────────────────────────────────────
 // The known conflicts between mods, drawn as an MCP Apps page (see app.ts) in the
-// four game skins (see skin.ts), for mw_check_known_conflicts.
+// five game skins (see skin.ts), for mw_check_known_conflicts.
 //
 // The page is a pure function of the tool result. It keeps nothing, stores nothing
 // and makes no network requests (its own Content-Security-Policy forbids them).
@@ -41,7 +41,7 @@ const str = (value: unknown): string => (typeof value === "string" ? value : "")
 
 /**
  * The page's data for one answer: only the fields the page draws, the skin checked
- * against the four, and a mistyped field from a masterlist entry made harmless (a
+ * against the five, and a mistyped field from a masterlist entry made harmless (a
  * string that isn't one becomes "", an optional one is left out). Never throws.
  */
 export function conflictsView(input: {

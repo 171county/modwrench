@@ -154,6 +154,16 @@ test("a client that draws pages gets the same text, the list for the Mods page, 
   assert.equal(read.contents[0]!._meta, undefined, "the page asks for no permission");
 });
 
+test("GTA V's trending list, Legacy or Enhanced, is drawn in the GTA skin; other games keep Skyrim's", async () => {
+  for (const [game_domain, theme] of [["gta5", "gta"], ["gta5enhanced", "gta"], ["skyrimspecialedition", "skyrim"], ["gta4", "skyrim"]]) {
+    serveTrending();
+    const server = new AppsMockServer(DRAWS_PAGES);
+    registerNexusTools(server as never, CRED);
+    const result = await server.call("nexus_trending", { game_domain });
+    assert.equal(result.structuredContent?.theme, theme, game_domain);
+  }
+});
+
 test("MODWRENCH_UI=off: no page, no page metadata and no structured data, even for a client that draws pages", async () => {
   for (const value of ["off", "OFF", "0", "false", "none", " off "]) {
     const server = new AppsMockServer(DRAWS_PAGES);

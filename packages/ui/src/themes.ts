@@ -3,13 +3,13 @@
 // in-game UIs *and* the modding toolchains. Every palette, font, and motif here
 // traces to a real reference (Pip-Boy green #1AFF80, the BepInEx console severity
 // colors, xEdit conflict coding, Valheim's Averia Serif Libre, r2modman/MO2
-// layouts). See docs for provenance.
+// layouts, GTA V's HUD colours and trainer-menu banner). See docs for provenance.
 //
 // Each theme is a token set + a `chrome` CSS string. The pages' skin (skin.ts)
 // emits one [data-game] var block per theme and every theme's chrome; switching
 // themes is a client-side data-attribute swap. No state.
 
-export type ThemeId = "skyrim" | "fallout" | "lethal" | "valheim";
+export type ThemeId = "skyrim" | "fallout" | "lethal" | "valheim" | "gta";
 
 export type Theme = {
   id: ThemeId;
@@ -57,31 +57,33 @@ const F = {
   shareTech: '"Share Tech Mono", "IBM Plex Mono", ui-monospace, monospace',
   plexMono: '"IBM Plex Mono", "Cascadia Mono", ui-monospace, Consolas, monospace',
   sysMono: 'ui-monospace, "Cascadia Mono", Consolas, monospace',
+  pricedown: '"Pricedown", Impact, Haettenschweiler, "Arial Black", sans-serif',
+  chalet: '"Chalet London", "Chalet Comprime", "Segoe UI", "Helvetica Neue", Arial, sans-serif',
 };
 
 export const THEMES: Record<ThemeId, Theme> = {
-  // ── Skyrim — MO2 iron + parchment + dragonstone gold + SkyUI list ──────────
+  // ── Skyrim — Nordic steel + frost + a dragonstone-gold edge + SkyUI list ───
   skyrim: {
     id: "skyrim",
     label: "Skyrim",
     game: "The Elder Scrolls V: Skyrim",
     tagline: "Fus Ro Dah — load orders, tamed.",
     tokens: {
-      bg: "#15130E",
-      panel: "#211E17",
-      panel2: "#2C2820",
-      ink: "#EDE6D3",
-      sub: "#9C9078",
-      accent: "#C89B3C",
-      accent2: "#6FA8C4",
+      bg: "#0F1317",
+      panel: "#172028",
+      panel2: "#1F2A34",
+      ink: "#E6ECF2",
+      sub: "#8D9AA8",
+      accent: "#9CC4E4",
+      accent2: "#C89B3C",
       danger: "#C0433E",
       warn: "#E0A230",
       ok: "#6FA84E",
-      border: "#3A342A",
+      border: "#2D3B48",
       fontHead: F.cinzel,
       fontUi: F.oswald,
       fontMono: F.plexMono,
-      fx: `--tex: radial-gradient(120% 120% at 50% -8%, rgba(200,155,60,.08), transparent 55%);
+      fx: `--tex: radial-gradient(120% 120% at 50% -8%, rgba(156,196,228,.08), transparent 55%);
         --glow: inset 0 1px 0 rgba(255,255,255,.05), inset 0 -1px 0 rgba(0,0,0,.5), 0 8px 26px rgba(0,0,0,.5);`,
     },
     chrome: `
@@ -92,12 +94,12 @@ export const THEMES: Record<ThemeId, Theme> = {
         text-shadow:0 1px 0 rgba(0,0,0,.6),0 -1px 0 rgba(255,255,255,.04)}
       [data-game="skyrim"] .mw-sec-h{border-bottom:1px solid transparent;
         background:linear-gradient(90deg,transparent,var(--accent) 8%,transparent) bottom/100% 1px no-repeat;padding-bottom:8px}
-      /* SkyUI list: gold caret on hover/active rows */
+      /* SkyUI list: frost caret on hover/active rows */
       [data-game="skyrim"] .mw-conn{border-radius:4px}
       [data-game="skyrim"] .mw-conn::after{content:"\\276F";position:absolute;right:12px;color:var(--accent);opacity:0;transition:.12s}
       [data-game="skyrim"] .mw-conn:hover::after{opacity:1}
-      [data-game="skyrim"] .mw-conn:hover{background:linear-gradient(90deg,rgba(200,155,60,.10),transparent)}
-      [data-game="skyrim"] .mw-tab.on{background:var(--accent);color:#1a1509}
+      [data-game="skyrim"] .mw-conn:hover{background:linear-gradient(90deg,rgba(156,196,228,.10),transparent)}
+      [data-game="skyrim"] .mw-tab.on{background:var(--accent);color:#0b1218}
     `,
   },
 
@@ -160,43 +162,43 @@ export const THEMES: Record<ThemeId, Theme> = {
     `,
   },
 
-  // ── Lethal Company — monochrome ship terminal + BepInEx log ────────────────
+  // ── Lethal Company — hazard-orange helmet HUD + BepInEx log ───────────────
   lethal: {
     id: "lethal",
     label: "Lethal Co.",
     game: "Lethal Company",
     tagline: "Meet the quota. Read the crash.",
     tokens: {
-      bg: "#0A1410",
-      panel: "#101d16",
-      panel2: "#14251c",
-      ink: "#3BFF6E",
-      sub: "#1FA34C",
-      accent: "#3BFF6E",
-      accent2: "#39E9AA",
+      bg: "#0E0A08",
+      panel: "#1A120D",
+      panel2: "#231811",
+      ink: "#FF9A52",
+      sub: "#BE6F3E",
+      accent: "#FF6A1F",
+      accent2: "#3BFF6E",
       danger: "#E23D3D",
       warn: "#F5C518",
       ok: "#3BFF6E",
-      border: "#1d4230",
+      border: "#4A2A17",
       fontHead: F.shareTech,
       fontUi: F.plexMono,
       fontMono: F.plexMono,
       fx: `--tex: none;
-        --glow: inset 0 0 40px rgba(59,255,110,.06), 0 0 0 1px rgba(59,255,110,.14);
+        --glow: inset 0 0 40px rgba(255,106,31,.06), 0 0 0 1px rgba(255,106,31,.16);
         --scan: repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.28) 2px 4px);`,
     },
     chrome: `
       [data-game="lethal"] .mw-app::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;
         background:var(--scan);mix-blend-mode:multiply}
-      [data-game="lethal"] body{text-shadow:0 0 2px rgba(59,255,110,.6),0 0 8px rgba(59,255,110,.3);text-transform:uppercase}
-      /* one-color rule: scrollbars + carets inherit terminal green */
+      [data-game="lethal"] body{text-shadow:0 0 2px rgba(255,106,31,.55),0 0 8px rgba(255,106,31,.28);text-transform:uppercase}
+      /* one-color rule: scrollbars + carets inherit the HUD orange */
       [data-game="lethal"] *{scrollbar-color:var(--accent) transparent}
-      [data-game="lethal"] ::selection{background:var(--accent);color:#04120a}
+      [data-game="lethal"] ::selection{background:var(--accent);color:#140a04}
       [data-game="lethal"] .mw-sec-h h2::before{content:"> "}
       [data-game="lethal"] .mw-brand::after{content:"\\2588";animation:mwblink 1s steps(1) infinite;color:var(--accent);margin-left:2px}
-      [data-game="lethal"] .mw-tab.on{background:var(--accent);color:#04120a}
+      [data-game="lethal"] .mw-tab.on{background:var(--accent);color:#140a04}
       [data-game="lethal"] .mw-conn,[data-game="lethal"] .mw-card,[data-game="lethal"] .mw-col,[data-game="lethal"] .mw-list{box-shadow:var(--glow)}
-      [data-game="lethal"] .mw-btn:active{box-shadow:inset 0 0 14px rgba(59,255,110,.4),0 0 10px rgba(59,255,110,.3)}
+      [data-game="lethal"] .mw-btn:active{box-shadow:inset 0 0 14px rgba(255,106,31,.4),0 0 10px rgba(255,106,31,.3)}
       @keyframes mwblink{50%{opacity:0}}
     `,
   },
@@ -243,6 +245,58 @@ export const THEMES: Record<ThemeId, Theme> = {
       [data-game="valheim"] .mw-chip-ct,[data-game="valheim"] .mw-card-stats{font-family:var(--font-head);color:var(--gilt)}
     `,
   },
+
+  // ── GTA V — trainer-menu banner at sunset + HUD colours + white selected tab ─
+  // The banner is the one on Script Hook V trainers and Menyoo, in a Vice City
+  // sunset; red, green and gold are GTA V's HUD red (WASTED), cash green and
+  // mission-passed gold.
+  gta: {
+    id: "gta",
+    label: "GTA V",
+    game: "Grand Theft Auto V",
+    tagline: "Los Santos, modded. Keep a clean copy.",
+    tokens: {
+      bg: "#0B0910",
+      panel: "#16121D",
+      panel2: "#1F1A28",
+      ink: "#F4F1F6",
+      sub: "#A79FB2",
+      accent: "#FF4F9A",
+      accent2: "#F0C850",
+      danger: "#F04A4A",
+      warn: "#F0C850",
+      ok: "#72CC72",
+      border: "#3A2F47",
+      fontHead: F.pricedown,
+      fontUi: F.chalet,
+      fontMono: F.sysMono,
+      fx: `--banner: linear-gradient(100deg, #6A1E8A 0%, #B0145A 45%, #C8412B 100%);
+        --tex: linear-gradient(180deg, rgba(176,20,90,.12), transparent 260px);
+        --glow: 0 6px 18px rgba(0,0,0,.5);`,
+    },
+    chrome: `
+      /* square corners; html[...] outranks the frame's :root{--r} */
+      html[data-game="gta"]{--r:2px}
+      [data-game="gta"] body{background-image:var(--tex)}
+      /* trainer-menu banner: the header is a sunset bar with the name in heavy outlined type */
+      [data-game="gta"] .mw-top{background:var(--banner);border-bottom:0;border-radius:var(--r);padding:14px 16px;box-shadow:var(--glow)}
+      [data-game="gta"] .mw-brand,[data-game="gta"] .mw-brand b{color:#fff;font-style:italic;font-weight:900;
+        text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 3px 0 rgba(0,0,0,.45)}
+      [data-game="gta"] .mw-brand b{font-size:23px;letter-spacing:.01em}
+      [data-game="gta"] .mw-brand-sub{color:#fff;text-shadow:0 1px 0 #000}
+      [data-game="gta"] .mw-theme{border-color:rgba(255,255,255,.55)}
+      [data-game="gta"] .mw-theme.on{border-color:#fff;box-shadow:0 0 0 2px #000,0 0 0 3.5px #fff}
+      [data-game="gta"] .mw-sec-h{border-left:4px solid var(--accent);padding-left:9px}
+      [data-game="gta"] .mw-sec-h h2,[data-game="gta"] .mw-col-h{text-transform:uppercase;font-style:italic;font-weight:900;letter-spacing:.04em}
+      /* pause-menu tabs: the selected one is white with black text */
+      [data-game="gta"] .mw-tab{border-radius:0;text-transform:uppercase;font-weight:700}
+      [data-game="gta"] .mw-tab.on{background:var(--ink);color:var(--bg)}
+      [data-game="gta"] .mw-btn{border-radius:var(--r)}
+      [data-game="gta"] .mw-conn:hover,[data-game="gta"] .mw-card:hover{box-shadow:inset 4px 0 0 var(--accent),var(--glow)}
+      /* the footer line in mission-passed gold */
+      [data-game="gta"] .mw-foot .mw-tag{color:var(--accent2);opacity:1;font-style:italic;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+    `,
+  },
 };
 
 export const THEME_IDS = Object.keys(THEMES) as ThemeId[];
@@ -250,6 +304,7 @@ export const THEME_IDS = Object.keys(THEMES) as ThemeId[];
 /**
  * Infer the theme from a crashlog type so the Crash log page matches the game:
  * Fallout/Buffout4 → Pip-Boy, BepInEx (Unity co-op) → Lethal terminal, Skyrim → Skyrim.
+ * No crash log ModWrench reads comes from GTA V yet, so nothing picks the GTA skin here.
  */
 export function themeForCrashType(crashType: string | undefined): ThemeId {
   switch (crashType) {

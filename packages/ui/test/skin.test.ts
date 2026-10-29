@@ -24,7 +24,7 @@ import { pageHygieneTests } from "./helpers/hygiene.js";
 import { loadPage, textOf, type Fake } from "./helpers/page-harness.js";
 
 // ─── The skin shared by the mods, dependencies, crash log, conflicts and deck pages ──
-// skin.ts holds the frame, the four game skins and what a page shows before, or
+// skin.ts holds the frame, the five game skins and what a page shows before, or
 // instead of, its own drawing. It is tested here through a page made of the skin and
 // nothing else, so these tests don't change as the five pages are filled in.
 
@@ -145,7 +145,7 @@ test("a result for this page is drawn in the skin it names, and nothing else sho
   }
 });
 
-test("a skin the result names that isn't one of the four, including names every object has, is Skyrim", async () => {
+test("a skin the result names that isn't one of the five, including names every object has, is Skyrim", async () => {
   for (const theme of ["constructor", "toString", "__proto__", "", "morrowind", 5, null, undefined, { id: "fallout" }]) {
     const page = await ready();
     await page.result({ structuredContent: { view: "test", theme: "fallout", say: "x" } });

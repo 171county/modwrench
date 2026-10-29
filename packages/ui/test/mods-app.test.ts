@@ -58,7 +58,7 @@ test("modsView: the page's data for a typical list", () => {
   });
 });
 
-test("modsView: a theme that isn't one of the four skins, names every object has included, is Skyrim", () => {
+test("modsView: a theme that isn't one of the five skins, names every object has included, is Skyrim", () => {
   for (const id of THEME_IDS) assert.equal(modsView({ theme: id, mods: [] }).theme, id);
   for (const theme of ["constructor", "toString", "__proto__", "", "morrowind", "Skyrim", undefined]) {
     assert.equal(modsView({ theme, mods: [] }).theme, "skyrim", String(theme));

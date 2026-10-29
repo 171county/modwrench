@@ -125,6 +125,7 @@ const GAMES = [
   { id: "fallout", name: "Fallout 4", note: "Nexus · Bethesda" },
   { id: "lethal", name: "Lethal Company", note: "Thunderstore · BepInEx" },
   { id: "valheim", name: "Valheim", note: "Thunderstore · BepInEx" },
+  { id: "gta", name: "GTA V", note: "Nexus · Script Hook V" },
 ];
 
 const CLEAN = { MODWRENCH_UI: undefined, MODWRENCH_STRUCTURED: undefined };

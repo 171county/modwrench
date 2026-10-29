@@ -1,6 +1,6 @@
 // ─── The Deck page ──────────────────────────────────────────────────────────
 // Which platforms are connected, and the flagship games, drawn as an MCP Apps page
-// (see app.ts) in the four game skins (see skin.ts), for mw_deck.
+// (see app.ts) in the five game skins (see skin.ts), for mw_deck.
 //
 // The page is a pure function of the tool result. It keeps nothing, stores nothing
 // and makes no network requests (its own Content-Security-Policy forbids them).
@@ -37,7 +37,7 @@ const STATUSES: ReadonlyArray<string> = ["on", "off", "warn"];
 const str = (value: unknown): string => (typeof value === "string" ? value : "");
 
 /**
- * The Deck page's data. A theme that isn't one of the four skins is Skyrim; a text
+ * The Deck page's data. A theme that isn't one of the five skins is Skyrim; a text
  * field that isn't a string becomes "", a status that isn't on, off or warn is off,
  * and a tool count that isn't a finite number is left out. Never throws on a field.
  */
@@ -90,7 +90,7 @@ const BODY = `
     </section>
     <div id="deck-empty" hidden></div>
     <section id="deck-games" class="mw-sec" hidden>
-      <div class="mw-sec-h"><h2>Flagship scenes</h2><span class="mw-sec-sub">the games behind the four skins</span></div>
+      <div class="mw-sec-h"><h2>Flagship scenes</h2><span class="mw-sec-sub">the games behind the five skins</span></div>
       <div id="deck-grid" class="mw-game-grid"></div>
     </section>`;
 
@@ -117,7 +117,8 @@ const SCRIPT = String.raw`
     skyrim: 'Show me the top Skyrim Special Edition mods.',
     fallout: 'Show me the top Fallout 4 mods.',
     lethal: 'Show me the top Lethal Company mods.',
-    valheim: 'Show me the top Valheim mods.'
+    valheim: 'Show me the top Valheim mods.',
+    gta: 'Show me the top GTA V mods.'
   };
   var EMPTY_ASK = 'Detect my modding setup.';
   // The jobs, in the deck's order: the name shown and the one sentence each Ask sends.
@@ -254,7 +255,7 @@ export const DECK_PAGE: AppPageDef = {
   uri: DECK_APP_URI,
   title: "Deck page",
   description:
-    "The page MCP Apps clients draw for mw_deck: each job and how it last came out in this session, which platforms are connected, with their tools, and the four flagship games. Read-only; it makes no network requests and keeps nothing. An Ask button puts a fixed sentence in the chat, only when you press it and your client takes messages from pages.",
+    "The page MCP Apps clients draw for mw_deck: each job and how it last came out in this session, which platforms are connected, with their tools, and the five flagship games. Read-only; it makes no network requests and keeps nothing. An Ask button puts a fixed sentence in the chat, only when you press it and your client takes messages from pages.",
   render: renderDeckApp,
   clipboard: false,
 };

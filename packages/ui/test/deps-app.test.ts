@@ -36,7 +36,7 @@ test("depsView: the root, the list and the walk's gaps, as given", () => {
   assert.equal(gaps.kind === "deps" && gaps.truncated, true);
 });
 
-test("the builders take only one of the four skins, whatever the theme says", () => {
+test("the builders take only one of the five skins, whatever the theme says", () => {
   for (const id of THEME_IDS) {
     assert.equal(depsView({ theme: id, root: "", deps: [] }).theme, id);
     assert.equal(orderView({ theme: id, ok: false, reason: "" }).theme, id);

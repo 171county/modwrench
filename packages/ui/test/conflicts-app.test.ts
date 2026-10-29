@@ -94,7 +94,7 @@ test("conflictsView: no warnings is an empty list, and LOOT without a reason has
   assert.deepEqual(view.conflicts, []);
 });
 
-test("conflictsView: a skin that isn't one of the four, names every object has included, is Skyrim", () => {
+test("conflictsView: a skin that isn't one of the five, names every object has included, is Skyrim", () => {
   const base = { gameId: "x", conflicts: [], sources: { loot: { available: false }, community: { available: true, entries: 0 } } };
   for (const id of ["skyrim", "fallout", "lethal", "valheim"]) assert.equal(conflictsView({ ...base, theme: id }).theme, id);
   for (const theme of ["constructor", "toString", "__proto__", "", "morrowind", "SKYRIM", undefined]) {

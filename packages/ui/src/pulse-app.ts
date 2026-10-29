@@ -1,6 +1,6 @@
 // ─── The Pulse page ──────────────────────────────────────────────────────────
 // What has changed for the mods in an r2modman profile, drawn as an MCP Apps page
-// (see app.ts) in the four game skins (see skin.ts), for mw_pulse.
+// (see app.ts) in the five game skins (see skin.ts), for mw_pulse.
 //
 // The page is a pure function of the tool result. It keeps nothing, stores nothing
 // and makes no network requests (its own Content-Security-Policy forbids them): the

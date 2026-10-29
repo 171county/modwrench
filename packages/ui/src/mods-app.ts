@@ -1,6 +1,6 @@
 // ─── The Mods page ──────────────────────────────────────────────────────────
 // A list of mods from Nexus Mods, mod.io or Thunderstore, drawn as an MCP Apps page
-// (see app.ts) in the four game skins (see skin.ts), for thunderstore_list_mods,
+// (see app.ts) in the five game skins (see skin.ts), for thunderstore_list_mods,
 // thunderstore_search_mods, thunderstore_top_mods, nexus_trending, modio_list_mods,
 // modio_search_mods and mw_query_mod_metadata.
 //
@@ -61,7 +61,7 @@ function modRow(value: unknown): ModRow {
  * The Mods page's data, from rows as a tool mapped them. Never throws on what a
  * platform left out or sent as the wrong type: a name that isn't a string is "", an
  * author that isn't one (or is empty) is "unknown", and any other such field is left
- * out. A theme that isn't one of the four skins is Skyrim. Every row is kept; the
+ * out. A theme that isn't one of the five skins is Skyrim. Every row is kept; the
  * tools cap their own lists.
  */
 export function modsView(input: { theme?: string; query?: string; mods: ModRow[]; note?: string }): ModsView {
