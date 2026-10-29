@@ -10,6 +10,11 @@ This document is maintained by hand.
 
 ## [Unreleased]
 
+## [0.3.1] — unreleased
+
+The ModWrench logo as the server's icon, the trademark policy, a GTA V skin
+and two recoloured ones, on top of the 0.3.0 beta.
+
 ### Added
 - **A GTA V skin.** The pages that wear game skins (mods, dependencies, crash
   log, conflicts, Pulse and the deck) get a fifth swatch: a trainer-menu
@@ -19,6 +24,43 @@ This document is maintained by hand.
   loads no font and makes no network request. `nexus_trending` for GTA V
   (`gta5` or `gta5enhanced`) opens in it, the deck lists GTA V with the other
   flagship games, and `mw_deck` takes `theme: "gta"`.
+- **ModWrench's logo in VS Code and other MCP clients.** The server's
+  initialize reply carries the logo (`serverInfo.icons`), the website's 128 px
+  PNG embedded as a `data:` image, so a client that shows it fetches nothing.
+  VS Code shows it in its MCP server list and tool picker once the server has
+  started; its install page, opened from a link before the server has ever
+  run, still shows VS Code's generic icon. A test keeps the embedded image
+  identical to `site/public/media/logo.png`.
+- **A trademark policy.** [TRADEMARKS.md](TRADEMARKS.md) says how the ModWrench
+  name and logo may be used: the MIT license covers the code, not the name.
+  Saying what's true ("works with ModWrench", "based on ModWrench") needs no
+  permission; a fork gets its own name, and the `@modwrench` npm scope stays
+  with this project. The README, the CLI package's README and the website
+  mark the name ModWrench™ and link to the policy.
+
+### Changed
+- **Skyrim and Lethal Company no longer look like Valheim and Fallout.** Skyrim
+  was gold on brown, like Valheim, and Lethal Company green on black, like
+  Fallout; the fonts that set them apart aren't loaded (no page fetches
+  anything), so they differed only in small details. Skyrim is now cold steel
+  and frost blue with a dragonstone-gold edge, and Lethal Company the hazard
+  orange of the in-game helmet display, with the terminal green kept for
+  "ok". The main and secondary text in both keep a contrast of at least 4.5
+  to 1 on every panel.
+
+## [0.3.0] — unreleased
+
+The workbench learns to answer three questions on its own: "is it safe to
+update?" (Patch Day), "why did my game crash?" (Crash Whisperer) and "is my
+setup ready?" (the Doctors), each with a page for clients that support MCP
+Apps, and Patch Day and the Doctors read Fallout 4 as well as Skyrim. The older
+panels move from MCP-UI to MCP Apps pages, so a client that can't draw a page
+gets the text answer and nothing else. Feedback for the maintainers now has a
+command of its own, which drafts an issue for you to post and sends nothing. None
+of this has been run inside a real MCP client or against a real game install
+yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
+
+### Added
 - **Nexus Mods works without a key.** Eight Nexus tools now ask Nexus's v2
   GraphQL API, which Nexus documents as open without authentication for most
   of it, and send no key or token: `nexus_search`, `nexus_list_games`,
@@ -42,19 +84,6 @@ This document is maintained by hand.
   updated-in-the-last-day list showed 68 of the newest 100), and an unknown
   game domain, which Nexus answers with a "Game not found" error, gets
   ModWrench's plain "no game with that domain name".
-- **ModWrench's logo in VS Code and other MCP clients.** The server's
-  initialize reply carries the logo (`serverInfo.icons`), the website's 128 px
-  PNG embedded as a `data:` image, so a client that shows it fetches nothing.
-  VS Code shows it in its MCP server list and tool picker once the server has
-  started; its install page, opened from a link before the server has ever
-  run, still shows VS Code's generic icon. A test keeps the embedded image
-  identical to `site/public/media/logo.png`.
-- **A trademark policy.** [TRADEMARKS.md](TRADEMARKS.md) says how the ModWrench
-  name and logo may be used: the MIT license covers the code, not the name.
-  Saying what's true ("works with ModWrench", "based on ModWrench") needs no
-  permission; a fork gets its own name, and the `@modwrench` npm scope stays
-  with this project. The README, the CLI package's README and the website
-  mark the name ModWrench™ and link to the policy.
 - **Copy buttons on the website's install steps.** Every command and config in
   the Install section has a Copy button, so the apps without a one-click link
   (Claude Desktop, Claude Code, Codex, Antigravity, Devin and the rest) take a
@@ -174,148 +203,6 @@ This document is maintained by hand.
   exports `deckFaces` and `FACE_JOBS`.
   [TRUST.md](TRUST.md#the-deck-page) says what the rows hold.
 
-### Changed
-- **Skyrim and Lethal Company no longer look like Valheim and Fallout.** Skyrim
-  was gold on brown, like Valheim, and Lethal Company green on black, like
-  Fallout; the fonts that set them apart aren't loaded (no page fetches
-  anything), so they differed only in small details. Skyrim is now cold steel
-  and frost blue with a dragonstone-gold edge, and Lethal Company the hazard
-  orange of the in-game helmet display, with the terminal green kept for
-  "ok". The main and secondary text in both keep a contrast of at least 4.5
-  to 1 on every panel.
-- **The startup log line says how long starting took.** `modwrench.started`
-  now carries `loaded_ms`, the time from the process starting to all of
-  ModWrench's code being loaded, and `ready_ms`, the time to being ready for
-  the AI app, so a slow start can be traced to loading the code (Windows reads
-  and scans each of the roughly 360 files) or to what comes after. It is
-  written to the server's own log, on your computer, like the rest of the line.
-- **Releases can move `latest` onto the tried beta.** A latest release of a
-  version a beta run already published runs `npm dist-tag add` on it instead of
-  skipping it, so what becomes `latest` is the very files that were tried. With
-  trusted publishing this needs npm 11.21.0 (already pinned) and "npm dist-tag"
-  ticked as an allowed action next to "npm publish". The release build no longer
-  uses a download cache. The workflows move to the Node 24 versions of GitHub's
-  actions (`actions/checkout@v7`, `actions/setup-node@v7`,
-  `gitleaks/gitleaks-action@v3`), ahead of GitHub removing Node 20 from its
-  runners.
-- **The first runs in real AI apps are written down.** On 2026-10-25, on
-  Windows 11, Claude Desktop called `mw_crash_whisperer` on its own and drew
-  its page in the chat, MCP Inspector v2.12 drew the Crash Whisperer and deck
-  pages, and Cline used ModWrench as text. TRUST.md, the README and the website
-  now say so, and still say which pages haven't run in a real app. The website's
-  Cline panel says that coding agents may open a crash log themselves, and how
-  to keep it out of the chat.
-- **An AI asked "why did my game crash?" is pointed at Crash Whisperer, and at
-  the log's path.** In a test in Cline, the AI read the crash log into the
-  conversation itself and then called `mw_diagnose_crash`, because the two
-  lower-level crash tools listed the same trigger phrases as
-  `mw_crash_whisperer`. Now `mw_parse_crashlog` and `mw_diagnose_crash` call
-  themselves lower-level and name `mw_crash_whisperer` for that question, and
-  `mw_crash_whisperer` asks for a named log file as `logPath` rather than read
-  into the chat first, since it takes out the personal details it recognises
-  before anything reads the log. A test holds all three descriptions to that.
-- **The conflict tools answer LOOT's conditions.** An incompatibility entry LOOT
-  applies only under a condition came back as `informational`, whatever the
-  condition said. ModWrench now reads LOOT's conditions (`not`, `and`, `or`,
-  brackets and LOOT's functions) and answers each one true, false or unknown
-  from the plugins it knows are active: true is reported as incompatible, false
-  isn't reported, and unknown stays `informational`, quoting the condition. It
-  can answer `active()` and `many_active()`, and `file()` and `many()` when they
-  are true of active plugins. Anything that needs the game's files, such as
-  `checksum()`, `version()`, `readable()` or `is_master()`, is unknown, since
-  these tools don't read them; so is a condition it can't parse, one over 2,000
-  characters or nested more than 16 deep, and a regex that JavaScript could take
-  for ever on (LOOT's own regex engine can't). In LOOT's v0.29 lists for all
-  seven games, every one of the 5,529 conditions parses. In
-  `mw_check_known_conflicts` a plugin you name is taken to be active, and one you
-  don't name isn't taken to be inactive, since the list may be partial. In
-  `mw_diagnose_crash` the plugins the log lists are active, and the rest are
-  inactive only when the log says how many plugins it lists and lists that many
-  (Crash Logger SSE's `Total:` line, NetScriptFramework's `Game plugins (N)`), so
-  a log cut short or pasted in part doesn't make a plugin look switched off. The
-  parsed log now carries that count as `pluginTotal`.
-
-### Fixed
-- **Nexus search asks for `adultContent`.** Nexus's v2 GraphQL reference marks
-  the `adult` field search used as deprecated, in favour of `adultContent`.
-  Search would have switched itself off (it refuses to return results it
-  cannot check) once Nexus removed the old field. Every public Nexus tool that
-  returns mods now asks for `adultContent` and fails closed the same way.
-- **A mod file named with an `@` and a version stays in the answer.** Crash
-  Whisperer took `MyMod@1.2.3.dll` for an email address and removed it, so a
-  crash log naming a versioned mod lost the one name a helper needs. As the help
-  posts write it, `MyMod(at)1.2.3.dll`, the word after the name went too. A
-  version made of numbers may now sit between the `@` and the file ending, and
-  the name stays. Real addresses still go, `jane.doe@mail2.example.com`
-  included. Found first in MyneWrench's copy of the same check, on Minecraft
-  mod files.
-- **Crash Whisperer says when a log has lost its line breaks.** A log pasted
-  into a box that holds one line (MCP Inspector's text field does this) arrives
-  as one long line, and Crash Whisperer answered that it couldn't find a crash
-  in it. A log of three lines or fewer that still names three or more of a
-  log's sections or entries is now refused with what happened and what to do:
-  give the file in `logPath`, or paste it somewhere that keeps the line breaks.
-  A log whose line breaks are lone carriage returns is read like any other.
-- **The Mods page shows a long mod name whole.** It cut every name at 120
-  characters, shorter than the 128 Thunderstore allows. The cut is now at 300,
-  against hostile input only, and a long name wraps.
-- **The load-order page is no longer labelled "Dependencies".** One page draws
-  both a Thunderstore mod's dependencies and the load order `mw_read_load_order`
-  reads, and its label said "Dependencies" over either. The label now says
-  "Dependencies", "Load order" or "Mod folders" for what is drawn, and the
-  page's title is "Dependencies and load order".
-- **Long plugin names wrap on the load-order page.** Each name was held to one
-  line and cut with an ellipsis, so at phone width most of a long plugin name
-  was lost, and a plugin file name with no spaces ran under the ON/OFF flag and
-  out of the list. Names and plugin files now wrap inside the row, on the
-  dependency lists too.
-- **Download counts on the Mods page for Nexus trending and Thunderstore search
-  and top mods.** They showed "—". `nexus_trending` read a `downloads` field
-  that Nexus's v1 API doesn't send (it sends `mod_downloads`), and
-  `thunderstore_search_mods` and `thunderstore_top_mods` never added up their
-  versions' downloads. Those two tools' text answers now carry `total_downloads`, as
-  `thunderstore_list_mods`' always has. mod.io and `mw_query_mod_metadata` were
-  already right, and a mod a platform gives no count for still shows "—".
-- **A profile name can't climb out of the profiles folder.** `profileName` is
-  joined onto Mod Organizer 2's or r2modman's profiles folder, so a name like
-  `../../somewhere` read a profile's `mods.yml`, `plugins.txt` and `modlist.txt`
-  from outside it. Every tool that takes one (`mw_read_load_order`,
-  `mw_patch_day`, `mw_crash_whisperer`, `mw_doctor`, `mw_loot_requirements`,
-  `mw_pulse` and `mw_crew_check`) now refuses a `profileName` that isn't one folder name (empty,
-  `.` or `..`, or holding `/`, `\` or a NUL character) before anything is
-  opened, with an answer that names the argument and doesn't repeat it. A
-  `selected_profile` in `ModOrganizer.ini` that isn't one folder name is treated
-  as missing.
-- **A LOOT entry whose plugin name is a regex gets the same guard as a regex in
-  a condition.** The conflict tools ran a fetched name like `(a+)+\.esp` as it
-  came, and JavaScript can take for ever on one like that. Such an entry is now
-  skipped and matches no plugin. Every regex name in LOOT's v0.29 lists for all
-  seven games passes the guard.
-
-### Security
-- **Dependencies brought up to date; `npm audit` finds nothing.** zod, which
-  checks every tool's input, moves from 3 to 4 (4.6.6 or later), because zod 3
-  can run out of memory validating an oversized list
-  ([GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)) and
-  has no fixed 3.x release. The MCP SDK supports zod 4, and the tools' inputs and
-  descriptions are unchanged. The web-server libraries the MCP SDK brings in
-  (`body-parser`, `proxy-addr`, `hono`, `@hono/node-server`, `ip-address`,
-  `fast-uri`) get their fixed versions in the lockfile. Those matter to `@modwrench/remote`, the HTTP
-  server; the local server doesn't listen on the network.
-
-## [0.3.0] — unreleased
-
-The workbench learns to answer three questions on its own: "is it safe to
-update?" (Patch Day), "why did my game crash?" (Crash Whisperer) and "is my
-setup ready?" (the Doctors), each with a page for clients that support MCP
-Apps, and Patch Day and the Doctors read Fallout 4 as well as Skyrim. The older
-panels move from MCP-UI to MCP Apps pages, so a client that can't draw a page
-gets the text answer and nothing else. Feedback for the maintainers now has a
-command of its own, which drafts an issue for you to post and sends nothing. None
-of this has been run inside a real MCP client or against a real game install
-yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
-
-### Added
 - **Patch Day: `mw_patch_day` and the `/mw-patch` slash command — "is it safe to
   update?"** Before or right after a Skyrim Special Edition / Anniversary Edition
   patch, it reads the game's version, the SKSE build and its DLL, the Address
@@ -603,6 +490,58 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   them; a test checks that every tool they name exists.
 
 ### Changed
+- **The startup log line says how long starting took.** `modwrench.started`
+  now carries `loaded_ms`, the time from the process starting to all of
+  ModWrench's code being loaded, and `ready_ms`, the time to being ready for
+  the AI app, so a slow start can be traced to loading the code (Windows reads
+  and scans each of the roughly 360 files) or to what comes after. It is
+  written to the server's own log, on your computer, like the rest of the line.
+- **Releases can move `latest` onto the tried beta.** A latest release of a
+  version a beta run already published runs `npm dist-tag add` on it instead of
+  skipping it, so what becomes `latest` is the very files that were tried. With
+  trusted publishing this needs npm 11.21.0 (already pinned) and "npm dist-tag"
+  ticked as an allowed action next to "npm publish". The release build no longer
+  uses a download cache. The workflows move to the Node 24 versions of GitHub's
+  actions (`actions/checkout@v7`, `actions/setup-node@v7`,
+  `gitleaks/gitleaks-action@v3`), ahead of GitHub removing Node 20 from its
+  runners.
+- **The first runs in real AI apps are written down.** On 2026-10-25, on
+  Windows 11, Claude Desktop called `mw_crash_whisperer` on its own and drew
+  its page in the chat, MCP Inspector v2.12 drew the Crash Whisperer and deck
+  pages, and Cline used ModWrench as text. TRUST.md, the README and the website
+  now say so, and still say which pages haven't run in a real app. The website's
+  Cline panel says that coding agents may open a crash log themselves, and how
+  to keep it out of the chat.
+- **An AI asked "why did my game crash?" is pointed at Crash Whisperer, and at
+  the log's path.** In a test in Cline, the AI read the crash log into the
+  conversation itself and then called `mw_diagnose_crash`, because the two
+  lower-level crash tools listed the same trigger phrases as
+  `mw_crash_whisperer`. Now `mw_parse_crashlog` and `mw_diagnose_crash` call
+  themselves lower-level and name `mw_crash_whisperer` for that question, and
+  `mw_crash_whisperer` asks for a named log file as `logPath` rather than read
+  into the chat first, since it takes out the personal details it recognises
+  before anything reads the log. A test holds all three descriptions to that.
+- **The conflict tools answer LOOT's conditions.** An incompatibility entry LOOT
+  applies only under a condition came back as `informational`, whatever the
+  condition said. ModWrench now reads LOOT's conditions (`not`, `and`, `or`,
+  brackets and LOOT's functions) and answers each one true, false or unknown
+  from the plugins it knows are active: true is reported as incompatible, false
+  isn't reported, and unknown stays `informational`, quoting the condition. It
+  can answer `active()` and `many_active()`, and `file()` and `many()` when they
+  are true of active plugins. Anything that needs the game's files, such as
+  `checksum()`, `version()`, `readable()` or `is_master()`, is unknown, since
+  these tools don't read them; so is a condition it can't parse, one over 2,000
+  characters or nested more than 16 deep, and a regex that JavaScript could take
+  for ever on (LOOT's own regex engine can't). In LOOT's v0.29 lists for all
+  seven games, every one of the 5,529 conditions parses. In
+  `mw_check_known_conflicts` a plugin you name is taken to be active, and one you
+  don't name isn't taken to be inactive, since the list may be partial. In
+  `mw_diagnose_crash` the plugins the log lists are active, and the rest are
+  inactive only when the log says how many plugins it lists and lists that many
+  (Crash Logger SSE's `Total:` line, NetScriptFramework's `Game plugins (N)`), so
+  a log cut short or pasted in part doesn't make a plugin look switched off. The
+  parsed log now carries that count as `pluginTotal`.
+
 - **The older panels are MCP Apps pages now, and text-only clients no longer
   get HTML.** Fourteen tools put an MCP-UI panel, about 28 KB of HTML, into
   every answer, and a client that couldn't draw it pasted it into the
@@ -722,6 +661,62 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
 - The conflicts panel's Patch prompt button.
 
 ### Fixed
+- **Nexus search asks for `adultContent`.** Nexus's v2 GraphQL reference marks
+  the `adult` field search used as deprecated, in favour of `adultContent`.
+  Search would have switched itself off (it refuses to return results it
+  cannot check) once Nexus removed the old field. Every public Nexus tool that
+  returns mods now asks for `adultContent` and fails closed the same way.
+- **A mod file named with an `@` and a version stays in the answer.** Crash
+  Whisperer took `MyMod@1.2.3.dll` for an email address and removed it, so a
+  crash log naming a versioned mod lost the one name a helper needs. As the help
+  posts write it, `MyMod(at)1.2.3.dll`, the word after the name went too. A
+  version made of numbers may now sit between the `@` and the file ending, and
+  the name stays. Real addresses still go, `jane.doe@mail2.example.com`
+  included. Found first in MyneWrench's copy of the same check, on Minecraft
+  mod files.
+- **Crash Whisperer says when a log has lost its line breaks.** A log pasted
+  into a box that holds one line (MCP Inspector's text field does this) arrives
+  as one long line, and Crash Whisperer answered that it couldn't find a crash
+  in it. A log of three lines or fewer that still names three or more of a
+  log's sections or entries is now refused with what happened and what to do:
+  give the file in `logPath`, or paste it somewhere that keeps the line breaks.
+  A log whose line breaks are lone carriage returns is read like any other.
+- **The Mods page shows a long mod name whole.** It cut every name at 120
+  characters, shorter than the 128 Thunderstore allows. The cut is now at 300,
+  against hostile input only, and a long name wraps.
+- **The load-order page is no longer labelled "Dependencies".** One page draws
+  both a Thunderstore mod's dependencies and the load order `mw_read_load_order`
+  reads, and its label said "Dependencies" over either. The label now says
+  "Dependencies", "Load order" or "Mod folders" for what is drawn, and the
+  page's title is "Dependencies and load order".
+- **Long plugin names wrap on the load-order page.** Each name was held to one
+  line and cut with an ellipsis, so at phone width most of a long plugin name
+  was lost, and a plugin file name with no spaces ran under the ON/OFF flag and
+  out of the list. Names and plugin files now wrap inside the row, on the
+  dependency lists too.
+- **Download counts on the Mods page for Nexus trending and Thunderstore search
+  and top mods.** They showed "—". `nexus_trending` read a `downloads` field
+  that Nexus's v1 API doesn't send (it sends `mod_downloads`), and
+  `thunderstore_search_mods` and `thunderstore_top_mods` never added up their
+  versions' downloads. Those two tools' text answers now carry `total_downloads`, as
+  `thunderstore_list_mods`' always has. mod.io and `mw_query_mod_metadata` were
+  already right, and a mod a platform gives no count for still shows "—".
+- **A profile name can't climb out of the profiles folder.** `profileName` is
+  joined onto Mod Organizer 2's or r2modman's profiles folder, so a name like
+  `../../somewhere` read a profile's `mods.yml`, `plugins.txt` and `modlist.txt`
+  from outside it. Every tool that takes one (`mw_read_load_order`,
+  `mw_patch_day`, `mw_crash_whisperer`, `mw_doctor`, `mw_loot_requirements`,
+  `mw_pulse` and `mw_crew_check`) now refuses a `profileName` that isn't one folder name (empty,
+  `.` or `..`, or holding `/`, `\` or a NUL character) before anything is
+  opened, with an answer that names the argument and doesn't repeat it. A
+  `selected_profile` in `ModOrganizer.ini` that isn't one folder name is treated
+  as missing.
+- **A LOOT entry whose plugin name is a regex gets the same guard as a regex in
+  a condition.** The conflict tools ran a fetched name like `(a+)+\.esp` as it
+  came, and JavaScript can take for ever on one like that. Such an entry is now
+  skipped and matches no plugin. Every regex name in LOOT's v0.29 lists for all
+  seven games passes the guard.
+
 - **A tool or slash command whose arguments are all optional answers when a client
   leaves the arguments out.** Before version 1.32.0, the MCP SDK checked a
   `tools/call` or `prompts/get` request that had no `arguments` field against the
@@ -899,6 +894,17 @@ yet; [TRUST.md](TRUST.md) says what each tool reads and where it is unsure.
   217. They are now read as LOOT reads them, and every entry that matches a
   plugin counts, as in LOOT. A conflict names the two plugins as you or the
   crash log wrote them, never by LOOT's regex or its spelling.
+
+### Security
+- **Dependencies brought up to date; `npm audit` finds nothing.** zod, which
+  checks every tool's input, moves from 3 to 4 (4.6.6 or later), because zod 3
+  can run out of memory validating an oversized list
+  ([GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)) and
+  has no fixed 3.x release. The MCP SDK supports zod 4, and the tools' inputs and
+  descriptions are unchanged. The web-server libraries the MCP SDK brings in
+  (`body-parser`, `proxy-addr`, `hono`, `@hono/node-server`, `ip-address`,
+  `fast-uri`) get their fixed versions in the lockfile. Those matter to `@modwrench/remote`, the HTTP
+  server; the local server doesn't listen on the network.
 
 ## [0.2.4] — 2026-09-15
 
