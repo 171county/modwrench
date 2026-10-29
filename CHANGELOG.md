@@ -10,6 +10,11 @@ This document is maintained by hand.
 
 ## [Unreleased]
 
+## [0.3.1] — unreleased
+
+Patch Day for GTA V, the ModWrench logo as the server's icon, the trademark
+policy, a GTA V skin and two recoloured ones, on top of the 0.3.0 beta.
+
 ### Added
 - **Patch Day for GTA V: "is it safe to update GTA V?"** `mw_patch_day` now
   takes `gta5` (Legacy) and `gta5enhanced` (Enhanced), or a `gamePath` holding
@@ -21,18 +26,11 @@ This document is maintained by hand.
   says "FATAL: Unknown game version" (which counts even when the version
   numbers match: an update can keep the number), or a Steam update waiting are
   each a wait (a waiting update is a check when Script Hook V already supports
-  a newer version than the game). The answer keeps no folder and no script name from the log. The
-  Patch Day page draws it with Script Hook V and its log in place of plugins.
-  ScriptHookVDotNet, RAGE Plugin Hook, the ASI loader and the mods folder are
-  not checked yet. Built from logs players have posted; not yet run on a real
-  GTA V install. See TRUST.md ("GTA V").
-
-## [0.3.1] — unreleased
-
-The ModWrench logo as the server's icon, the trademark policy, a GTA V skin
-and two recoloured ones, on top of the 0.3.0 beta.
-
-### Added
+  a newer version than the game). The answer keeps no folder and no script
+  name from the log. The Patch Day page draws it with Script Hook V and its log
+  in place of plugins. ScriptHookVDotNet, RAGE Plugin Hook, the ASI loader and
+  the mods folder are not checked yet. Built from logs players have posted; not
+  yet run on a real GTA V install. See TRUST.md ("GTA V").
 - **A GTA V skin.** The pages that wear game skins (mods, dependencies, crash
   log, conflicts, Pulse and the deck) get a fifth swatch: a trainer-menu
   banner in a sunset gradient, GTA V's HUD red, cash green and
