@@ -39,7 +39,7 @@ Forks are welcome: that's what the MIT license is for. Give yours its own name a
 
 ## Other names ModWrench uses
 
-Nexus Mods, mod.io, Thunderstore, LOOT, Skyrim, Fallout, Lethal Company, Valheim and the other games, platforms and tools ModWrench names belong to their owners. ModWrench isn't affiliated with or endorsed by any of them. This page is only about ModWrench's own name and logo.
+Nexus Mods, mod.io, Thunderstore, LOOT, Steam, Skyrim, Fallout, Grand Theft Auto (Rockstar Games), Lethal Company, Valheim and the other games, platforms and tools ModWrench names belong to their owners. ModWrench isn't affiliated with or endorsed by any of them. This page is only about ModWrench's own name and logo.
 
 ## Changes
 
