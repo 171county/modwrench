@@ -36,6 +36,21 @@ the default:
   3. **Patch Day, more of it:** ScriptHookVDotNet and its Enhanced fork, and RAGE Plugin
      Hook with LSPDFR, which are tied to game versions too.
   4. **The Steam Deck and Linux:** the launch-option override each edition's loader needs.
+- **Community feeds,** read-only and asked for first, the way Pulse asks before it checks
+  Thunderstore. In this order:
+  1. **Steam news:** the patch notes and announcements Steam publishes for each game. It's
+     public and needs no key, so Patch Day can say what a waiting update changes.
+  2. **Tool releases on GitHub:** new builds of ScriptHookVDotNet, CodeWalker and the other
+     modding tools released there.
+  3. **Reddit:** posts about a mod or a game update in that game's modding subreddits,
+     linked back to Reddit. Since late 2025 every app needs Reddit's approval before it can
+     read anything, so this is built only once Reddit approves ModWrench. Everyone using
+     ModWrench would share one limit of 100 requests a minute, and nothing is kept.
+
+  **Discord** isn't planned: reading a server needs a bot that the server invites and that
+  runs around the clock, and ModWrench has no service to run one ([TRUST.md](TRUST.md#there-is-no-modwrench-service)).
+  It could come back if a mod community wants to host one. **Posting** stays copy and paste:
+  Crash Whisperer writes the help post and you post it.
 - **One-click install for Claude Desktop.** A `.mcpb` bundle, so there is no config file to
   edit and no wait for `npx` to fetch the package on first start.
 - **Pulse for Nexus mods,** from the mod IDs and versions that Mod Organizer 2 (`meta.ini`)
