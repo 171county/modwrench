@@ -4,6 +4,7 @@ import { loadCredential, log, type Credential } from "@modwrench/core";
 // ─── Platform identity & registration shapes ─────────────────────────────────
 
 export type PlatformId =
+  | "nexus-public"
   | "nexus"
   | "modio"
   | "thunderstore"

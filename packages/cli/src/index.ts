@@ -6,7 +6,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { log } from "@modwrench/core";
-import { registerNexusTools } from "@modwrench/nexus/register";
+import { registerNexusPublicTools, registerNexusTools } from "@modwrench/nexus/register";
 import { registerModioTools } from "@modwrench/modio/register";
 import { registerThunderstoreTools } from "@modwrench/thunderstore/register";
 import { registerWorkbenchTools } from "@modwrench/workbench/register";
@@ -168,6 +168,16 @@ if (subcmd !== undefined) {
 //     catalog changes (listChanged capability declared below)
 
 const platforms: PlatformDef[] = [
+  // Nexus comes in two parts. Its public reads (search, games, mod details, the
+  // newest and recently updated lists, MD5 lookup) go to the v2 GraphQL API with
+  // no key, so they are on for everyone. The tools that need a person's own Nexus
+  // account (checking the key, trending, a mod's files and changelogs, the archive
+  // preview, endorsing) stay on v1 and come on only with a stored credential.
+  {
+    id: "nexus-public",
+    kind: "local",
+    register: registerNexusPublicTools,
+  },
   {
     id: "nexus",
     kind: "credentialed",

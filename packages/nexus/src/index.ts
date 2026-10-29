@@ -3,7 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadCredential, log } from "@modwrench/core";
 import { authLogin, authStatus, authLogout } from "./auth.js";
-import { registerNexusTools } from "./register.js";
+import { registerNexusPublicTools, registerNexusTools } from "./register.js";
 
 // ─── Subcommand dispatch ──────────────────────────────────────────────────────
 // `modwrench-nexus auth <login|status|logout>` runs an auth subcommand and
@@ -25,18 +25,29 @@ if (subcmd === "auth") {
 
 // ─── MCP server boot ──────────────────────────────────────────────────────────
 
-const credential = loadCredential({
-  service: "nexus",
-  authHint:
-    "Store your Nexus credential in your OS credential manager under service `modwrench-nexus` — a personal API key (https://www.nexusmods.com/users/myaccount?tab=api+access) or an OAuth token via `modwrench-nexus auth login`.",
-});
-
 const server = new McpServer({
   name: "modwrench-nexus",
   version: "0.1.0",
 });
 
-const { toolCount, baseUrl } = registerNexusTools(server, credential);
+// The public reads need no key, so they are always on. The account tools come on
+// only when a credential is stored; without one the server still starts.
+const publicTools = registerNexusPublicTools(server);
+let account: { toolCount: number; baseUrl: string } | undefined;
+try {
+  const credential = loadCredential({
+    service: "nexus",
+    authHint:
+      "Store your Nexus credential in your OS credential manager under service `modwrench-nexus` — a personal API key (https://www.nexusmods.com/users/myaccount?tab=api+access) or an OAuth token via `modwrench-nexus auth login`.",
+  });
+  account = registerNexusTools(server, credential);
+} catch (err) {
+  log("info", "modwrench-nexus.account_tools_off", {
+    reason: err instanceof Error ? err.message : String(err),
+  });
+}
+const toolCount = publicTools.toolCount + (account?.toolCount ?? 0);
+const baseUrl = account?.baseUrl ?? publicTools.baseUrl;
 
 async function main() {
   const transport = new StdioServerTransport();

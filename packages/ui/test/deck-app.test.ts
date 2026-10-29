@@ -20,14 +20,15 @@ const GAMES: DeckView["games"] = [
 ];
 
 const CONNECTORS: DeckConnector[] = [
-  { id: "nexus", name: "Nexus Mods", tool: "nexus_search", status: "off" },
+  { id: "nexus-public", name: "Nexus Mods", tool: "nexus_search", status: "off" },
   { id: "modio", name: "mod.io", tool: "modio_list_games", status: "warn" },
   { id: "thunderstore", name: "Thunderstore", tool: "thunderstore_list_communities", status: "on", toolCount: 9 },
   { id: "workbench", name: "Workbench", tool: "mw_detect_environment", status: "on", toolCount: 1 },
 ];
 
 const SENTENCES: Record<string, string> = {
-  nexus: "Search Nexus Mods for me. Ask me what to look for first.",
+  "nexus-public": "Search Nexus Mods for me. Ask me what to look for first.",
+  nexus: "Check my Nexus Mods account connection.",
   modio: "Show me what's on mod.io. Ask me which game first.",
   thunderstore: "Show me the Thunderstore communities.",
   workbench: "Detect my modding setup.",

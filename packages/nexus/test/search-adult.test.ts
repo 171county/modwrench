@@ -1,7 +1,6 @@
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { registerNexusTools } from "../src/register.js";
-import type { Credential } from "@modwrench/core";
+import { registerNexusPublicTools } from "../src/public.js";
 
 // ─── nexus_search and the adult filter ───────────────────────────────────────
 // This tool was the one hole in the adult-content filter, and the hole was
@@ -26,7 +25,6 @@ class MockServer {
   }
 }
 
-const CRED: Credential = { source: "apikey", apiKey: "test-api-key-12345" };
 const originalFetch = globalThis.fetch;
 const originalAllow = process.env.NEXUS_ALLOW_ADULT_CONTENT;
 
@@ -57,7 +55,7 @@ function stub(respond: (query: string) => unknown): { queries: string[] } {
 
 function searchTool(): ToolHandler {
   const server = new MockServer();
-  registerNexusTools(server as unknown as never, CRED);
+  registerNexusPublicTools(server as unknown as never);
   const handler = server.tools.get("nexus_search");
   assert.ok(handler, "nexus_search was not registered");
   return handler;
@@ -74,7 +72,7 @@ function node(modId: number, name: string, adult?: boolean) {
     downloads: 1,
     endorsements: 1,
   };
-  if (adult !== undefined) n.adult = adult;
+  if (adult !== undefined) n.adultContent = adult;
   return n;
 }
 
@@ -87,7 +85,7 @@ test("the search query asks Nexus for the adult flag when filtering is active", 
   assert.equal(queries.length, 1);
   assert.match(
     queries[0],
-    /\badult\b/,
+    /\badultContent\b/,
     "the selection set no longer requests the adult flag — the filter has nothing to read and passes everything"
   );
 });
@@ -111,7 +109,7 @@ test("adult-flagged results are dropped from search output", async () => {
 
 test("search fails closed when the schema has no such field", async () => {
   stub(() => ({
-    errors: [{ message: "Cannot query field 'adult' on type 'Mod'." }],
+    errors: [{ message: "Cannot query field 'adultContent' on type 'Mod'." }],
   }));
 
   await assert.rejects(
@@ -146,8 +144,25 @@ test("an opted-in operator gets results, and the query does not ask for the flag
   const res = await searchTool()({ query: "lighting" });
   assert.doesNotMatch(
     queries[0],
-    /\n\s+adult\n/,
+    /\n\s+adultContent\n/,
     "no reason to request a flag that will not be used"
   );
   assert.match(res.content[0].text, /Flagged/, "opt-in was not honoured");
+});
+
+test("search sends no key or token, only the application headers", async () => {
+  const seen: Headers[] = [];
+  globalThis.fetch = async (_url, init) => {
+    seen.push(new Headers(init?.headers));
+    return new Response(JSON.stringify({ data: { mods: { totalCount: 0, nodes: [] } } }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  await searchTool()({ query: "lighting" });
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0]!.get("apikey"), null);
+  assert.equal(seen[0]!.get("authorization"), null);
+  assert.equal(seen[0]!.get("application-name"), "ModWrench");
+  assert.ok(seen[0]!.get("application-version"));
 });

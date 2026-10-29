@@ -4,7 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { Credential } from "@modwrench/core";
-import { registerNexusTools } from "@modwrench/nexus/register";
+import { registerNexusPublicTools, registerNexusTools } from "@modwrench/nexus/register";
 import { registerModioTools } from "@modwrench/modio/register";
 import { registerThunderstoreTools } from "@modwrench/thunderstore/register";
 import { registerWorkbenchTools } from "@modwrench/workbench/register";
@@ -85,6 +85,7 @@ const CRED: Credential = { source: "apikey", apiKey: "fake-test-key" };
 /** The CLI's server: nexus and mod.io activate if `store` holds their credential. */
 async function boot(store: Map<string, Credential>): Promise<{ server: McpServer; catalog: MetaCatalog }> {
   const platforms: PlatformDef[] = [
+    { id: "nexus-public", kind: "local", register: registerNexusPublicTools },
     { id: "nexus", kind: "credentialed", register: registerNexusTools, service: "nexus", authHint: "nexus" },
     { id: "modio", kind: "credentialed", register: registerModioTools, service: "modio", authHint: "modio" },
     { id: "thunderstore", kind: "local", register: registerThunderstoreTools },

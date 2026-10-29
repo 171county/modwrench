@@ -96,17 +96,17 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 // ─── Registration smoke tests ───────────────────────────────────────────────
 
-test("registerNexusTools: registers 15 tools with an apikey credential", () => {
+test("registerNexusTools: registers 14 tools with an apikey credential", () => {
   const server = new MockMcpServer();
   const result = registerNexusTools(server as unknown as never, APIKEY_CRED);
-  assert.equal(result.toolCount, 15);
-  assert.equal(server.tools.size, 15);
+  assert.equal(result.toolCount, 14);
+  assert.equal(server.tools.size, 14);
 });
 
 test("registerNexusTools: same tool count with keychain credential", () => {
   const server = new MockMcpServer();
   const result = registerNexusTools(server as unknown as never, KEYCHAIN_CRED);
-  assert.equal(result.toolCount, 15);
+  assert.equal(result.toolCount, 14);
 });
 
 test("registerNexusTools: exposes base URL", () => {
@@ -132,7 +132,6 @@ test("registerNexusTools: every expected tool is present", () => {
     "nexus_mod_changelogs",
     "nexus_updated",
     "nexus_md5_search",
-    "nexus_search",
   ];
   for (const name of expected) {
     assert.ok(server.tools.has(name), `missing tool: ${name}`);
