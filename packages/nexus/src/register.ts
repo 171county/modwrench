@@ -143,180 +143,7 @@ export function registerNexusTools(
     }
   );
 
-  // Tool 2: List all games on Nexus
-  server.registerTool(
-    "nexus_list_games",
-    {
-      title: "List Nexus games",
-      description: "List all games supported on Nexus Mods. Returns each game's domain name (used in other tool calls), display name, and mod counts.",
-      inputSchema: {
-        include_unapproved: z
-          .boolean()
-          .optional()
-          .describe("Include games still pending approval. Default false."),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-    },
-    async ({ include_unapproved }) => {
-      const flag = include_unapproved ? "true" : "false";
-      const games = await nexusRequest<
-        Array<{
-          id: number;
-          name: string;
-          domain_name: string;
-          mods: number;
-          downloads: number;
-        }>
-      >(`/games.json?include_unapproved=${flag}`);
-
-      const summary = games
-        .sort((a, b) => b.mods - a.mods)
-        .slice(0, 50)
-        .map((g) => ({
-          domain: g.domain_name,
-          name: g.name,
-          mods: g.mods,
-          downloads: g.downloads,
-        }));
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Top 50 games by mod count (of ${games.length} total):\n\n${JSON.stringify(
-              summary,
-              null,
-              2
-            )}`,
-          },
-        ],
-      };
-    }
-  );
-
-  // Tool 3: Get details for a single mod
-  server.registerTool(
-    "nexus_get_mod",
-    {
-      title: "Get Nexus mod details",
-      description: "Get full details for a single mod by game domain and mod ID. Returns name, summary, author, version, endorsements, downloads, and more.",
-      inputSchema: {
-        game_domain: z
-          .string()
-          .describe("The game's domain name (e.g. 'skyrimspecialedition', 'cyberpunk2077'). Use nexus_list_games to find these."),
-        mod_id: z.number().int().positive().describe("The numeric mod ID from the Nexus URL."),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-    },
-    async ({ game_domain, mod_id }) => {
-      const mod = await nexusRequest<Record<string, unknown>>(
-        `/games/${game_domain}/mods/${mod_id}.json`
-      );
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(mod, null, 2),
-          },
-        ],
-      };
-    }
-  );
-
-  // Tool 4: Latest added mods for a game
-  server.registerTool(
-    "nexus_latest_added",
-    {
-      title: "Newest Nexus mods",
-      description: "Get the most recently added mods for a specific game. Useful for discovering brand-new releases.",
-      inputSchema: {
-        game_domain: z
-          .string()
-          .describe("The game's domain name (e.g. 'skyrimspecialedition')."),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-    },
-    async ({ game_domain }) => {
-      const mods = await nexusRequest<
-        Array<{
-          mod_id: number;
-          name: string;
-          summary: string;
-          author: string;
-          version: string;
-          endorsement_count: number;
-        }>
-      >(`/games/${game_domain}/mods/latest_added.json`);
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(mods, null, 2),
-          },
-        ],
-      };
-    }
-  );
-
-  // Tool 5: Latest updated mods for a game
-  server.registerTool(
-    "nexus_latest_updated",
-    {
-      title: "Recently updated Nexus mods",
-      description: "Get the most recently updated mods for a specific game. Useful for seeing what's actively maintained.",
-      inputSchema: {
-        game_domain: z
-          .string()
-          .describe("The game's domain name (e.g. 'skyrimspecialedition')."),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-    },
-    async ({ game_domain }) => {
-      const mods = await nexusRequest<
-        Array<{
-          mod_id: number;
-          name: string;
-          summary: string;
-          version: string;
-          endorsement_count: number;
-          updated_timestamp: number;
-        }>
-      >(`/games/${game_domain}/mods/latest_updated.json`);
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(mods, null, 2),
-          },
-        ],
-      };
-    }
-  );
-
-  // Tool 6: Trending mods for a game
+  // Tool 2: Trending mods for a game
   const modsPage = registerAppPage(server, MODS_PAGE);
   server.registerTool(
     "nexus_trending",
@@ -359,7 +186,7 @@ export function registerNexusTools(
     }
   );
 
-  // Tool 7: List files for a specific mod
+  // Tool 3: List files for a specific mod
   server.registerTool(
     "nexus_mod_files",
     {
@@ -400,35 +227,7 @@ export function registerNexusTools(
     }
   );
 
-  // Tool 8: Get a single game's details
-  server.registerTool(
-    "nexus_get_game",
-    {
-      title: "Get Nexus game details",
-      description: "Get full details for a single game by domain name. Returns categories, file/mod counts, approval status, and metadata.",
-      inputSchema: {
-        game_domain: z
-          .string()
-          .describe("The game's domain name (e.g. 'skyrimspecialedition', 'cyberpunk2077')."),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-    },
-    async ({ game_domain }) => {
-      const game = await nexusRequest<Record<string, unknown>>(
-        `/games/${game_domain}.json`
-      );
-      return {
-        content: [{ type: "text", text: JSON.stringify(game, null, 2) }],
-      };
-    }
-  );
-
-  // Tool 9: Get a single mod file's details
+  // Tool 4: Get a single mod file's details
   server.registerTool(
     "nexus_get_file",
     {
@@ -456,7 +255,7 @@ export function registerNexusTools(
     }
   );
 
-  // Tool 10: Preview a mod file's archive contents
+  // Tool 5: Preview a mod file's archive contents
   server.registerTool(
     "nexus_file_preview",
     {
@@ -530,7 +329,7 @@ export function registerNexusTools(
     }
   );
 
-  // Tool 11: Get changelogs for a mod
+  // Tool 6: Get changelogs for a mod
   server.registerTool(
     "nexus_mod_changelogs",
     {
@@ -557,81 +356,6 @@ export function registerNexusTools(
     }
   );
 
-  // Tool 12: Reverse-lookup a file by MD5 hash
-  server.registerTool(
-    "nexus_md5_search",
-    {
-      title: "Identify a local file by MD5",
-      description: "Reverse-lookup a local file's MD5 hash to find which Nexus mod it belongs to. Returns matching mod + file details. Useful for identifying unknown files in a game install.",
-      inputSchema: {
-        game_domain: z.string().describe("The game's domain name."),
-        md5_hash: z
-          .string()
-          .regex(/^[a-fA-F0-9]{32}$/, "Must be a 32-character hex MD5 hash")
-          .describe("The MD5 hash of the file (32 hex characters)."),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-    },
-    async ({ game_domain, md5_hash }) => {
-      const matches = await nexusRequest<unknown[]>(
-        `/games/${game_domain}/mods/md5_search/${md5_hash}.json`
-      );
-      return {
-        content: [{ type: "text", text: JSON.stringify(matches, null, 2) }],
-      };
-    }
-  );
-
-  server.registerTool(
-    "nexus_updated",
-    {
-      title: "Nexus mods updated recently",
-      description: "List every mod for a game updated within a recent window (1d / 1w / 1m). Returns each mod_id with its latest file-update and mod-activity timestamps — the feed a load-order maintainer watches to know exactly what to refresh.",
-      inputSchema: {
-        game_domain: z
-          .string()
-          .describe("The game's domain name (e.g. 'skyrimspecialedition')."),
-        period: z
-          .enum(["1d", "1w", "1m"])
-          .optional()
-          .describe("Look-back window. Default '1w'."),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-    },
-    async ({ game_domain, period }) => {
-      const p = period ?? "1w";
-      const updated = await nexusRequest<
-        Array<{
-          mod_id: number;
-          latest_file_update: number;
-          latest_mod_activity: number;
-        }>
-      >(`/games/${game_domain}/mods/updated.json?period=${p}`);
-      return {
-        content: [
-          {
-            type: "text",
-            text: `${updated.length} mods updated in the last ${p} for ${game_domain}:\n\n${JSON.stringify(
-              updated,
-              null,
-              2
-            )}`,
-          },
-        ],
-      };
-    }
-  );
-
   // ─── Write client ───────────────────────────────────────────────────────────
   // Playbook rule 2: writes get their own client with retries disabled. An
   // endorsement is not idempotent in a way we can reason about from here — a
@@ -651,7 +375,7 @@ export function registerNexusTools(
     },
   });
 
-  // Tool 15: Endorse a mod — the only write action in ModWrench.
+  // Tool 7: Endorse a mod — the only write action in ModWrench.
   server.registerTool(
     "nexus_endorse_mod",
     {
@@ -760,5 +484,5 @@ export function registerNexusTools(
     }
   );
 
-  return { toolCount: 14, baseUrl: NEXUS_BASE_URL };
+  return { toolCount: 7, baseUrl: NEXUS_BASE_URL };
 }

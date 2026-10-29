@@ -96,17 +96,17 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 // ─── Registration smoke tests ───────────────────────────────────────────────
 
-test("registerNexusTools: registers 14 tools with an apikey credential", () => {
+test("registerNexusTools: registers the 7 account tools with an apikey credential", () => {
   const server = new MockMcpServer();
   const result = registerNexusTools(server as unknown as never, APIKEY_CRED);
-  assert.equal(result.toolCount, 14);
-  assert.equal(server.tools.size, 14);
+  assert.equal(result.toolCount, 7);
+  assert.equal(server.tools.size, 7);
 });
 
 test("registerNexusTools: same tool count with keychain credential", () => {
   const server = new MockMcpServer();
   const result = registerNexusTools(server as unknown as never, KEYCHAIN_CRED);
-  assert.equal(result.toolCount, 14);
+  assert.equal(result.toolCount, 7);
 });
 
 test("registerNexusTools: exposes base URL", () => {
@@ -120,18 +120,12 @@ test("registerNexusTools: every expected tool is present", () => {
   registerNexusTools(server as unknown as never, APIKEY_CRED);
   const expected = [
     "nexus_validate_key",
-    "nexus_list_games",
-    "nexus_get_mod",
-    "nexus_latest_added",
-    "nexus_latest_updated",
     "nexus_trending",
     "nexus_mod_files",
-    "nexus_get_game",
     "nexus_get_file",
     "nexus_file_preview",
     "nexus_mod_changelogs",
-    "nexus_updated",
-    "nexus_md5_search",
+    "nexus_endorse_mod",
   ];
   for (const name of expected) {
     assert.ok(server.tools.has(name), `missing tool: ${name}`);
@@ -191,45 +185,6 @@ test("keychain credential routes auth to Authorization Bearer header", async () 
   assert.equal(calls[0]?.headers.get("apikey"), null);
 });
 
-// ─── Per-tool URL shape ──────────────────────────────────────────────────────
-
-test("nexus_get_mod hits /games/{domain}/mods/{id}.json", async () => {
-  const server = new MockMcpServer();
-  registerNexusTools(server as unknown as never, APIKEY_CRED);
-  const { calls } = captureFetch(() => jsonResponse({ mod_id: 1840, name: "SkyUI" }));
-  await server.invoke("nexus_get_mod", {
-    game_domain: "skyrimspecialedition",
-    mod_id: 1840,
-  });
-  assert.ok(
-    calls[0]?.url.endsWith("/games/skyrimspecialedition/mods/1840.json"),
-    `unexpected URL: ${calls[0]?.url}`
-  );
-});
-
-test("nexus_list_games respects include_unapproved flag", async () => {
-  const server = new MockMcpServer();
-  registerNexusTools(server as unknown as never, APIKEY_CRED);
-  const { calls } = captureFetch(() => jsonResponse([]));
-  await server.invoke("nexus_list_games", { include_unapproved: true });
-  assert.ok(calls[0]?.url.includes("include_unapproved=true"));
-});
-
-test("nexus_md5_search hits the md5_search path", async () => {
-  const server = new MockMcpServer();
-  registerNexusTools(server as unknown as never, APIKEY_CRED);
-  const { calls } = captureFetch(() => jsonResponse([]));
-  const hash = "a".repeat(32);
-  await server.invoke("nexus_md5_search", {
-    game_domain: "skyrim",
-    md5_hash: hash,
-  });
-  assert.ok(
-    calls[0]?.url.includes(`/games/skyrim/mods/md5_search/${hash}.json`),
-    `unexpected URL: ${calls[0]?.url}`
-  );
-});
-
 // ─── Error envelope propagation ──────────────────────────────────────────────
 
 test("HTTP 401 surfaces as nexus_http_error", async () => {
@@ -249,31 +204,6 @@ test("HTTP 401 surfaces as nexus_http_error", async () => {
 // actually wired into the request path, which is the part that could silently
 // regress if someone adds a tool that bypasses nexusRequest.
 
-test("adult filter: nexus_get_mod redacts a flagged mod", async () => {
-  delete process.env.NEXUS_ALLOW_ADULT_CONTENT;
-  const server = new MockMcpServer();
-  registerNexusTools(server as unknown as never, APIKEY_CRED);
-  captureFetch(() =>
-    jsonResponse({
-      mod_id: 99,
-      name: "Flagged Mod",
-      summary: "should not reach the model",
-      contains_adult_content: true,
-    })
-  );
-
-  const res = await server.invoke("nexus_get_mod", {
-    game_domain: "skyrimspecialedition",
-    mod_id: 99,
-  });
-  const text = res.content[0]!.text;
-  assert.ok(text.includes("filtered"), "response should be marked filtered");
-  assert.ok(
-    !text.includes("should not reach the model"),
-    "flagged content must not survive into the tool result"
-  );
-});
-
 test("adult filter: list endpoints drop flagged entries but keep clean ones", async () => {
   delete process.env.NEXUS_ALLOW_ADULT_CONTENT;
   const server = new MockMcpServer();
@@ -285,7 +215,7 @@ test("adult filter: list endpoints drop flagged entries but keep clean ones", as
     ])
   );
 
-  const res = await server.invoke("nexus_latest_added", {
+  const res = await server.invoke("nexus_trending", {
     game_domain: "skyrimspecialedition",
   });
   const text = res.content[0]!.text;
@@ -303,7 +233,7 @@ test("adult filter: operator opt-in lets flagged content through", async () => {
         { mod_id: 2, name: "Flagged Mod", contains_adult_content: true },
       ])
     );
-    const res = await server.invoke("nexus_latest_added", {
+    const res = await server.invoke("nexus_trending", {
       game_domain: "skyrimspecialedition",
     });
     assert.ok(res.content[0]!.text.includes("Flagged Mod"));

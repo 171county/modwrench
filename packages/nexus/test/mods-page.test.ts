@@ -177,7 +177,7 @@ test("a server that can't register the page still gets every tool, answering in 
   };
   for (const server of [new ConnectedServer(DRAWS_PAGES), toolsOnly()]) {
     assertTextOnly(await run(server), server.constructor.name);
-    assert.equal(server.tools.size, 14);
+    assert.equal(server.tools.size, 7);
     for (const [name, t] of server.tools) assert.equal(t.config._meta, undefined, name);
   }
 });

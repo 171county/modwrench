@@ -37,14 +37,16 @@ The complete list, from the shipped code:
 
 | Destination | When | Why |
 |---|---|---|
-| `api.nexusmods.com` | Nexus tools; `mw_query_mod_metadata` and `mw_trust_card` for a Nexus mod; crash-suspect attribution (opt-in) | Mod data; author links for named suspects |
+| `api.nexusmods.com` | Nexus tools (the public ones with no key, the account ones with yours); `mw_query_mod_metadata` and `mw_trust_card` for a Nexus mod; crash-suspect attribution (opt-in) | Mod data; author links for named suspects |
 | `users.nexusmods.com` | `auth login nexus` only | OAuth |
 | `api.mod.io` | mod.io tools | Mod data |
 | `thunderstore.io` | Thunderstore tools; `mw_query_mod_metadata` and `mw_trust_card` for a Thunderstore mod; `mw_pulse`, only after you confirm | Mod data; the latest version of each mod you run |
 | `raw.githubusercontent.com` | `mw_check_known_conflicts`; `mw_diagnose_crash` with a `gameId`; `mw_loot_requirements` | LOOT's public masterlist |
 | a Nexus CDN host | `nexus_file_preview` only | The archive listing for one file |
 
-Three of those need naming properly rather than being left to the table.
+Four of those need naming properly rather than being left to the table.
+
+**The public Nexus tools send no key.** `nexus_search`, `nexus_list_games`, `nexus_get_game`, `nexus_get_mod`, `nexus_latest_added`, `nexus_latest_updated`, `nexus_updated` and `nexus_md5_search` ask Nexus's v2 GraphQL API (`api.nexusmods.com/v2/graphql`), which Nexus documents as "accessible without authentication" for most of it. Those requests carry no key and no token, only a User-Agent and the `Application-Name` and `Application-Version` headers identifying ModWrench and its version. Nexus still learns your IP address and what you asked: a search term, a game, a mod's number or a file's MD5. They are on whether or not you have connected Nexus. The account tools (`nexus_validate_key`, `nexus_trending`, `nexus_mod_files`, `nexus_get_file`, `nexus_file_preview`, `nexus_mod_changelogs` and `nexus_endorse_mod`) use the v1 API with your key, and come on only when one is stored.
 
 **The CDN host is the only destination here that is not a fixed address.** `nexus_file_preview` reads a file's `content_preview_link` — a URL Nexus supplies at runtime — and follows it. ModWrench does not choose that host and cannot list it in advance, because Nexus decides it per file. The request carries no credential.
 
@@ -55,7 +57,7 @@ Three of those need naming properly rather than being left to the table.
 Platform base URLs are environment variables you can override, so you can point most of ModWrench at a proxy and watch what it sends. Three paths do not honour those variables, and the first is the one you would most want to watch:
 
 - **The auth requests carry your credential and cannot be redirected.** `nexus/auth.ts` and `modio/auth.ts` use hardcoded hosts, so the request that validates your freshly-pasted key goes to Nexus or mod.io and nowhere else — but you cannot point it at a proxy to confirm that for yourself. To verify it, read those two files or watch the connection at the network layer.
-- `nexus_search` reads `NEXUS_GRAPHQL_URL`, a separate variable from `NEXUS_BASE_URL`.
+- The public Nexus tools read `NEXUS_GRAPHQL_URL`, a separate variable from `NEXUS_BASE_URL`.
 - `nexus_file_preview` follows the CDN URL above, which no variable controls.
 
 ## Your credentials
@@ -95,9 +97,9 @@ Nexus tags some mods as adult content. On their own site that content is hidden 
 
 The filter decides by reading a flag off each record. That single fact sets the whole boundary, so here is exactly where it holds and where it cannot.
 
-**Where a request can be checked, ModWrench refuses rather than guess.** Two tools are built to fail closed:
+**Where a request can be checked, ModWrench refuses rather than guess.** These tools are built to fail closed:
 
-- `nexus_search` runs against the v2 GraphQL endpoint and asks for the adult field explicitly. If Nexus renames or removes it, the query fails validation and search **refuses to return results at all** rather than hand you a list it cannot check. You get an error naming the problem and the one-line fix.
+- The public Nexus tools that return mods (`nexus_search`, `nexus_get_mod`, `nexus_latest_added`, `nexus_latest_updated`, `nexus_updated` and `nexus_md5_search`) run against the v2 GraphQL endpoint and ask for the adult field, `adultContent`, explicitly. (The older `adult` field is marked deprecated in Nexus's v2 reference.) If Nexus renames or removes it, the query fails validation and the tool **refuses to return results at all** rather than hand you a list it cannot check. You get an error naming the problem and the one-line fix. A withheld mod looked up directly, or matched by its MD5, comes back as a notice saying it was withheld.
 - `nexus_file_preview` follows a CDN URL to get an archive's folder listing. That listing carries no flag of its own — filtering it would be a guaranteed no-op — so the tool checks the *mod* record first and refuses outright if the mod is adult-tagged.
 
 **Where a response carries no flag, the filter cannot judge it, and it passes through.** This is the honest edge, and it is not hypothetical. Some v1 REST endpoints return records that are not mod records and so carry no `contains_adult_content`:
@@ -105,7 +107,6 @@ The filter decides by reading a flag off each record. That single fact sets the 
 | Tool | Returns | Filtered? |
 |---|---|---|
 | `nexus_mod_changelogs` | a map of version → changelog text | **no** — strings carry no flag |
-| `nexus_updated` | mod IDs and timestamps | **no** — no flag on the record |
 | `nexus_mod_files`, `nexus_get_file` | file records | **no** — the flag is on the mod, not the file |
 
 So for an adult-tagged mod, its author-written changelog text can reach you unfiltered and unlabelled. No images, no description, no listing — but text the author wrote, and it will not be marked. Every tool that returns a mod record *is* filtered, and that is most of them.

@@ -169,7 +169,7 @@ Note the key here is `mcpServers`, which is *not* what VS Code uses:
 }
 ```
 
-Restart your client. Thunderstore and the local Workbench tools work immediately — no account, no key.
+Restart your client. Thunderstore, Nexus Mods search and browsing, and the local Workbench tools work immediately — no account, no key.
 
 **Which clients get which tools.** Every setup above has your AI client start ModWrench as a
 program on your own computer. That is what lets Crash Whisperer, the Doctors, Patch Day and the
@@ -194,7 +194,7 @@ reach, its limit of 100 sessions is shared with anyone who connects
 
 ### Connecting Nexus and mod.io
 
-These two need a credential:
+Nexus Mods' public reads need nothing: search, the games list, a game's or a mod's details, the newest and recently updated mods, and identifying a file by its MD5 go to Nexus's GraphQL API with no key. A Nexus key adds the account tools: checking the key, trending, a mod's files and changelogs, the archive preview, and endorsing. mod.io needs a key for everything.
 
 ```bash
 npx -y @modwrench/cli auth key nexus
@@ -205,7 +205,7 @@ Each command prompts for the key, verifies it against the platform, and stores i
 
 `auth status nexus` to check one, `auth logout nexus` to remove it.
 
-> **Before you connect Nexus.** Nexus's [API Acceptable Use Policy](https://help.nexusmods.com/article/114-api-acceptable-use-policy) tolerates personal API keys for personal use, but asks public applications to register for their own client ID. ModWrench is not a registered Nexus application yet, so connecting Nexus means using your personal key with a third-party tool — and Nexus may choose to limit personal keys used that way. That would affect your key, not ModWrench. Skip Nexus if you'd rather not; nothing else depends on it.
+> **Before you connect Nexus.** Nexus's [API Acceptable Use Policy](https://help.nexusmods.com/article/114-api-acceptable-use-policy) tolerates personal API keys for personal use, but asks public applications to register for their own client ID. ModWrench is not a registered Nexus application yet, so connecting Nexus means using your personal key with a third-party tool — and Nexus may choose to limit personal keys used that way. That would affect your key, not ModWrench. Skip connecting if you'd rather not: the public Nexus tools work without a key, and nothing else depends on it.
 
 ## Your credentials
 
@@ -223,7 +223,7 @@ Everything ModWrench talks to, and nothing else:
 
 | Host | When |
 |---|---|
-| `api.nexusmods.com` | Nexus mod data, and crash-suspect attribution when you opt in — only if you connected Nexus |
+| `api.nexusmods.com` | Nexus mod data: the public tools ask its GraphQL API with no key; the account tools, and crash-suspect attribution when you opt in, only if you connected Nexus |
 | `users.nexusmods.com` | only while `auth login nexus` completes an OAuth sign-in |
 | `api.mod.io` | mod.io mod data — only if you connected mod.io |
 | `thunderstore.io` | Thunderstore's public read API; `mw_query_mod_metadata` and `mw_trust_card` for a Thunderstore mod; and `mw_pulse` once you say yes: one request per mod, carrying that mod's name |

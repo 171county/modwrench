@@ -58,7 +58,8 @@ export function registerNexusPublicTools(server: McpServer): { toolCount: number
 
   async function nexusGraphQL<T>(
     query: string,
-    variables: Record<string, unknown>
+    variables: Record<string, unknown>,
+    policy = true
   ): Promise<T> {
     log("debug", "nexus.graphql", { variables });
     const res = await httpClient.request<{
@@ -81,8 +82,78 @@ export function registerNexusPublicTools(server: McpServer): { toolCount: number
         "Nexus GraphQL returned no data."
       );
     }
-    return applyAdultPolicy(res.data, "graphql");
+    return policy ? applyAdultPolicy(res.data, "graphql") : res.data;
   }
+
+  /** The adult flag, asked for only when it will be used to filter. */
+  const adultField = (): string => (adultContentAllowed() ? "" : `\n      ${GQL_ADULT_FIELD}`);
+
+  /**
+   * A read whose selection asks for the adult flag. If the schema has dropped the
+   * field, the answer can't be checked, so it fails closed, as search does.
+   */
+  async function modRead<T>(query: string, variables: Record<string, unknown>, policy = true): Promise<T> {
+    try {
+      return await nexusGraphQL<T>(query, variables, policy);
+    } catch (err) {
+      if (!isUnknownAdultFieldError(err)) throw err;
+      log("error", "nexus.adult_field_unknown", { field: GQL_ADULT_FIELD });
+      throw new ModWrenchError(
+        "nexus_adult_unverifiable",
+        `Nexus's GraphQL API has no "${GQL_ADULT_FIELD}" field, which ModWrench reads to withhold adult-tagged mods, so this answer can't be checked and isn't returned. Nexus requires third-party tools to filter what they return. To fix: set GQL_ADULT_FIELD in packages/nexus/src/public.ts to the schema's adult field name. To accept unfiltered answers deliberately, set NEXUS_ALLOW_ADULT_CONTENT=true.`
+      );
+    }
+  }
+
+  type GqlMod = {
+    modId: number;
+    name: string;
+    summary?: string;
+    version?: string;
+    author?: string | null;
+    uploader?: { name: string } | null;
+    createdAt?: string;
+    updatedAt?: string;
+    downloads?: number;
+    endorsements?: number;
+    game?: { domainName: string; name: string } | null;
+  };
+
+  // The fields every list of mods asks for. `uploader` is limited to the name:
+  // the docs mark other User fields as protected.
+  const LIST_FIELDS = `modId
+      name
+      summary
+      version
+      author
+      uploader { name }
+      createdAt
+      updatedAt
+      downloads
+      endorsements
+      game { domainName name }`;
+
+  const modUrl = (domain: string, modId: number): string => `https://www.nexusmods.com/${domain}/mods/${modId}`;
+
+  /** A mod from a list, in the shape the tools return. A withheld entry has already been taken out. */
+  function row(m: GqlMod, domain: string): Record<string, unknown> {
+    const game = m.game?.domainName ?? domain;
+    return {
+      mod_id: m.modId,
+      name: m.name,
+      summary: m.summary ?? "",
+      version: m.version ?? "",
+      author: m.author || m.uploader?.name || "",
+      downloads: m.downloads,
+      endorsements: m.endorsements,
+      created_at: m.createdAt,
+      updated_at: m.updatedAt,
+      url: modUrl(game, m.modId),
+    };
+  }
+
+  const gameDomain = z.string().min(1).describe("The game's domain name (e.g. 'skyrimspecialedition'). Use nexus_list_games to find these.");
+  const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } as const;
 
   // Full-text mod search. The v1 REST API has none, so this is the v2 `mods`
   // query, the same backend as the website's search box.
@@ -220,5 +291,315 @@ export function registerNexusPublicTools(server: McpServer): { toolCount: number
     }
   );
 
-  return { toolCount: 1, baseUrl: NEXUS_GRAPHQL_URL };
+
+  // The games on Nexus, by number of mods.
+  server.registerTool(
+    "nexus_list_games",
+    {
+      title: "List Nexus games",
+      description: "List the games on Nexus Mods with the most mods: each game's domain name (used by the other Nexus tools), display name, mod count and download count. No Nexus key needed.",
+      annotations: READ,
+    },
+    async () => {
+      const data = await nexusGraphQL<{
+        games: { totalCount: number; nodes: Array<{ id: number; domainName: string; name: string; modCount?: number | null; downloadCount?: string | number | null }> };
+      }>(
+        `query ModWrenchGames($count: Int!) {
+  games(count: $count, sort: [{ mods: { direction: DESC } }]) {
+    totalCount
+    nodes { id domainName name modCount downloadCount }
+  }
+}`,
+        { count: 50 }
+      );
+      const games = data.games.nodes.map((g) => ({ domain: g.domainName, name: g.name, mods: g.modCount, downloads: g.downloadCount }));
+      return {
+        content: [
+          { type: "text" as const, text: `The ${games.length} games with the most mods (of ${data.games.totalCount} on Nexus):\n\n${JSON.stringify(games, null, 2)}` },
+        ],
+      };
+    }
+  );
+
+  // One game's details.
+  server.registerTool(
+    "nexus_get_game",
+    {
+      title: "Get Nexus game details",
+      description: "Get one game's details on Nexus Mods by domain name: its name, genre, mod, download and collection counts, when it was approved, and its forum link. No Nexus key needed.",
+      inputSchema: { game_domain: gameDomain },
+      annotations: READ,
+    },
+    async ({ game_domain }) => {
+      const data = await nexusGraphQL<{
+        game: {
+          id: number;
+          domainName: string;
+          name: string;
+          genre?: string | null;
+          modCount?: number | null;
+          downloadCount?: string | number | null;
+          uniqueDownloadCount?: string | number | null;
+          collectionCount?: number | null;
+          approvedAt?: string | null;
+          forumUrl?: string | null;
+          supportsVortex?: boolean;
+        } | null;
+      }>(
+        `query ModWrenchGame($domain: String!) {
+  game(domainName: $domain) {
+    id domainName name genre modCount downloadCount uniqueDownloadCount collectionCount approvedAt forumUrl supportsVortex
+  }
+}`,
+        { domain: game_domain }
+      );
+      const g = data.game;
+      if (!g) throw new ModWrenchError("nexus_not_found", `Nexus has no game with the domain name "${game_domain}". Use nexus_list_games to find it.`);
+      const game = {
+        id: g.id,
+        domain: g.domainName,
+        name: g.name,
+        genre: g.genre,
+        mods: g.modCount,
+        downloads: g.downloadCount,
+        unique_downloads: g.uniqueDownloadCount,
+        collections: g.collectionCount,
+        approved_at: g.approvedAt,
+        forum_url: g.forumUrl,
+        supports_vortex: g.supportsVortex,
+        url: `https://www.nexusmods.com/${g.domainName}`,
+      };
+      return { content: [{ type: "text" as const, text: JSON.stringify(game, null, 2) }] };
+    }
+  );
+
+  // One mod's details.
+  server.registerTool(
+    "nexus_get_mod",
+    {
+      title: "Get Nexus mod details",
+      description: "Get full details for one mod by game domain and mod ID: name, summary, description, author, version, category, status, download and endorsement counts, and when it was created and last updated. No Nexus key needed.",
+      inputSchema: {
+        game_domain: gameDomain,
+        mod_id: z.number().int().positive().describe("The numeric mod ID from the Nexus URL."),
+      },
+      annotations: READ,
+    },
+    async ({ game_domain, mod_id }) => {
+      // The policy is applied to the one mod below, so a withheld mod is said to
+      // be withheld rather than reported as missing.
+      const data = await modRead<{
+        legacyModsByDomain: { nodes: Array<GqlMod & { uid?: string; description?: string; category?: string; status?: string; fileSize?: number | null; pictureUrl?: string | null }> };
+      }>(
+        `query ModWrenchMod($ids: [CompositeDomainWithIdInput!]!) {
+  legacyModsByDomain(ids: $ids) {
+    nodes {
+      ${LIST_FIELDS}
+      uid
+      description
+      category
+      status
+      fileSize
+      pictureUrl${adultField()}
+    }
+  }
+}`,
+        { ids: [{ gameDomain: game_domain, modId: mod_id }] },
+        false
+      );
+      const m = data.legacyModsByDomain.nodes[0];
+      if (!m) throw new ModWrenchError("nexus_not_found", `Nexus returned no mod ${mod_id} for ${game_domain}. It may not exist, or may be hidden or removed.`);
+      const checked = applyAdultPolicy(m as unknown as Record<string, unknown>, "graphql:mod");
+      if ((checked as { filtered?: boolean }).filtered === true) {
+        return { content: [{ type: "text" as const, text: JSON.stringify(checked, null, 2) }] };
+      }
+      const mod = {
+        ...row(m, game_domain),
+        uid: m.uid,
+        description: m.description,
+        category: m.category,
+        status: m.status,
+        file_size_kb: m.fileSize,
+        picture_url: m.pictureUrl,
+        game: m.game?.name,
+        game_domain: m.game?.domainName ?? game_domain,
+      };
+      return { content: [{ type: "text" as const, text: JSON.stringify(mod, null, 2) }] };
+    }
+  );
+
+  /** The newest or most recently updated mods of a game. */
+  const recent = async (game_domain: string, by: "createdAt" | "updatedAt"): Promise<Record<string, unknown>[]> => {
+    const data = await modRead<{ mods: { nodes: GqlMod[] } }>(
+      `query ModWrenchRecent($filter: ModsFilter, $count: Int!) {
+  mods(filter: $filter, count: $count, sort: [{ ${by}: { direction: DESC } }]) {
+    nodes {
+      ${LIST_FIELDS}${adultField()}
+    }
+  }
+}`,
+      { filter: { gameDomainName: [{ value: game_domain, op: "EQUALS" }] }, count: 10 }
+    );
+    return data.mods.nodes.map((m) => row(m, game_domain));
+  };
+
+  server.registerTool(
+    "nexus_latest_added",
+    {
+      title: "Newest Nexus mods",
+      description: "Get the 10 mods most recently added for a game. Useful for discovering brand-new releases. No Nexus key needed.",
+      inputSchema: { game_domain: gameDomain },
+      annotations: READ,
+    },
+    async ({ game_domain }) => ({
+      content: [{ type: "text" as const, text: JSON.stringify(await recent(game_domain, "createdAt"), null, 2) }],
+    })
+  );
+
+  server.registerTool(
+    "nexus_latest_updated",
+    {
+      title: "Recently updated Nexus mods",
+      description: "Get the 10 mods most recently updated for a game. Useful for seeing what's actively maintained. No Nexus key needed.",
+      inputSchema: { game_domain: gameDomain },
+      annotations: READ,
+    },
+    async ({ game_domain }) => ({
+      content: [{ type: "text" as const, text: JSON.stringify(await recent(game_domain, "updatedAt"), null, 2) }],
+    })
+  );
+
+  // Mods updated within a window. The filter takes a unix timestamp as a string.
+  const PERIOD_SECONDS = { "1d": 86_400, "1w": 7 * 86_400, "1m": 30 * 86_400 } as const;
+  const UPDATED_COUNT = 100;
+  server.registerTool(
+    "nexus_updated",
+    {
+      title: "Nexus mods updated recently",
+      description: `List the mods for a game updated within a recent window (1d / 1w / 1m), newest first, up to ${UPDATED_COUNT}, with how many there are in all. Each comes with its mod_id, name, version and when it was updated: the feed a load-order maintainer watches to know what to refresh. No Nexus key needed.`,
+      inputSchema: {
+        game_domain: gameDomain,
+        period: z.enum(["1d", "1w", "1m"]).optional().describe("Look-back window. Default '1w'."),
+      },
+      annotations: READ,
+    },
+    async ({ game_domain, period }) => {
+      const p = period ?? "1w";
+      const since = Math.floor(Date.now() / 1000) - PERIOD_SECONDS[p];
+      const data = await modRead<{ mods: { totalCount: number; nodes: GqlMod[] } }>(
+        `query ModWrenchUpdated($filter: ModsFilter, $count: Int!) {
+  mods(filter: $filter, count: $count, sort: [{ updatedAt: { direction: DESC } }]) {
+    totalCount
+    nodes {
+      ${LIST_FIELDS}${adultField()}
+    }
+  }
+}`,
+        {
+          filter: {
+            gameDomainName: [{ value: game_domain, op: "EQUALS" }],
+            updatedAt: [{ value: String(since), op: "GTE" }],
+          },
+          count: UPDATED_COUNT,
+        }
+      );
+      const mods = data.mods.nodes.map((m) => row(m, game_domain));
+      const total = data.mods.totalCount;
+      const shown = total > mods.length ? `; showing the newest ${mods.length}` : "";
+      return {
+        content: [
+          { type: "text" as const, text: `${total} mods updated in the last ${p} for ${game_domain}${shown}:\n\n${JSON.stringify(mods, null, 2)}` },
+        ],
+      };
+    }
+  );
+
+  // Which mod a file belongs to, by its MD5.
+  server.registerTool(
+    "nexus_md5_search",
+    {
+      title: "Identify a local file by MD5",
+      description: "Look up a file's MD5 hash to find which Nexus mod and file it belongs to. Returns each match with the file's name, version and category and the mod's name, version, author and page. Useful for identifying unknown files in a game install. No Nexus key needed.",
+      inputSchema: {
+        md5_hash: z.string().regex(/^[a-fA-F0-9]{32}$/, "Must be a 32-character hex MD5 hash").describe("The MD5 hash of the file (32 hex characters)."),
+        game_domain: z.string().min(1).optional().describe("Optional: keep only matches from this game (e.g. 'skyrimspecialedition')."),
+      },
+      annotations: READ,
+    },
+    async ({ md5_hash, game_domain }) => {
+      type Hit = {
+        md5: string;
+        fileName: string;
+        fileSize?: string | number;
+        modFile?: {
+          fileId: number;
+          name: string;
+          version: string;
+          category?: string;
+          size?: number;
+          date?: number;
+          mod?: GqlMod | null;
+        } | null;
+      };
+      // The policy is applied to each match below, so a withheld one is said to be withheld.
+      const data = await modRead<{ fileHash: Hit[] }>(
+        `query ModWrenchMd5($md5: String!) {
+  fileHash(md5: $md5) {
+    md5
+    fileName
+    fileSize
+    modFile {
+      fileId
+      name
+      version
+      category
+      size
+      date
+      mod {
+        ${LIST_FIELDS}${adultField()}
+      }
+    }
+  }
+}`,
+        { md5: md5_hash.toLowerCase() },
+        false
+      );
+      const hits = (data.fileHash ?? [])
+        .filter((h) => !game_domain || h.modFile?.mod?.game?.domainName === game_domain)
+        .map((h) => {
+          const mod = h.modFile?.mod ?? null;
+          const checked = mod ? applyAdultPolicy(mod as unknown as Record<string, unknown>, "graphql:md5") : null;
+          const withheld = (checked as { filtered?: boolean } | null)?.filtered === true;
+          return {
+            md5: h.md5,
+            file_name: h.fileName,
+            file_size: h.fileSize,
+            ...(h.modFile
+              ? {
+                  file: {
+                    file_id: h.modFile.fileId,
+                    name: h.modFile.name,
+                    version: h.modFile.version,
+                    category: h.modFile.category,
+                    size_kb: h.modFile.size,
+                    uploaded: h.modFile.date,
+                  },
+                }
+              : {}),
+            ...(mod ? { mod: withheld ? checked : { ...row(mod, mod.game?.domainName ?? ""), game: mod.game?.name, game_domain: mod.game?.domainName } } : {}),
+          };
+        });
+      const scope = game_domain ? ` in ${game_domain}` : "";
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: hits.length === 0 ? `Nexus knows no file with MD5 ${md5_hash}${scope}.` : `${hits.length} match(es) for MD5 ${md5_hash}${scope}:\n\n${JSON.stringify(hits, null, 2)}`,
+          },
+        ],
+      };
+    }
+  );
+
+  return { toolCount: 8, baseUrl: NEXUS_GRAPHQL_URL };
 }
