@@ -1,3 +1,4 @@
+import type { GtaPatchDayResult } from "./gtav.js";
 import type { PatchDayReport, PatchDayResult, PluginLine } from "./index.js";
 import type { RuleBasis } from "./rules.js";
 
@@ -147,6 +148,46 @@ export function summarizePatchDay(result: PatchDayResult): string {
     r.nextSteps.forEach((step, i) => out.push(`${i + 1}. ${step}`));
   }
 
+  if (r.limits.length > 0) {
+    out.push("", "What this can't tell you:");
+    for (const limit of r.limits) out.push(`- ${limit}`);
+  }
+  return out.join("\n");
+}
+
+/** The plain-text answer for GTA V: the verdict, how sure, Script Hook V and Steam in a line, then what to do. */
+export function summarizeGtaPatchDay(result: GtaPatchDayResult): string {
+  if (!result.ok) {
+    return [
+      `Patch Day couldn't run: ${clean(result.error, 300)}`,
+      ...(result.hint ? [clean(result.hint, 400)] : []),
+      `Games it covers: ${result.supportedGames.join(", ")}.`,
+    ].join("\n");
+  }
+  const r = result;
+  const out: string[] = [r.headline, "", `How sure: ${r.confidence.summary}`];
+  if (r.reasons.length > 0) {
+    out.push("", "Why:");
+    for (const reason of r.reasons) out.push(`- ${reason}`);
+  }
+
+  const s = r.scriptHook;
+  const setup = [`${r.game.name}: ${r.checked.installed}`];
+  setup.push(!s.present ? "Script Hook V: not installed" : `Script Hook V: ${s.version ? `v${clean(s.version, 40)}` : "present"}${s.supports ? `, supports up to ${s.supports}` : ""}`);
+  if (r.steam) setup.push(r.steam.updatePending ? "Steam: update waiting" : "Steam: no update waiting");
+  const l = r.log;
+  if (r.checked.source === "targetVersion") setup.push("Script Hook V log: not used (it describes the installed version)");
+  else if (l && !l.found) setup.push("Script Hook V log: not found");
+  else if (l && !l.fresh) setup.push("Script Hook V log: older than the game or Script Hook V, so not used");
+  else if (l && l.outcome === "started") setup.push(`Script Hook V log: started, ${plural(l.scriptsRegistered, "script", "scripts")}`);
+  else if (l && l.outcome === "unknown-version") setup.push('Script Hook V log: "Unknown game version"');
+  if (r.otherEdition) setup.push(`also installed: ${r.otherEdition}`);
+  out.push("", `Setup: ${setup.join(" · ")}.`);
+
+  if (r.nextSteps.length > 0) {
+    out.push("", "Next steps:");
+    r.nextSteps.forEach((step, i) => out.push(`${i + 1}. ${step}`));
+  }
   if (r.limits.length > 0) {
     out.push("", "What this can't tell you:");
     for (const limit of r.limits) out.push(`- ${limit}`);

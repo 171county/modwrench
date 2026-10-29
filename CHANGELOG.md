@@ -10,6 +10,23 @@ This document is maintained by hand.
 
 ## [Unreleased]
 
+### Added
+- **Patch Day for GTA V: "is it safe to update GTA V?"** `mw_patch_day` now
+  takes `gta5` (Legacy) and `gta5enhanced` (Enhanced), or a `gamePath` holding
+  `GTA5.exe` or `GTA5_Enhanced.exe`, and finds either edition in Steam when no
+  Skyrim or Fallout 4 is there. It reads the game's version, `ScriptHookV.dll`'s
+  version (which carries the Legacy and Enhanced versions the build supports) and
+  Script Hook V's log from the last launch, and says go, check or wait: a game
+  newer than the build, a build from before Enhanced on Enhanced, a log that
+  says "FATAL: Unknown game version" (which counts even when the version
+  numbers match: an update can keep the number), or a Steam update waiting are
+  each a wait (a waiting update is a check when Script Hook V already supports
+  a newer version than the game). The answer keeps no folder and no script name from the log. The
+  Patch Day page draws it with Script Hook V and its log in place of plugins.
+  ScriptHookVDotNet, RAGE Plugin Hook, the ASI loader and the mods folder are
+  not checked yet. Built from logs players have posted; not yet run on a real
+  GTA V install. See TRUST.md ("GTA V").
+
 ## [0.3.1] — unreleased
 
 The ModWrench logo as the server's icon, the trademark policy, a GTA V skin

@@ -39,8 +39,9 @@ function themeForGameId(gameId: string): string {
 }
 import { checkKnownConflicts } from "./conflicts/index.js";
 import { checkLootRequirements, summarizeRequirements } from "./conflicts/requirements.js";
+import { checkGtaPatchDay, GTA_PATCH_DAY_GAMES, isGtaPatchDayRequest, type GtaPatchDayResult } from "./patchday/gtav.js";
 import { checkPatchDay } from "./patchday/index.js";
-import { summarizePatchDay } from "./patchday/summary.js";
+import { summarizeGtaPatchDay, summarizePatchDay } from "./patchday/summary.js";
 import { registerCrashWhispererApp, registerDoctorApp, registerPatchDayApp } from "./apps.js";
 import { summarizeCrashWhisper, whisper } from "./crashwhisper/index.js";
 import { runDoctor } from "./doctor/index.js";
@@ -615,8 +616,8 @@ export function registerWorkbenchTools(server: McpServer): {
   // ─── Tool 7: mw_patch_day ──────────────────────────────────────────────────
   // "Is it safe to update?" Reads the game's version, the script extender build,
   // its Address Library file and every plugin DLL, then applies SKSE's own
-  // published compatibility rules. Local and read-only: no network, nothing
-  // written. See patchday/ and TRUST.md.
+  // published compatibility rules. For GTA V, Script Hook V's DLL and log instead.
+  // Local and read-only: no network, nothing written. See patchday/ and TRUST.md.
   //
   // The answer is plain text first: a short summary any client can show and the
   // model can read. The full report rides along as structured content, and in
@@ -627,25 +628,25 @@ export function registerWorkbenchTools(server: McpServer): {
     "mw_patch_day",
     {
       title: "Is it safe to update?",
-      description: "Is it safe to update? Right before or after a game patch, reads the game's version, the script extender build, its Address Library file and every script extender plugin DLL (game folder and Mod Organizer 2), applies the script extender's own published compatibility rules, and says which plugins would be refused. Covers Skyrim Special Edition and Anniversary Edition (SKSE) and Fallout 4 (F4SE). Verdict is go / check / wait, with a reason per plugin and a note on whether each rule is the script extender's own or inferred. Local and read-only — no network, nothing written or kept. Pass targetVersion (e.g. 1.7.104 for Skyrim, 1.11.240 for Fallout 4) to check a patch that isn't installed yet. A GO means every check that can be run from files passed; it can't promise the game runs. Use when the user asks \"is it safe to update\", \"Steam updated Skyrim and now it won't start\", \"did SKSE break\", \"did F4SE break\", or \"which plugins will break after the patch\".",
+      description: "Is it safe to update? Right before or after a game patch, reads the game's version, the script extender build, its Address Library file and every script extender plugin DLL (game folder and Mod Organizer 2), applies the script extender's own published compatibility rules, and says which plugins would be refused. Covers Skyrim Special Edition and Anniversary Edition (SKSE) and Fallout 4 (F4SE). For GTA V (Legacy or Enhanced) it reads the game's version, Script Hook V's DLL and its log from the last launch, and says whether Script Hook V supports this version and whether a waiting Steam update would stop it. Verdict is go / check / wait, with a reason per plugin and a note on whether each rule is the script extender's own or inferred. Local and read-only — no network, nothing written or kept. Pass targetVersion (e.g. 1.7.104 for Skyrim, 1.11.240 for Fallout 4, 1.0.1158.16 for GTA V) to check a patch that isn't installed yet. A GO means every check that can be run from files passed; it can't promise the game runs. Use when the user asks \"is it safe to update\", \"Steam updated Skyrim and now it won't start\", \"did SKSE break\", \"did F4SE break\", \"Script Hook V says unknown game version\", \"my GTA mods stopped working after the update\", or \"which plugins will break after the patch\".",
       inputSchema: {
         gameId: z
           .string()
           .optional()
           .describe(
-            "Canonical game ID: 'skyrimspecialedition' or 'fallout4'. Leave it out to check the game whose executable is in gamePath, or else the first one installed in a Steam library (Skyrim Special Edition first); the answer names any other one it found."
+            "Canonical game ID: 'skyrimspecialedition', 'fallout4', 'gta5' (GTA V Legacy) or 'gta5enhanced' (GTA V Enhanced). Leave it out to check the game whose executable is in gamePath, or else the first one installed in a Steam library (Skyrim Special Edition first, GTA V last); the answer names any other one it found."
           ),
         gamePath: z
           .string()
           .optional()
           .describe(
-            "The install folder (the one holding SkyrimSE.exe or Fallout4.exe), when ModWrench can't find the game on its own — a GOG copy, or a Steam library in an unusual place."
+            "The install folder (the one holding SkyrimSE.exe, Fallout4.exe, GTA5.exe or GTA5_Enhanced.exe), when ModWrench can't find the game on its own — a GOG copy, GTA V from the Rockstar Games Launcher or Epic, or a Steam library in an unusual place."
           ),
         targetVersion: z
           .string()
           .optional()
           .describe(
-            "A game version to check instead of the installed one, like '1.7.104' (Skyrim) or '1.11.240' (Fallout 4). Use it before updating; the number is in the Steam patch notes or on the SKSE or F4SE site."
+            "A game version to check instead of the installed one, like '1.7.104' (Skyrim), '1.11.240' (Fallout 4) or '1.0.1158.16' (GTA V). Use it before updating; the number is in the Steam patch notes or on the SKSE, F4SE or Script Hook V site."
           ),
         mo2InstancePath: z
           .string()
@@ -661,7 +662,7 @@ export function registerWorkbenchTools(server: McpServer): {
           .string()
           .optional()
           .describe(
-            "Path to skse64.log (or f4se.log) if it isn't in the usual Documents/My Games folder. The script extender's own log from the last launch is cross-checked against the predictions."
+            "Path to skse64.log (or f4se.log) if it isn't in the usual Documents/My Games folder, or to ScriptHookV.log if it isn't in the GTA V folder. The script extender's own log from the last launch is cross-checked against the predictions."
           ),
       },
       annotations: {
@@ -673,7 +674,22 @@ export function registerWorkbenchTools(server: McpServer): {
       ...(patchDayPage ? { _meta: patchDayPage } : {}),
     },
     guarded("mw_patch_day", ["gamePath", "mo2InstancePath", "logPath"], async ({ gameId, gamePath, targetVersion, mo2InstancePath, profileName, logPath }) => {
-      const result = checkPatchDay({
+      // GTA V has a check of its own (patchday/gtav.ts): asked for by its game id or a gamePath holding its
+      // executable, or, with neither given, when no Skyrim or Fallout 4 is in a Steam library and GTA V is.
+      const gtaAnswer = (gta: GtaPatchDayResult) => {
+        log("debug", "workbench.patch_day", { ok: gta.ok, verdict: gta.ok ? gta.verdict : null, game: gta.ok ? gta.game.id : null });
+        if (gta.ok) noteFace("patch", patchFace(gta.verdict));
+        return pageAnswer(server, summarizeGtaPatchDay(gta), gta, patchDayPage !== undefined);
+      };
+      const gtaOptions = {
+        ...(gameId !== undefined ? { gameId } : {}),
+        ...(gamePath !== undefined ? { gamePath } : {}),
+        ...(targetVersion !== undefined ? { targetVersion } : {}),
+        ...(logPath !== undefined ? { logPath } : {}),
+      };
+      if (isGtaPatchDayRequest({ gameId, gamePath })) return gtaAnswer(checkGtaPatchDay(gtaOptions));
+
+      let result = checkPatchDay({
         ...(gameId !== undefined ? { gameId } : {}),
         ...(gamePath !== undefined ? { gamePath } : {}),
         ...(targetVersion !== undefined ? { targetVersion } : {}),
@@ -681,6 +697,13 @@ export function registerWorkbenchTools(server: McpServer): {
         ...(profileName !== undefined ? { profileName } : {}),
         ...(logPath !== undefined ? { logPath } : {}),
       });
+      if (!result.ok) {
+        if (gameId === undefined && gamePath === undefined) {
+          const gta = checkGtaPatchDay(gtaOptions);
+          if (gta.ok) return gtaAnswer(gta);
+        }
+        result = { ...result, supportedGames: [...result.supportedGames, ...GTA_PATCH_DAY_GAMES] };
+      }
 
       log("debug", "workbench.patch_day", {
         ok: result.ok,
