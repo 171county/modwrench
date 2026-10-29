@@ -1,5 +1,5 @@
 // ─── The Crash log page ─────────────────────────────────────────────────────
-// A parsed crash log, drawn as an MCP Apps page (see app.ts) in the four game skins
+// A parsed crash log, drawn as an MCP Apps page (see app.ts) in the five game skins
 // (see skin.ts), for mw_parse_crashlog and mw_diagnose_crash.
 //
 // The page is a pure function of the tool result. It keeps nothing, stores nothing
@@ -81,7 +81,7 @@ function strings<K extends string>(from: unknown, keys: readonly K[]): { [P in K
 /**
  * The Crash log page's data for a parsed crash log (or one that couldn't be parsed). Copies only
  * the fields the page draws, cut to the old panel's limits, and never throws on a missing or
- * mistyped field. A theme that isn't one of the four is Skyrim.
+ * mistyped field. A theme that isn't one of the five is Skyrim.
  */
 export function crashView(parsed: CrashInput, theme?: string): CrashView {
   const skin: ThemeId = (THEME_IDS as readonly string[]).includes(theme ?? "") ? (theme as ThemeId) : "skyrim";

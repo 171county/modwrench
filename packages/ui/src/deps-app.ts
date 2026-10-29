@@ -1,6 +1,6 @@
 // ─── The Dependencies and load order page ───────────────────────────────────
 // A mod's dependencies, or a load order, drawn as an MCP Apps page (see app.ts) in
-// the four game skins (see skin.ts), for thunderstore_mod_dependencies,
+// the five game skins (see skin.ts), for thunderstore_mod_dependencies,
 // thunderstore_resolve_dependencies and mw_read_load_order.
 //
 // The page is a pure function of the tool result. It keeps nothing, stores nothing

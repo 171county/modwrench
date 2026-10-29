@@ -2,8 +2,8 @@
 //
 // A tool points at a page by URI; a client that draws MCP Apps pages fetches it
 // and hands it the tool's result. The mods, dependencies, crash log, conflicts
-// and deck pages wear four flagship-game skins (Skyrim, Fallout, Lethal Company,
-// Valheim); Patch Day, Crash Whisperer and the Doctor follow the host's colours.
+// and deck pages wear five flagship-game skins (Skyrim, Fallout, Lethal Company,
+// Valheim, GTA V); Patch Day, Crash Whisperer and the Doctor follow the host's colours.
 // No state, no storage, no network from any page.
 
 export { esc, panelsDisabled } from "./app.js";

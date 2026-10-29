@@ -11,6 +11,14 @@ This document is maintained by hand.
 ## [Unreleased]
 
 ### Added
+- **A GTA V skin.** The pages that wear game skins (mods, dependencies, crash
+  log, conflicts, Pulse and the deck) get a fifth swatch: a trainer-menu
+  banner in a sunset gradient, GTA V's HUD red, cash green and
+  mission-passed gold, square corners and a white selected tab. Its headings
+  use Pricedown if you have it installed, then Impact; like the other skins it
+  loads no font and makes no network request. `nexus_trending` for GTA V
+  (`gta5` or `gta5enhanced`) opens in it, the deck lists GTA V with the other
+  flagship games, and `mw_deck` takes `theme: "gta"`.
 - **Nexus Mods works without a key.** Eight Nexus tools now ask Nexus's v2
   GraphQL API, which Nexus documents as open without authentication for most
   of it, and send no key or token: `nexus_search`, `nexus_list_games`,
@@ -167,6 +175,14 @@ This document is maintained by hand.
   [TRUST.md](TRUST.md#the-deck-page) says what the rows hold.
 
 ### Changed
+- **Skyrim and Lethal Company no longer look like Valheim and Fallout.** Skyrim
+  was gold on brown, like Valheim, and Lethal Company green on black, like
+  Fallout; the fonts that set them apart aren't loaded (no page fetches
+  anything), so they differed only in small details. Skyrim is now cold steel
+  and frost blue with a dragonstone-gold edge, and Lethal Company the hazard
+  orange of the in-game helmet display, with the terminal green kept for
+  "ok". The main and secondary text in both keep a contrast of at least 4.5
+  to 1 on every panel.
 - **The startup log line says how long starting took.** `modwrench.started`
   now carries `loaded_ms`, the time from the process starting to all of
   ModWrench's code being loaded, and `ready_ms`, the time to being ready for

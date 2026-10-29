@@ -1,6 +1,6 @@
 // ─── mw_deck — the ModWrench deck ────────────────────────────────────────────
 // Each job's last verdict in this session (the workbench's faces: a verdict and
-// counts, held in memory only), which platforms are connected, and the four
+// counts, held in memory only), which platforms are connected, and the five
 // flagship games, read on every call. Every client gets the connector list as
 // JSON text. A client that draws MCP Apps pages also gets the deck page
 // (ui://modwrench/deck, from @modwrench/ui) and the same list as structured data
@@ -33,6 +33,7 @@ const FLAGSHIP_GAMES = [
   { id: "fallout", name: "Fallout 4", note: "Nexus \u00b7 Bethesda" },
   { id: "lethal", name: "Lethal Company", note: "Thunderstore \u00b7 BepInEx" },
   { id: "valheim", name: "Valheim", note: "Thunderstore \u00b7 BepInEx" },
+  { id: "gta", name: "GTA V", note: "Nexus \u00b7 Script Hook V" },
 ];
 
 /** Register mw_deck. The connectors are read from the catalog on every call. */
@@ -45,12 +46,12 @@ export function registerDeckTool(
     "mw_deck",
     {
       title: "Open the ModWrench deck",
-      description: "Open the ModWrench deck: the active connectors and the flagship games. In clients that support MCP Apps it also shows a page in one of four skins (Skyrim, Fallout Pip-Boy, Lethal Company, Valheim); other clients get the connector list as text. Each job (Crash Whisperer, the Doctors, Patch Day, Pulse, Crew Check) shows how it last came out in this session, as a verdict and counts kept in memory only; the connectors are read fresh from the catalog. Use when the user says \"open the deck\", \"summon/show ModWrench\", or wants a visual dashboard. The optional theme sets the page's starting skin.",
+      description: "Open the ModWrench deck: the active connectors and the flagship games. In clients that support MCP Apps it also shows a page in one of five skins (Skyrim, Fallout Pip-Boy, Lethal Company, Valheim, GTA V); other clients get the connector list as text. Each job (Crash Whisperer, the Doctors, Patch Day, Pulse, Crew Check) shows how it last came out in this session, as a verdict and counts kept in memory only; the connectors are read fresh from the catalog. Use when the user says \"open the deck\", \"summon/show ModWrench\", or wants a visual dashboard. The optional theme sets the page's starting skin.",
       inputSchema: {
         theme: z
           .enum([...THEME_IDS] as [string, ...string[]])
           .optional()
-          .describe("Initial theme: skyrim | fallout | lethal | valheim. Default skyrim."),
+          .describe("Initial theme: skyrim | fallout | lethal | valheim | gta. Default skyrim."),
         view: z
           .enum(["deck", "mods", "crash"])
           .optional()

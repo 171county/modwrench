@@ -1,6 +1,6 @@
 // ─── The skin: one look for the mods, dependencies, crash log, conflicts and deck pages ──
 // These five pages are MCP Apps pages (see app.ts) that keep the look of the panels
-// they replace: the four flagship-game skins from themes.ts, keyed on `data-game` on
+// they replace: the five flagship-game skins from themes.ts, keyed on `data-game` on
 // <html> (MCP Apps already uses `data-theme` there for the host's light or dark).
 // The frame, the swatches that switch skins, and what a page shows before its answer
 // arrives or in place of it are the same on all five, so they are written once here.
@@ -33,10 +33,11 @@ html[data-game] body{font-family:var(--font-body);background:var(--bg);color:var
 .mw-themes{display:flex;gap:6px}
 .mw-theme{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--border);cursor:pointer;
   padding:0;position:relative;background:var(--tsw);transition:transform .09s ease,border-color .12s,box-shadow .12s}
-.mw-theme[data-t="skyrim"]{--tsw:radial-gradient(circle at 35% 30%,#c9a25a,#241d12)}
+.mw-theme[data-t="skyrim"]{--tsw:radial-gradient(circle at 35% 30%,#b9d6ee,#121a22)}
 .mw-theme[data-t="fallout"]{--tsw:radial-gradient(circle at 35% 30%,#3bff7a,#04120a)}
-.mw-theme[data-t="lethal"]{--tsw:radial-gradient(circle at 35% 30%,#37e0d0,#070a0c)}
+.mw-theme[data-t="lethal"]{--tsw:radial-gradient(circle at 35% 30%,#ff7a2e,#120a06)}
 .mw-theme[data-t="valheim"]{--tsw:radial-gradient(circle at 35% 30%,#c9a86a,#10141b)}
+.mw-theme[data-t="gta"]{--tsw:linear-gradient(135deg,#6a1e8a,#b0145a 50%,#ff8a3d)}
 .mw-theme.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--bg),0 0 0 3.5px var(--accent)}
 .mw-theme:active{transform:scale(.9)}
 /* body */
@@ -94,11 +95,11 @@ html[data-game] body{font-family:var(--font-body);background:var(--bg);color:var
 ${THEME_IDS.map((id) => `[data-game="${id}"] .mw-foot .mw-tag[data-for="${id}"]{display:inline}`).join("\n")}
 `;
 
-/** The four skins (theme token blocks and chrome, keyed on `[data-game]`) and the shared frame. */
+/** The five skins (theme token blocks and chrome, keyed on `[data-game]`) and the shared frame. */
 export const SKIN_CSS: string = themeStyleBlock() + "\n" + FRAME_CSS;
 
 /**
- * The page body: #mw-root.mw-app holding the header (brand, `label` as #mw-label, the four skin
+ * The page body: #mw-root.mw-app holding the header (brand, `label` as #mw-label, the five skin
  * swatches), the status line, the problem box, the text-only box, `inner`, and the footer.
  */
 export function skinFrame(label: string, inner: string): string {
@@ -148,7 +149,7 @@ export const SKIN_JS = String.raw`
 var mwSkin = (function () {
   'use strict';
 
-  var SKINS = { skyrim: true, fallout: true, lethal: true, valheim: true };
+  var SKINS = { skyrim: true, fallout: true, lethal: true, valheim: true, gta: true };
   var page = null;
   var state = { picked: false, gotResult: false };
 

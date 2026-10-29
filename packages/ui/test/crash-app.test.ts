@@ -96,7 +96,7 @@ test("crashView of a log that couldn't be parsed carries the reason and the skin
   });
 });
 
-test("crashView takes the four skins and nothing else, including names every object has", () => {
+test("crashView takes the five skins and nothing else, including names every object has", () => {
   for (const id of ["skyrim", "fallout", "lethal", "valheim"]) assert.equal(view(PARSED, id).theme, id);
   for (const theme of ["constructor", "toString", "__proto__", "", "morrowind", undefined]) {
     assert.equal(view(PARSED, theme).theme, "skyrim", String(theme));
