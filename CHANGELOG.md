@@ -11,6 +11,24 @@ This document is maintained by hand.
 ## [Unreleased]
 
 ### Added
+- **Nexus Mods works without a key.** Eight Nexus tools now ask Nexus's v2
+  GraphQL API, which Nexus documents as open without authentication for most
+  of it, and send no key or token: `nexus_search`, `nexus_list_games`,
+  `nexus_get_game`, `nexus_get_mod`, `nexus_latest_added`,
+  `nexus_latest_updated`, `nexus_updated` and `nexus_md5_search`. They are on
+  for everyone, as "Nexus Mods" on the deck. The account tools stay on the v1
+  API with your key and come on only when one is stored, as "Nexus Mods
+  account": `nexus_validate_key`, `nexus_trending`, `nexus_mod_files`,
+  `nexus_get_file`, `nexus_file_preview`, `nexus_mod_changelogs` and
+  `nexus_endorse_mod`. The answers change shape a little: `nexus_list_games`
+  no longer takes `include_unapproved` (GraphQL has no such filter),
+  `nexus_updated` lists the 100 most recently updated mods in the window with
+  their names, and the total, rather than every mod's id, `nexus_md5_search`
+  no longer needs a game (Nexus looks the hash up across all games; a game you
+  name keeps only its matches), and the tools return snake_case fields with
+  each mod's page address. The standalone `@modwrench/nexus` server now starts
+  without a key, with the public tools only. Checked against Nexus's published
+  GraphQL reference; not yet run against the live API.
 - **The website's Install section is a "pick your app" list.** Claude
   Desktop, Claude Code, VS Code, Cursor, Codex, Antigravity, Devin, and Cline,
   Windsurf and other apps each get their own steps, taken from that app's
@@ -169,6 +187,11 @@ This document is maintained by hand.
   parsed log now carries that count as `pluginTotal`.
 
 ### Fixed
+- **Nexus search asks for `adultContent`.** Nexus's v2 GraphQL reference marks
+  the `adult` field search used as deprecated, in favour of `adultContent`.
+  Search would have switched itself off (it refuses to return results it
+  cannot check) once Nexus removed the old field. Every public Nexus tool that
+  returns mods now asks for `adultContent` and fails closed the same way.
 - **A mod file named with an `@` and a version stays in the answer.** Crash
   Whisperer took `MyMod@1.2.3.dll` for an email address and removed it, so a
   crash log naming a versioned mod lost the one name a helper needs. As the help

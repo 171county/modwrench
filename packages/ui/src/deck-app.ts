@@ -107,7 +107,8 @@ const SCRIPT = String.raw`
   // What each Ask sends, by the id the result gives. A message goes into the chat as the person's own
   // words, so it is always one of these sentences: names and notes in a result are never sent.
   var CONNECTOR_ASK = {
-    nexus: 'Search Nexus Mods for me. Ask me what to look for first.',
+    'nexus-public': 'Search Nexus Mods for me. Ask me what to look for first.',
+    nexus: 'Check my Nexus Mods account connection.',
     modio: "Show me what's on mod.io. Ask me which game first.",
     thunderstore: 'Show me the Thunderstore communities.',
     workbench: 'Detect my modding setup.'

@@ -16,7 +16,8 @@ import { deckFaces } from "@modwrench/workbench/register";
 import type { MetaCatalog } from "./catalog.js";
 
 const CONNECTOR_META: Record<string, { name: string; tool: string }> = {
-  nexus: { name: "Nexus Mods", tool: "nexus_search" },
+  "nexus-public": { name: "Nexus Mods", tool: "nexus_search" },
+  nexus: { name: "Nexus Mods account", tool: "nexus_validate_key" },
   modio: { name: "mod.io", tool: "modio_list_games" },
   thunderstore: { name: "Thunderstore", tool: "thunderstore_list_communities" },
   workbench: { name: "Workbench", tool: "mw_detect_environment" },

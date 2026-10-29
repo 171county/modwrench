@@ -13,13 +13,14 @@ import { AppsMockServer, ConnectedServer, DRAWS_PAGES, PLAIN, withEnv, type Tool
 // text and nothing else.
 
 type Active = Array<{ platformId: string; toolCount: number }>;
-const KNOWN = ["nexus", "modio", "thunderstore", "workbench"];
+const KNOWN = ["nexus-public", "nexus", "modio", "thunderstore", "workbench"];
 
 /** A catalog that knows `known` and has `active` switched on. */
 const catalog = (active: Active, known: string[] = KNOWN) =>
   ({ listActive: () => active, knownIds: () => known }) as never;
 
 const BOOT: Active = [
+  { platformId: "nexus-public", toolCount: 8 },
   { platformId: "thunderstore", toolCount: 9 },
   { platformId: "workbench", toolCount: 9 },
 ];
@@ -35,9 +36,16 @@ const GOLDEN = `{
   "theme": "skyrim",
   "connectors": [
     {
-      "id": "nexus",
+      "id": "nexus-public",
       "name": "Nexus Mods",
       "tool": "nexus_search",
+      "status": "on",
+      "toolCount": 8
+    },
+    {
+      "id": "nexus",
+      "name": "Nexus Mods account",
+      "tool": "nexus_validate_key",
       "status": "off"
     },
     {
@@ -102,12 +110,12 @@ test("mw_deck reads the catalog on every call, and names a platform it has no en
   const server = deckServer(active, ["nexus", "newplat"]);
   const before = JSON.parse((await server.call("mw_deck", {})).content[0]!.text) as { connectors: unknown[] };
   assert.deepEqual(before.connectors, [
-    { id: "nexus", name: "Nexus Mods", tool: "nexus_search", status: "off" },
+    { id: "nexus", name: "Nexus Mods account", tool: "nexus_validate_key", status: "off" },
     { id: "newplat", name: "newplat", tool: "", status: "off" },
   ]);
-  active.push({ platformId: "nexus", toolCount: 15 });
+  active.push({ platformId: "nexus", toolCount: 7 });
   const after = JSON.parse((await server.call("mw_deck", {})).content[0]!.text) as { connectors: unknown[] };
-  assert.deepEqual(after.connectors[0], { id: "nexus", name: "Nexus Mods", tool: "nexus_search", status: "on", toolCount: 15 });
+  assert.deepEqual(after.connectors[0], { id: "nexus", name: "Nexus Mods account", tool: "nexus_validate_key", status: "on", toolCount: 7 });
 });
 
 // ─── The page ────────────────────────────────────────────────────────────────

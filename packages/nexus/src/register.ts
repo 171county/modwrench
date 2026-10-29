@@ -13,6 +13,8 @@ import {
 } from "@modwrench/core";
 import { adultContentAllowed, applyAdultPolicy } from "./adult.js";
 
+export { registerNexusPublicTools } from "./public.js";
+
 /**
  * Register all Nexus Mods tools on the given MCP server. Returns metadata
  * useful for boot logging. Pure registration — no transport, no side effects
@@ -97,69 +99,6 @@ export function registerNexusTools(
     return applyAdultPolicy(result, path);
   }
 
-  // GraphQL lives on a separate v2 endpoint (the v1 REST API has no full-text
-  // mod search). We POST through the same shared client so retry/backoff/429
-  // handling and the apikey/Bearer auth header still apply — buildUrl passes
-  // absolute URLs through untouched.
-  const NEXUS_GRAPHQL_URL = getEnv(
-    "NEXUS_GRAPHQL_URL",
-    "https://api.nexusmods.com/v2/graphql"
-  );
-
-  // The adult flag on the v2 `mods` node. This name must match the schema
-  // exactly: GraphQL rejects an unknown field at validation time, which fails
-  // the whole query rather than just omitting the value.
-  //
-  // It matters because the filter in @modwrench/core decides by reading a flag
-  // off the record. If the query does not ask for the flag, nothing is flagged,
-  // and the filter silently passes every adult mod through — which is exactly
-  // what this tool did before. Asking for the field is the whole fix.
-  const GQL_ADULT_FIELD = "adult";
-
-  /** A GraphQL validation failure caused by GQL_ADULT_FIELD not existing. */
-  function isUnknownAdultFieldError(err: unknown): boolean {
-    if (!(err instanceof ModWrenchError) || err.code !== "nexus_graphql_error") {
-      return false;
-    }
-    const msg = err.message.toLowerCase();
-    return (
-      msg.includes(GQL_ADULT_FIELD.toLowerCase()) &&
-      (msg.includes("cannot query field") ||
-        msg.includes("unknown field") ||
-        msg.includes("undefined field") ||
-        msg.includes("doesn't exist") ||
-        msg.includes("does not exist"))
-    );
-  }
-
-  async function nexusGraphQL<T>(
-    query: string,
-    variables: Record<string, unknown>
-  ): Promise<T> {
-    log("debug", "nexus.graphql", { variables });
-    const res = await httpClient.request<{
-      data?: T;
-      errors?: Array<{ message: string }>;
-    }>(NEXUS_GRAPHQL_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, variables }),
-    });
-    if (res.errors && res.errors.length > 0) {
-      throw new ModWrenchError(
-        "nexus_graphql_error",
-        `Nexus GraphQL error: ${res.errors.map((e) => e.message).join("; ")}`
-      );
-    }
-    if (!res.data) {
-      throw new ModWrenchError(
-        "nexus_graphql_empty",
-        "Nexus GraphQL returned no data."
-      );
-    }
-    return applyAdultPolicy(res.data, "graphql");
-  }
-
   // ─── Tools ──────────────────────────────────────────────────────────────────
 
   // Tool 1: Validate the API key is good
@@ -204,180 +143,7 @@ export function registerNexusTools(
     }
   );
 
-  // Tool 2: List all games on Nexus
-  server.registerTool(
-    "nexus_list_games",
-    {
-      title: "List Nexus games",
-      description: "List all games supported on Nexus Mods. Returns each game's domain name (used in other tool calls), display name, and mod counts.",
-      inputSchema: {
-        include_unapproved: z
-          .boolean()
-          .optional()
-          .describe("Include games still pending approval. Default false."),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-    },
-    async ({ include_unapproved }) => {
-      const flag = include_unapproved ? "true" : "false";
-      const games = await nexusRequest<
-        Array<{
-          id: number;
-          name: string;
-          domain_name: string;
-          mods: number;
-          downloads: number;
-        }>
-      >(`/games.json?include_unapproved=${flag}`);
-
-      const summary = games
-        .sort((a, b) => b.mods - a.mods)
-        .slice(0, 50)
-        .map((g) => ({
-          domain: g.domain_name,
-          name: g.name,
-          mods: g.mods,
-          downloads: g.downloads,
-        }));
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Top 50 games by mod count (of ${games.length} total):\n\n${JSON.stringify(
-              summary,
-              null,
-              2
-            )}`,
-          },
-        ],
-      };
-    }
-  );
-
-  // Tool 3: Get details for a single mod
-  server.registerTool(
-    "nexus_get_mod",
-    {
-      title: "Get Nexus mod details",
-      description: "Get full details for a single mod by game domain and mod ID. Returns name, summary, author, version, endorsements, downloads, and more.",
-      inputSchema: {
-        game_domain: z
-          .string()
-          .describe("The game's domain name (e.g. 'skyrimspecialedition', 'cyberpunk2077'). Use nexus_list_games to find these."),
-        mod_id: z.number().int().positive().describe("The numeric mod ID from the Nexus URL."),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-    },
-    async ({ game_domain, mod_id }) => {
-      const mod = await nexusRequest<Record<string, unknown>>(
-        `/games/${game_domain}/mods/${mod_id}.json`
-      );
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(mod, null, 2),
-          },
-        ],
-      };
-    }
-  );
-
-  // Tool 4: Latest added mods for a game
-  server.registerTool(
-    "nexus_latest_added",
-    {
-      title: "Newest Nexus mods",
-      description: "Get the most recently added mods for a specific game. Useful for discovering brand-new releases.",
-      inputSchema: {
-        game_domain: z
-          .string()
-          .describe("The game's domain name (e.g. 'skyrimspecialedition')."),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-    },
-    async ({ game_domain }) => {
-      const mods = await nexusRequest<
-        Array<{
-          mod_id: number;
-          name: string;
-          summary: string;
-          author: string;
-          version: string;
-          endorsement_count: number;
-        }>
-      >(`/games/${game_domain}/mods/latest_added.json`);
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(mods, null, 2),
-          },
-        ],
-      };
-    }
-  );
-
-  // Tool 5: Latest updated mods for a game
-  server.registerTool(
-    "nexus_latest_updated",
-    {
-      title: "Recently updated Nexus mods",
-      description: "Get the most recently updated mods for a specific game. Useful for seeing what's actively maintained.",
-      inputSchema: {
-        game_domain: z
-          .string()
-          .describe("The game's domain name (e.g. 'skyrimspecialedition')."),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-    },
-    async ({ game_domain }) => {
-      const mods = await nexusRequest<
-        Array<{
-          mod_id: number;
-          name: string;
-          summary: string;
-          version: string;
-          endorsement_count: number;
-          updated_timestamp: number;
-        }>
-      >(`/games/${game_domain}/mods/latest_updated.json`);
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(mods, null, 2),
-          },
-        ],
-      };
-    }
-  );
-
-  // Tool 6: Trending mods for a game
+  // Tool 2: Trending mods for a game
   const modsPage = registerAppPage(server, MODS_PAGE);
   server.registerTool(
     "nexus_trending",
@@ -420,7 +186,7 @@ export function registerNexusTools(
     }
   );
 
-  // Tool 7: List files for a specific mod
+  // Tool 3: List files for a specific mod
   server.registerTool(
     "nexus_mod_files",
     {
@@ -461,35 +227,7 @@ export function registerNexusTools(
     }
   );
 
-  // Tool 8: Get a single game's details
-  server.registerTool(
-    "nexus_get_game",
-    {
-      title: "Get Nexus game details",
-      description: "Get full details for a single game by domain name. Returns categories, file/mod counts, approval status, and metadata.",
-      inputSchema: {
-        game_domain: z
-          .string()
-          .describe("The game's domain name (e.g. 'skyrimspecialedition', 'cyberpunk2077')."),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-    },
-    async ({ game_domain }) => {
-      const game = await nexusRequest<Record<string, unknown>>(
-        `/games/${game_domain}.json`
-      );
-      return {
-        content: [{ type: "text", text: JSON.stringify(game, null, 2) }],
-      };
-    }
-  );
-
-  // Tool 9: Get a single mod file's details
+  // Tool 4: Get a single mod file's details
   server.registerTool(
     "nexus_get_file",
     {
@@ -517,7 +255,7 @@ export function registerNexusTools(
     }
   );
 
-  // Tool 10: Preview a mod file's archive contents
+  // Tool 5: Preview a mod file's archive contents
   server.registerTool(
     "nexus_file_preview",
     {
@@ -591,7 +329,7 @@ export function registerNexusTools(
     }
   );
 
-  // Tool 11: Get changelogs for a mod
+  // Tool 6: Get changelogs for a mod
   server.registerTool(
     "nexus_mod_changelogs",
     {
@@ -618,218 +356,6 @@ export function registerNexusTools(
     }
   );
 
-  // Tool 12: Reverse-lookup a file by MD5 hash
-  server.registerTool(
-    "nexus_md5_search",
-    {
-      title: "Identify a local file by MD5",
-      description: "Reverse-lookup a local file's MD5 hash to find which Nexus mod it belongs to. Returns matching mod + file details. Useful for identifying unknown files in a game install.",
-      inputSchema: {
-        game_domain: z.string().describe("The game's domain name."),
-        md5_hash: z
-          .string()
-          .regex(/^[a-fA-F0-9]{32}$/, "Must be a 32-character hex MD5 hash")
-          .describe("The MD5 hash of the file (32 hex characters)."),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-    },
-    async ({ game_domain, md5_hash }) => {
-      const matches = await nexusRequest<unknown[]>(
-        `/games/${game_domain}/mods/md5_search/${md5_hash}.json`
-      );
-      return {
-        content: [{ type: "text", text: JSON.stringify(matches, null, 2) }],
-      };
-    }
-  );
-
-  // Tool 13: Full-text mod search (GraphQL)
-  // The v1 REST API exposes no free-text search, so this uses the Nexus v2
-  // GraphQL `mods` query — the same backend the website search box hits.
-  server.registerTool(
-    "nexus_search",
-    {
-      title: "Search Nexus mods",
-      description: "Full-text search for mods across Nexus Mods by free-text term, optionally scoped to a single game. Returns matching mods with name, author, game, mod ID, summary, download/endorsement counts, and a nexusmods.com page URL. This is the only Nexus tool with real keyword search.",
-      inputSchema: {
-        query: z
-          .string()
-          .min(1)
-          .describe("Free-text search term (matched against mod names, e.g. 'inventory sorter')."),
-        game_domain: z
-          .string()
-          .optional()
-          .describe("Optional game domain to scope the search (e.g. 'skyrimspecialedition'). Omit to search all games. Use nexus_list_games to find domains."),
-        limit: z
-          .number()
-          .int()
-          .positive()
-          .max(50)
-          .optional()
-          .describe("Max number of hits to return. Default 10, max 50."),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-    },
-    async ({ query, game_domain, limit }) => {
-      const count = limit ?? 10;
-      // Build the ModsFilter object in JS: always filter by name (wildcard
-      // full-text), and add a gameDomainName equality clause only when a game
-      // is supplied. Passing the filter as a typed $filter variable keeps the
-      // query string valid (GraphQL has no inline conditionals).
-      const filter: {
-        name: { value: string; op: "WILDCARD" };
-        gameDomainName?: Array<{ value: string; op: "EQUALS" }>;
-      } = { name: { value: query, op: "WILDCARD" } };
-      if (game_domain) {
-        filter.gameDomainName = [{ value: game_domain, op: "EQUALS" }];
-      }
-      // Ask for the adult flag only when it will be used. The filter runs on
-      // whatever the response carries, so without this field every adult mod
-      // passed straight through — this tool was the one hole in the filter.
-      const buildQuery = (withAdultField: boolean): string =>
-        `query ModWrenchSearch($filter: ModsFilter, $count: Int!) {
-  mods(
-    filter: $filter
-    count: $count
-    sort: [{ relevance: { direction: DESC } }]
-  ) {
-    totalCount
-    nodes {
-      modId
-      name
-      summary
-      author
-      uploader { name }
-      game { domainName name }
-      downloads
-      endorsements${withAdultField ? `\n      ${GQL_ADULT_FIELD}` : ""}
-    }
-  }
-}`;
-
-      type SearchData = {
-        mods: {
-          totalCount: number;
-          nodes: Array<{
-            modId: number;
-            name: string;
-            summary: string;
-            author: string;
-            uploader: { name: string } | null;
-            game: { domainName: string; name: string } | null;
-            downloads: number;
-            endorsements: number;
-          }>;
-        };
-      };
-
-      let data: SearchData;
-      if (adultContentAllowed()) {
-        // Opted in, so there is nothing to filter and no reason to ask for the
-        // flag at all.
-        data = await nexusGraphQL<SearchData>(buildQuery(false), { filter, count });
-      } else {
-        try {
-          data = await nexusGraphQL<SearchData>(buildQuery(true), { filter, count });
-        } catch (err) {
-          if (!isUnknownAdultFieldError(err)) throw err;
-          // The schema has no field by that name, so results from this endpoint
-          // cannot be checked. Nexus puts the filtering duty on API consumers,
-          // so this fails closed: no results rather than unchecked results.
-          // The alternative — returning them with a warning — is still
-          // returning them.
-          log("error", "nexus.search_adult_field_unknown", {
-            field: GQL_ADULT_FIELD,
-          });
-          throw new ModWrenchError(
-            "nexus_adult_unverifiable",
-            `Nexus search is unavailable. ModWrench asks the v2 GraphQL API for a "${GQL_ADULT_FIELD}" field so it can filter adult-tagged mods, and this schema has no such field. Rather than hand back results it cannot check — Nexus requires third-party tools to filter what they return — search is disabled instead. To fix: set GQL_ADULT_FIELD in packages/nexus/src/register.ts to the schema's real adult field name. To accept unfiltered search results deliberately, set NEXUS_ALLOW_ADULT_CONTENT=true. Every other Nexus tool is unaffected.`
-          );
-        }
-      }
-
-      const hits = data.mods.nodes.map((m) => ({
-        mod_id: m.modId,
-        name: m.name,
-        summary: m.summary,
-        author: m.author || m.uploader?.name || "",
-        game: m.game?.name ?? "",
-        game_domain: m.game?.domainName ?? "",
-        downloads: m.downloads,
-        endorsements: m.endorsements,
-        url: m.game
-          ? `https://www.nexusmods.com/${m.game.domainName}/mods/${m.modId}`
-          : "",
-      }));
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Found ${data.mods.totalCount} total match(es) for "${query}"${
-              game_domain ? ` in ${game_domain}` : ""
-            }; showing ${hits.length}:\n\n${JSON.stringify(hits, null, 2)}`,
-          },
-        ],
-      };
-    }
-  );
-
-  server.registerTool(
-    "nexus_updated",
-    {
-      title: "Nexus mods updated recently",
-      description: "List every mod for a game updated within a recent window (1d / 1w / 1m). Returns each mod_id with its latest file-update and mod-activity timestamps — the feed a load-order maintainer watches to know exactly what to refresh.",
-      inputSchema: {
-        game_domain: z
-          .string()
-          .describe("The game's domain name (e.g. 'skyrimspecialedition')."),
-        period: z
-          .enum(["1d", "1w", "1m"])
-          .optional()
-          .describe("Look-back window. Default '1w'."),
-      },
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-    },
-    async ({ game_domain, period }) => {
-      const p = period ?? "1w";
-      const updated = await nexusRequest<
-        Array<{
-          mod_id: number;
-          latest_file_update: number;
-          latest_mod_activity: number;
-        }>
-      >(`/games/${game_domain}/mods/updated.json?period=${p}`);
-      return {
-        content: [
-          {
-            type: "text",
-            text: `${updated.length} mods updated in the last ${p} for ${game_domain}:\n\n${JSON.stringify(
-              updated,
-              null,
-              2
-            )}`,
-          },
-        ],
-      };
-    }
-  );
-
   // ─── Write client ───────────────────────────────────────────────────────────
   // Playbook rule 2: writes get their own client with retries disabled. An
   // endorsement is not idempotent in a way we can reason about from here — a
@@ -849,7 +375,7 @@ export function registerNexusTools(
     },
   });
 
-  // Tool 15: Endorse a mod — the only write action in ModWrench.
+  // Tool 7: Endorse a mod — the only write action in ModWrench.
   server.registerTool(
     "nexus_endorse_mod",
     {
@@ -958,5 +484,5 @@ export function registerNexusTools(
     }
   );
 
-  return { toolCount: 15, baseUrl: NEXUS_BASE_URL };
+  return { toolCount: 7, baseUrl: NEXUS_BASE_URL };
 }

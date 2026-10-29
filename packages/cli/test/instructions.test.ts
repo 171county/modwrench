@@ -4,7 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { Credential } from "@modwrench/core";
-import { registerNexusTools } from "@modwrench/nexus/register";
+import { registerNexusPublicTools, registerNexusTools } from "@modwrench/nexus/register";
 import { registerModioTools } from "@modwrench/modio/register";
 import { registerThunderstoreTools } from "@modwrench/thunderstore/register";
 import { registerWorkbenchTools } from "@modwrench/workbench/register";
@@ -21,6 +21,7 @@ test("the first paragraph of the instructions stands on its own within 512 chara
 
 test("every tool the instructions name is a real tool, and a client gets them on connecting", async () => {
   const platforms: PlatformDef[] = [
+    { id: "nexus-public", kind: "local", register: registerNexusPublicTools },
     { id: "nexus", kind: "credentialed", register: registerNexusTools, service: "nexus", authHint: "nexus" },
     { id: "modio", kind: "credentialed", register: registerModioTools, service: "modio", authHint: "modio" },
     { id: "thunderstore", kind: "local", register: registerThunderstoreTools },
