@@ -15,6 +15,7 @@ import { registerPrompts } from "./prompts.js";
 import { registerDeckTool } from "./deck.js";
 import { registerCritiqueTool } from "./critique.js";
 import { SERVER_INSTRUCTIONS } from "./instructions.js";
+import { ICONS } from "./icon.js";
 
 // Milliseconds from the process starting to every module above being read and run. The startup log line carries it,
 // so a slow start can be told apart: loading the code (many small files, each one read and, on Windows, scanned)
@@ -210,6 +211,7 @@ const server = new McpServer(
   {
     name: "modwrench",
     version: PKG_VERSION,
+    icons: ICONS,
   },
   {
     // listChanged advertises to MCP clients that the tool catalog can change

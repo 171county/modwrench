@@ -34,6 +34,13 @@ This document is maintained by hand.
   updated-in-the-last-day list showed 68 of the newest 100), and an unknown
   game domain, which Nexus answers with a "Game not found" error, gets
   ModWrench's plain "no game with that domain name".
+- **ModWrench's logo in VS Code and other MCP clients.** The server's
+  initialize reply carries the logo (`serverInfo.icons`), the website's 128 px
+  PNG embedded as a `data:` image, so a client that shows it fetches nothing.
+  VS Code shows it in its MCP server list and tool picker once the server has
+  started; its install page, opened from a link before the server has ever
+  run, still shows VS Code's generic icon. A test keeps the embedded image
+  identical to `site/public/media/logo.png`.
 - **A trademark policy.** [TRADEMARKS.md](TRADEMARKS.md) says how the ModWrench
   name and logo may be used: the MIT license covers the code, not the name.
   Saying what's true ("works with ModWrench", "based on ModWrench") needs no
