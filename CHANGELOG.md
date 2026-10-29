@@ -34,6 +34,12 @@ This document is maintained by hand.
   updated-in-the-last-day list showed 68 of the newest 100), and an unknown
   game domain, which Nexus answers with a "Game not found" error, gets
   ModWrench's plain "no game with that domain name".
+- **A trademark policy.** [TRADEMARKS.md](TRADEMARKS.md) says how the ModWrench
+  name and logo may be used: the MIT license covers the code, not the name.
+  Saying what's true ("works with ModWrench", "based on ModWrench") needs no
+  permission; a fork gets its own name, and the `@modwrench` npm scope stays
+  with this project. The README, the CLI package's README and the website
+  mark the name ModWrench™ and link to the policy.
 - **Copy buttons on the website's install steps.** Every command and config in
   the Install section has a Copy button, so the apps without a one-click link
   (Claude Desktop, Claude Code, Codex, Antigravity, Devin and the rest) take a
