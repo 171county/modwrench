@@ -5,8 +5,9 @@
 //   NODE_PATH="$(npm root -g)" node site/test/browser-check.mjs [folder for screenshots]
 //
 // It serves site/dist with the headers in its _headers file (the CSP above all), reads a crash log and compares crew
-// lists in the page, and fails if the page makes any request but for its own files, if anything breaks the CSP, if a
-// hostile log or crew list turns into markup, or if the page scrolls sideways at 390 or 1280 pixels, light or dark.
+// lists in the page, opens the trust page from the home page's button, and fails if a page makes any request but for
+// its own files, if anything breaks the CSP, if a hostile log or crew list turns into markup, or if a page scrolls
+// sideways at 390 or 1280 pixels, light or dark.
 
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
@@ -46,7 +47,13 @@ function headersFile() {
   return out;
 }
 
-const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".png": "image/png" };
+const TYPES = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".png": "image/png",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+};
 const served = [];
 
 function serve() {
@@ -55,7 +62,8 @@ function serve() {
   const server = createServer((req, res) => {
     const path = decodeURIComponent(new URL(req.url, "http://x").pathname);
     served.push(path);
-    const file = normalize(join(DIST, path === "/" ? "index.html" : path));
+    // As Cloudflare serves a page by default: /trust is trust.html.
+    const file = normalize(join(DIST, path === "/" ? "index.html" : extname(path) ? path : `${path}.html`));
     if (!file.startsWith(DIST) || path.startsWith("/_headers") || !existsSync(file) || !TYPES[extname(file)]) {
       res.writeHead(404, headers).end();
       return;
@@ -154,6 +162,22 @@ async function main() {
       assert.equal(await page.textContent("#log-result ol.leads > li .lead-name"), "CloakAndDaggerFix.dll", "the sample's lead");
       seen.violations.push(...(await page.evaluate(() => window.__violations)));
       await context.close();
+    }
+
+    // The trust page, built from TRUST.md: the home page's button opens it on the site, and it fits at both widths.
+    for (const colorScheme of ["dark", "light"]) {
+      for (const width of [390, 1280]) {
+        const label = `the trust page, ${width}px ${colorScheme}`;
+        const { context, page } = await newPage(browser, origin, width, colorScheme, seen);
+        await page.click("a.btn:has-text('Read the trust page')");
+        await page.waitForURL(`${origin}/trust`);
+        assert.equal(await page.textContent("h1"), "What ModWrench does, and what it won't", label);
+        assert.equal(await page.locator("#the-website").count(), 1, label);
+        await noSideScroll(page, label);
+        if (shots) await page.screenshot({ path: join(shots, `trust-${width}-${colorScheme}.png`) });
+        seen.violations.push(...(await page.evaluate(() => window.__violations)));
+        await context.close();
+      }
     }
 
     // A hostile log and a hostile crewmate's name stay text.
