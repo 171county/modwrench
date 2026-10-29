@@ -65,6 +65,12 @@ the default:
      from Steam and that ModWrench keeps in the system's keychain, like a Nexus key.
 - **One-click install for Claude Desktop.** A `.mcpb` bundle, so there is no config file to
   edit and no wait for `npx` to fetch the package on first start.
+- **Recipes:** one button for a whole job, like "before I update: Patch Day, then Pulse,
+  then the Doctors".
+- **Your Play Save:** a snapshot of your setup under your own name, so you can see what
+  changed since it last worked. Off until you turn it on, saved only where you choose, and
+  never sent anywhere. It would be the first file ModWrench writes on your computer, so
+  TRUST.md and the README's "The one thing it writes" change before it ships.
 - **Pulse for Nexus mods,** from the mod IDs and versions that Mod Organizer 2 (`meta.ini`)
   and Vortex record; then mod.io.
 - **More of LOOT's masterlist:** its dirty-plugin records (`dirty`). Matching one needs the
