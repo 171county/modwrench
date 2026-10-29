@@ -214,14 +214,14 @@ footer .wrap { display: grid; gap: 8px; }
   <section id="what">
     <div class="wrap">
       <h2>Ask it what you'd ask a modding friend</h2>
-      <p class="sub">You don't pick tools. You ask, and your AI picks the right one. Cards marked <b>Next release</b> arrive with ModWrench 0.3.0; the ones marked <b>Works today</b> are in the version you install now, which can also read a crash log you paste in. Two you can <a href="#try">try in your browser</a> below: Crash Whisperer's reading of a crash log, and Crew Check.</p>
+      <p class="sub">You don't pick tools. You ask, and your AI picks the right one. Cards marked <b>In the beta</b> are in ModWrench 0.3, out now as a beta: add <code>@beta</code> after <code>@modwrench/cli</code> in the install steps below to get them. The ones marked <b>Works today</b> are in the version those steps install as they are, which can also read a crash log you paste in. Two you can <a href="#try">try in your browser</a> below: Crash Whisperer's reading of a crash log, and Crew Check.</p>
       <div class="ask">
-        <div class="card"><span class="tag soon">Next release</span><p class="who">Crash Whisperer</p><p class="q">"Why did my game crash?"</p><p>Finds your newest crash log on its own, says what happened, which mods the log points at and how sure that is, and writes a help post you can copy.</p></div>
-        <div class="card"><span class="tag soon">Next release</span><p class="who">The Doctors</p><p class="q">"Why do my mods keep breaking?"</p><p>A read-only health check of the setup behind the crashes: missing masters, plugin limits, folders Windows protects or syncs, MO2's Overwrite folder, and Steam, Proton and the Steam Deck on Linux.</p></div>
-        <div class="card"><span class="tag soon">Next release</span><p class="who">Patch Day</p><p class="q">"Is it safe to update the game?"</p><p>Checks whether your script extender plugins (SKSE, F4SE) will survive a game patch, before or after it lands.</p></div>
-        <div class="card"><span class="tag soon">Next release</span><p class="who">Pulse</p><p class="q">"Are my mods up to date?"</p><p>Checks the Thunderstore mods in your r2modman profile for updates and deprecated mods. It tells you exactly what it would send and waits for your yes.</p></div>
-        <div class="card"><span class="tag soon">Next release</span><p class="who">Crew Check</p><p class="q">"Do we all have the same mods?"</p><p>For co-op nights: each player shares a short mod list, and ModWrench says who's missing what. No network at all.</p></div>
-        <div class="card"><span class="tag soon">Next release</span><p class="who">Trust Card</p><p class="q">"Who made this mod?"</p><p>Author, uploader, where it lives and the platform's own numbers. Facts with their source, and no score: ModWrench doesn't judge anyone's mod.</p></div>
+        <div class="card"><span class="tag soon">In the beta</span><p class="who">Crash Whisperer</p><p class="q">"Why did my game crash?"</p><p>Finds your newest crash log on its own, says what happened, which mods the log points at and how sure that is, and writes a help post you can copy.</p></div>
+        <div class="card"><span class="tag soon">In the beta</span><p class="who">The Doctors</p><p class="q">"Why do my mods keep breaking?"</p><p>A read-only health check of the setup behind the crashes: missing masters, plugin limits, folders Windows protects or syncs, MO2's Overwrite folder, and Steam, Proton and the Steam Deck on Linux.</p></div>
+        <div class="card"><span class="tag soon">In the beta</span><p class="who">Patch Day</p><p class="q">"Is it safe to update the game?"</p><p>Checks whether your script extender plugins (SKSE, F4SE) will survive a game patch, before or after it lands, and for GTA V whether Script Hook V supports the game's version.</p></div>
+        <div class="card"><span class="tag soon">In the beta</span><p class="who">Pulse</p><p class="q">"Are my mods up to date?"</p><p>Checks the Thunderstore mods in your r2modman profile for updates and deprecated mods. It tells you exactly what it would send and waits for your yes.</p></div>
+        <div class="card"><span class="tag soon">In the beta</span><p class="who">Crew Check</p><p class="q">"Do we all have the same mods?"</p><p>For co-op nights: each player shares a short mod list, and ModWrench says who's missing what. No network at all.</p></div>
+        <div class="card"><span class="tag soon">In the beta</span><p class="who">Trust Card</p><p class="q">"Who made this mod?"</p><p>Author, uploader, where it lives and the platform's own numbers. Facts with their source, and no score: ModWrench doesn't judge anyone's mod.</p></div>
         <div class="card"><span class="tag now">Works today</span><p class="who">Load order and LOOT</p><p class="q">"Do any of my mods clash?"</p><p>Reads your load order from Mod Organizer 2, Vortex or r2modman and checks it against LOOT's public masterlist and the community's list of known conflicts.</p></div>
         <div class="card"><span class="tag now">Works today</span><p class="who">Finding mods</p><p class="q">"Find me a mod that…"</p><p>Searches Thunderstore and Nexus Mods with no account, and mod.io once you connect it, with the author on every result.</p></div>
       </div>
@@ -253,7 +253,7 @@ footer .wrap { display: grid; gap: 8px; }
 
       <div class="tool">
         <h3>Crew Check</h3>
-        <p>For co-op nights on Thunderstore games: paste two or more crew lists to see who's missing which mod, and which mods are on different versions. From 0.3.0, ModWrench makes your crew list from your r2modman profile; until then you can write one by hand. It looks like this:</p>
+        <p>For co-op nights on Thunderstore games: paste two or more crew lists to see who's missing which mod, and which mods are on different versions. In the 0.3 beta, ModWrench makes your crew list from your r2modman profile; without it you can write one by hand. It looks like this:</p>
 <pre>ModWrench crew list 1 · Lethal Company · 3 mods
 BepInEx-BepInExPack 5.4.2100
 x753-More_Suits 1.4.3
@@ -272,7 +272,7 @@ notnotnotswipez-MoreCompany 1.9.1</pre>
   <section id="see">
     <div class="wrap">
       <h2>Answers you can see</h2>
-      <p class="sub">Every answer comes as text any AI app can show. In apps that support MCP Apps, some answers also open as a page beside the chat. The pages can't reach the internet and keep nothing. They arrive with the next release, 0.3.0.</p>
+      <p class="sub">Every answer comes as text any AI app can show. In apps that support MCP Apps, some answers also open as a page beside the chat. The pages can't reach the internet and keep nothing. They're in the 0.3 beta.</p>
       <div class="shots">
         <figure>
           <img src="/media/crash-panel.png" width="2080" height="1288" loading="lazy" alt="The crash log page: an access violation laid out into its exception, suspected form IDs, call stack, registers and loaded plugins.">
