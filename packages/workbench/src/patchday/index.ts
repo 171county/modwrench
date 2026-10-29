@@ -751,7 +751,7 @@ function runPatchDay(options: PatchDayOptions, found?: (install: PatchDayInstall
     if (!chosen) {
       return fail(
         `Patch Day can't check "${asked}" yet.`,
-        "It reads Skyrim Special Edition and Anniversary Edition with SKSE, and Fallout 4 with F4SE."
+        "It reads Skyrim Special Edition and Anniversary Edition with SKSE, Fallout 4 with F4SE, and GTA V (gta5 for Legacy, gta5enhanced for Enhanced) with Script Hook V."
       );
     }
   } else if (options.gamePath) {

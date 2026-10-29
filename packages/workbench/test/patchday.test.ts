@@ -1376,7 +1376,7 @@ test("a game Patch Day doesn't cover yet says so and names what it does cover", 
   assert.equal(r.ok, false);
   if (r.ok) return;
   assert.match(r.error, /can't check "skyrimvr" yet/);
-  assert.match(r.hint ?? "", /Skyrim Special Edition and Anniversary Edition with SKSE, and Fallout 4 with F4SE/);
+  assert.match(r.hint ?? "", /Skyrim Special Edition and Anniversary Edition with SKSE, Fallout 4 with F4SE, and GTA V \(gta5 for Legacy, gta5enhanced for Enhanced\) with Script Hook V/);
   assert.deepEqual(r.supportedGames, PATCH_DAY_GAMES);
   assert.deepEqual(PATCH_DAY_GAMES, ["skyrimspecialedition", "fallout4"]);
 });
@@ -1698,9 +1698,10 @@ test("mw_patch_day: a run that can't happen is flagged as an error, with the rea
   const unsupported = await tool.handler({ gameId: "skyrimvr" });
   assert.equal(unsupported.isError, true);
   assert.match(unsupported.content[0]!.text, /^Patch Day couldn't run: /);
-  assert.match(unsupported.content[0]!.text, /Games it covers: skyrimspecialedition, fallout4\.$/);
+  // The tool covers GTA V too (patchday/gtav.ts), so its list names it.
+  assert.match(unsupported.content[0]!.text, /Games it covers: skyrimspecialedition, fallout4, gta5, gta5enhanced\.$/);
   assert.equal(unsupported.structuredContent?.ok, false);
-  assert.deepEqual(unsupported.structuredContent?.supportedGames, ["skyrimspecialedition", "fallout4"]);
+  assert.deepEqual(unsupported.structuredContent?.supportedGames, ["skyrimspecialedition", "fallout4", "gta5", "gta5enhanced"]);
 
   const notAVersion = await tool.handler({ gamePath: healthy().gameDir, targetVersion: "banana" });
   assert.equal(notAVersion.isError, true);

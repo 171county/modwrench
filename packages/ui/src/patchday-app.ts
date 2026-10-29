@@ -1,6 +1,7 @@
 // ─── The Patch Day page ──────────────────────────────────────────────────────
 // What `mw_patch_day` returns, drawn as a page: the verdict first, how sure it
-// is, what needs attention, what to do. It is an MCP App (see app.ts), so a
+// is, what needs attention, what to do. A GTA V report (kind "gtav") has
+// Script Hook V and its log in place of plugins and an Address Library. It is an MCP App (see app.ts), so a
 // client that supports the extension draws it and every other client shows the
 // plain-text answer the tool returns, with nothing extra in the conversation.
 //
@@ -203,8 +204,13 @@ const SCRIPT = String.raw`
     'field-reports': { label: 'Field reports', tip: "Matches what players and plugin authors have reported. Not from SKSE's source." },
     inferred: { label: 'Inferred', tip: "ModWrench's best guess from how the file looks. Treat it as a hint." }
   };
-  // The script extender a report is about. Only the two names Patch Day writes are used; anything else reads as SKSE.
-  function xse(r) { var s = r && r.scriptExtender; return s && s.name === 'F4SE' ? 'F4SE' : 'SKSE'; }
+  // The script extender a report is about. Only the names Patch Day writes are used; anything else reads as SKSE.
+  function isGta(r) { return !!r && r.kind === 'gtav'; }
+  function xse(r) {
+    if (isGta(r)) return 'Script Hook V';
+    var s = r && r.scriptExtender;
+    return s && s.name === 'F4SE' ? 'F4SE' : 'SKSE';
+  }
   function evidenceFor(key, X) {
     if (key === 'log') return { label: X + ' log', full: X + "'s own log", level: 3 };
     if (key === 'files') return { label: 'Files', full: 'the files and ' + X + "'s rules", level: 2 };
@@ -390,6 +396,47 @@ const SCRIPT = String.raw`
     show('chips', true);
   }
 
+  // GTA V versions are 1.0.<build>.<revision>: compared on the last two numbers. NaN for anything else.
+  function gtaOrder(a, b) {
+    var x = /^1\.0\.(\d+)\.(\d+)$/.exec(String(a || ''));
+    var y = /^1\.0\.(\d+)\.(\d+)$/.exec(String(b || ''));
+    if (!x || !y) return NaN;
+    return (Number(x[1]) - Number(y[1])) || (Number(x[2]) - Number(y[2]));
+  }
+
+  // GTA V: the game, Script Hook V, Steam and Script Hook V's log, in place of SKSE's plugins and Address Library.
+  function renderGtaChips(r) {
+    var host = el('chips');
+    clear(host);
+    var checked = r.checked || {};
+    var game = r.game || {};
+    var shv = r.scriptHook || {};
+    var whatIf = checked.source === 'targetVersion';
+    host.appendChild(chip('info', tidy(game.name, 40) || 'GTA V', tidy(checked.version, 24), whatIf ? 'The version being asked about' : 'The installed version'));
+
+    if (!shv.present) host.appendChild(chip('info', 'Script Hook V', 'not installed'));
+    else if (shv.supports) {
+      var order = gtaOrder(checked.version, shv.supports);
+      host.appendChild(chip(order > 0 ? 'bad' : 'ok', 'Script Hook V', 'supports up to ' + tidy(shv.supports, 24), shv.version ? 'v' + tidy(shv.version, 40) : false));
+    } else if (shv.version) host.appendChild(chip('bad', 'Script Hook V', 'no support for this edition', 'v' + tidy(shv.version, 40)));
+    else host.appendChild(chip('warn', 'Script Hook V', 'version unreadable'));
+
+    if (r.steam) {
+      host.appendChild(chip(r.steam.updatePending && !whatIf ? 'warn' : 'ok', 'Steam',
+        r.steam.updatePending && !whatIf ? 'update waiting' : 'no update waiting'));
+    }
+
+    var log = r.log;
+    if (!shv.present && (!log || !log.found)) { show('chips', true); return; }
+    if (whatIf) host.appendChild(chip('info', 'Script Hook V log', 'not used', 'It describes the installed version.'));
+    else if (!log || !log.found) host.appendChild(chip('info', 'Script Hook V log', 'not found'));
+    else if (!log.fresh) host.appendChild(chip('info', 'Script Hook V log', 'older than the game or Script Hook V'));
+    else if (log.outcome === 'started') host.appendChild(chip('ok', 'Script Hook V log', 'started, ' + num(log.scriptsRegistered) + ' script' + (num(log.scriptsRegistered) === 1 ? '' : 's')));
+    else if (log.outcome === 'unknown-version') host.appendChild(chip('bad', 'Script Hook V log', 'Unknown game version'));
+    else host.appendChild(chip('info', 'Script Hook V log', 'no result written'));
+    show('chips', true);
+  }
+
   function pluginRow(q, X) {
     var status = STATUS[q.status] ? q.status : 'unclear';
     var basis = BASIS[q.basis] ? q.basis : 'inferred';
@@ -511,7 +558,7 @@ const SCRIPT = String.raw`
     var checked = r.checked || {};
     var whatIf = checked.source === 'targetVersion';
     var input = el('whatif');
-    input.placeholder = xse(r) === 'F4SE' ? '1.11.240' : '1.7.104';
+    input.placeholder = isGta(r) ? '1.0.1158.16' : xse(r) === 'F4SE' ? '1.11.240' : '1.7.104';
     if (whatIf) input.value = tidy(state.args.targetVersion !== undefined ? state.args.targetVersion : checked.version, 24);
     el('btn-installed').hidden = !whatIf;
     show('controls', true);
@@ -531,12 +578,21 @@ const SCRIPT = String.raw`
     show('plain', false);
     renderVerdict(r);
     renderSure(r);
-    renderClash(r);
-    renderChips(r);
-    renderPlugins(r);
-    renderAhead(r);
+    if (isGta(r)) {
+      show('clash', false);
+      renderGtaChips(r);
+      show('plugins', false);
+      show('ahead', false);
+    } else {
+      renderClash(r);
+      renderChips(r);
+      renderPlugins(r);
+      renderAhead(r);
+    }
     renderSteps(r);
     renderDetails(r);
+    // The plugin labels and the plugin folders don't apply to GTA V.
+    if (isGta(r)) { show('where', false); show('legend', false); }
     renderControls(r);
     el('note').textContent = '';
     var now = new Date();
