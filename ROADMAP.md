@@ -51,6 +51,18 @@ the default:
   runs around the clock, and ModWrench has no service to run one ([TRUST.md](TRUST.md#there-is-no-modwrench-service)).
   It could come back if a mod community wants to host one. **Posting** stays copy and paste:
   Crash Whisperer writes the help post and you post it.
+- **Steam Workshop, as a platform of its own.** For RimWorld, Cities: Skylines, Arma 3,
+  Project Zomboid, Stellaris, Garry's Mod and many other games, the Workshop is where the
+  mods are. In this order:
+  1. **What's on your PC,** which needs nothing from anyone: the Workshop items Steam has
+     downloaded for each game (under `steamapps/workshop`, listed in the
+     `appworkshop_<appid>.acf` file Steam keeps), and whether Steam is waiting to update any
+     of them.
+  2. **A Workshop mod's public facts,** such as its name, author, last update and
+     subscribers, from Steam's public API. Reports say this needs no key; that is to be
+     confirmed before it's built.
+  3. **Searching the Workshop,** which needs a free Steam Web API key that each player gets
+     from Steam and that ModWrench keeps in the system's keychain, like a Nexus key.
 - **One-click install for Claude Desktop.** A `.mcpb` bundle, so there is no config file to
   edit and no wait for `npx` to fetch the package on first start.
 - **Pulse for Nexus mods,** from the mod IDs and versions that Mod Organizer 2 (`meta.ini`)
