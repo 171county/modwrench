@@ -280,3 +280,47 @@ test("nexus_md5_search says when Nexus knows no such file", async () => {
   const text = (await server().call("nexus_md5_search", { md5_hash: "b".repeat(32) })).content[0]!.text;
   assert.match(text, /knows no file with MD5/);
 });
+
+// ─── What the answers say, from the first run against the live API ───────────
+
+test("a list says how many adult-tagged mods it withheld, so a short list isn't taken for a short list", async () => {
+  stub(() => ({ data: { mods: { totalCount: 2, nodes: [mod(1, "Clean", false), mod(2, "Flagged", true)] } } }));
+  const text = (await server().call("nexus_latest_updated", { game_domain: "skyrimspecialedition" })).content[0]!.text;
+  assert.match(text, /^1 adult-tagged mod was withheld\.\n\n\[/);
+  assert.doesNotMatch(text, /Flagged/);
+});
+
+test("a list with nothing withheld is the plain list, as before", async () => {
+  stub(() => ({ data: { mods: { totalCount: 1, nodes: [mod(1, "Clean", false)] } } }));
+  const text = (await server().call("nexus_latest_added", { game_domain: "skyrimspecialedition" })).content[0]!.text;
+  assert.ok(text.startsWith("["), text.slice(0, 40));
+});
+
+test("nexus_updated says how many of the newest were withheld and how many are shown", async () => {
+  stub(() => ({ data: { mods: { totalCount: 250, nodes: [mod(1, "A", false), mod(2, "Flagged", true), mod(3, "B", false)] } } }));
+  const text = (await server().call("nexus_updated", { game_domain: "skyrimspecialedition", period: "1d" })).content[0]!.text;
+  assert.match(text, /^250 mods updated in the last 1d for skyrimspecialedition; of the newest 3, 1 is adult-tagged and withheld, so 2 are shown:/);
+});
+
+test("nexus_search says how many matches it withheld", async () => {
+  stub(() => ({ data: { mods: { totalCount: 3, nodes: [mod(1, "A", false), mod(2, "Flagged", true), mod(3, "Also flagged", true)] } } }));
+  const text = (await server().call("nexus_search", { query: "sky" })).content[0]!.text;
+  assert.match(text, /showing 1 \(2 more are adult-tagged and withheld\):/);
+  assert.doesNotMatch(text, /Flagged|flagged"/);
+});
+
+test("nexus_get_game says plainly when Nexus answers an unknown domain with its 'Game not found' error", async () => {
+  stub(() => ({ errors: [{ message: "Game not found. Could not find Game game_domain: nosuchgame" }] }));
+  await assert.rejects(
+    () => server().call("nexus_get_game", { game_domain: "nosuchgame" }),
+    (err: Error & { code?: string }) => err.code === "nexus_not_found" && /no game with the domain name "nosuchgame"/.test(err.message)
+  );
+});
+
+test("any other GraphQL error from nexus_get_game is passed on as it is", async () => {
+  stub(() => ({ errors: [{ message: "Rate limit exceeded" }] }));
+  await assert.rejects(
+    () => server().call("nexus_get_game", { game_domain: "skyrimspecialedition" }),
+    (err: Error & { code?: string }) => err.code === "nexus_graphql_error"
+  );
+});

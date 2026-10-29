@@ -27,8 +27,13 @@ This document is maintained by hand.
   no longer needs a game (Nexus looks the hash up across all games; a game you
   name keeps only its matches), and the tools return snake_case fields with
   each mod's page address. The standalone `@modwrench/nexus` server now starts
-  without a key, with the public tools only. Checked against Nexus's published
-  GraphQL reference; not yet run against the live API.
+  without a key, with the public tools only. Built from Nexus's published
+  GraphQL reference, then run against the live API on 2026-10-29 in MCP
+  Inspector on Windows 11: all eight answered, with no key stored. A list
+  that withheld adult-tagged mods now says how many (that run's
+  updated-in-the-last-day list showed 68 of the newest 100), and an unknown
+  game domain, which Nexus answers with a "Game not found" error, gets
+  ModWrench's plain "no game with that domain name".
 - **The website's Install section is a "pick your app" list.** Claude
   Desktop, Claude Code, VS Code, Cursor, Codex, Antigravity, Devin, and Cline,
   Windsurf and other apps each get their own steps, taken from that app's
@@ -250,8 +255,8 @@ This document is maintained by hand.
   ([GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)) and
   has no fixed 3.x release. The MCP SDK supports zod 4, and the tools' inputs and
   descriptions are unchanged. The web-server libraries the MCP SDK brings in
-  (`body-parser`, `proxy-addr`, `hono`, `ip-address`, `fast-uri`) get their
-  fixed versions in the lockfile. Those matter to `@modwrench/remote`, the HTTP
+  (`body-parser`, `proxy-addr`, `hono`, `@hono/node-server`, `ip-address`,
+  `fast-uri`) get their fixed versions in the lockfile. Those matter to `@modwrench/remote`, the HTTP
   server; the local server doesn't listen on the network.
 
 ## [0.3.0] — unreleased
