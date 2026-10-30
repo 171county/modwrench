@@ -10,6 +10,11 @@ This document is maintained by hand.
 
 ## [Unreleased]
 
+## [0.3.2] — unreleased
+
+Two small fixes on top of the 0.3.1 beta, and releases that publish only
+through npm's trusted publishing.
+
 ### Changed
 - **Releases publish through npm's trusted publishing only.** The release
   workflow no longer falls back on a stored npm token, and the token and its
