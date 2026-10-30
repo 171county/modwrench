@@ -60,7 +60,8 @@ jobs:
       # permission above) for a short-lived publish token, so a release doesn't
       # depend on a stored token that expires. It needs npm 11.5.1 or newer,
       # and Node 22 comes with npm 10, so the publish runs a pinned npm.
-      # A package that doesn't trust this workflow yet falls back to NPM_TOKEN.
+      # There is no stored token to fall back on: a package that doesn't trust
+      # this workflow fails to publish, and the run stops there.
       #
       # Setup on npmjs.com, once for each of the eight @modwrench/* packages, no
       # more than two days before a release (npm drops a trusted publisher that
@@ -74,10 +75,10 @@ jobs:
       #                           only npm stage publish, which this job doesn't
       #                           run; npm dist-tag is what moves latest onto a
       #                           version a beta run already published)
-      # npm falls back to NPM_TOKEN without saying so, so after the release check
-      # all eight: `npm view @modwrench/<package>@<version> _npmUser` names
-      # GitHub Actions for a trusted publish. Then delete the NPM_TOKEN secret
-      # and revoke the token on npmjs.com.
+      # After a release, `npm view @modwrench/<package>@<version> _npmUser` names
+      # GitHub Actions for each of the eight. (0.3.1 was the first release with
+      # all eight trusted; the NPM_TOKEN secret and its npm token were removed
+      # after it.)
       #
       # 11.21.0 is also the first npm that runs `npm dist-tag` with trusted
       # publishing.
@@ -112,9 +113,6 @@ jobs:
             fi
           done
         env:
-          # The fallback for a package that doesn't trust this workflow yet;
-          # npm tries trusted publishing first.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           # A tag push is a real release; a manual run defaults to beta so it
           # cannot move latest by accident.
           DIST_TAG: ${{ github.event.inputs.dist_tag || (startsWith(github.ref, 'refs/tags/v') && 'latest') || 'beta' }}

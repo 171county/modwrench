@@ -33,7 +33,7 @@ and the Doctors also have a page, drawn only in a client that supports MCP Apps:
 points at its page, the client fetches it and draws it, and the data the page draws comes with
 the answer as structured data. A client that can't draw pages never fetches one and is never
 sent that data, so it gets the text answer and no HTML at all. The pictures above were drawn in
-a stand-in for an MCP Apps host. Since then, on Windows 11, the Crash Whisperer page has run in Claude Desktop (called by Claude itself) and in MCP Inspector, and the deck in MCP Inspector and VS Code's Copilot Chat; the other pages haven't been tried in a real client yet.
+a stand-in for an MCP Apps host. Since then, on Windows 11, the Crash Whisperer page has run in Claude Desktop (called by Claude itself) and in MCP Inspector, and the deck in MCP Inspector and VS Code's Copilot Chat. The Patch Day page has shown a check that couldn't run in VS Code, but not a full report; the other pages haven't been tried in a real client yet.
 
 **Patch Day, Crash Whisperer and the Doctors** (`mw_patch_day`, `mw_crash_whisperer`,
 `mw_doctor`) keep their text to a few lines, and the full report goes to their page. The
@@ -154,6 +154,10 @@ use. If you would rather edit `mcp.json` by hand:
 ```
 
 MCP tools only load in **Agent** mode, not Ask — switch the mode dropdown in the chat box.
+
+Newer versions of VS Code may offer to migrate your MCP servers into Copilot's own file,
+`~/.copilot/mcp-config.json`. ModWrench's entry moves as it is, because it has no input prompts
+or sign-in settings; allow it when VS Code asks you to trust it again.
 
 **Claude Desktop, Cursor, Cline, Continue, Roo Code** — add to your client's MCP config.
 Note the key here is `mcpServers`, which is *not* what VS Code uses:
