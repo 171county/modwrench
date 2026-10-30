@@ -7,11 +7,10 @@ order it differently, [open an issue](https://github.com/171county/modwrench/iss
 
 ## Now: the 0.3 beta
 
-0.3.0 is on npm as `beta` (`npx -y @modwrench/cli@beta`), and 0.3.1 comes next. Together
-they carry Patch Day, Crash Whisperer, the Doctors, Pulse, Crew Check, the Trust Card, LOOT's
-conditions and requirements, keyless Nexus search, the pages, and Patch Day for GTA V. The
-default install (`@modwrench/cli`, the `latest` tag) is still 0.2.4. Before the beta becomes
-the default:
+0.3.1 is on npm as `beta` (`npx -y @modwrench/cli@beta`). The 0.3 betas carry Patch Day,
+Crash Whisperer, the Doctors, Pulse, Crew Check, the Trust Card, LOOT's conditions and
+requirements, keyless Nexus search, the pages, and Patch Day for GTA V. The default install
+(`@modwrench/cli`, the `latest` tag) is still 0.2.4. Before the beta becomes the default:
 
 - **A real game install.** Nothing has run against a real Skyrim Special Edition, Fallout 4
   or GTA V folder; the tests build their own. GTA V's checks were built from logs players
@@ -59,10 +58,11 @@ the default:
      `appworkshop_<appid>.acf` file Steam keeps), and whether Steam is waiting to update any
      of them.
   2. **A Workshop mod's public facts,** such as its name, author, last update and
-     subscribers, from Steam's public API. Reports say this needs no key; that is to be
-     confirmed before it's built.
+     subscribers, from Steam's public API. Valve's documentation lists no key for it; it
+     will be tried against Steam itself before it's built.
   3. **Searching the Workshop,** which needs a free Steam Web API key that each player gets
-     from Steam and that ModWrench keeps in the system's keychain, like a Nexus key.
+     from Steam and that ModWrench keeps in the system's keychain, like a Nexus key. Steam's
+     terms say a key must not be shared, so there is no ModWrench key for everyone.
 - **One-click install for Claude Desktop.** A `.mcpb` bundle, so there is no config file to
   edit and no wait for `npx` to fetch the package on first start.
 - **Hand the install to your mod manager.** ModWrench still never changes a game's files:

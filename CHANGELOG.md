@@ -10,6 +10,12 @@ This document is maintained by hand.
 
 ## [Unreleased]
 
+### Changed
+- **Releases publish through npm's trusted publishing only.** The release
+  workflow no longer falls back on a stored npm token, and the token and its
+  GitHub secret are gone. Each package's npm page names GitHub Actions as its
+  publisher, with a provenance record pointing back to the run that built it.
+
 ### Fixed
 - **The server's start line says which version is running.** The
   `modwrench.started` line in the log now carries `version`, so a client's MCP

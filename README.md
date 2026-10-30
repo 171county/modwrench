@@ -155,6 +155,10 @@ use. If you would rather edit `mcp.json` by hand:
 
 MCP tools only load in **Agent** mode, not Ask — switch the mode dropdown in the chat box.
 
+Newer versions of VS Code may offer to migrate your MCP servers into Copilot's own file,
+`~/.copilot/mcp-config.json`. ModWrench's entry moves as it is, because it has no input prompts
+or sign-in settings; allow it when VS Code asks you to trust it again.
+
 **Claude Desktop, Cursor, Cline, Continue, Roo Code** — add to your client's MCP config.
 Note the key here is `mcpServers`, which is *not* what VS Code uses:
 

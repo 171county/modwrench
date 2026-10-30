@@ -59,7 +59,10 @@ test("release.yml publishes with what npm trusted publishing needs", () => {
   assert.ok(atLeast(install.slice(1, 4).map(Number), NPM_FOR_TRUSTED_PUBLISHING), "npm 11.5.1 or newer");
   assert.ok(install.index > npmJob.indexOf("actions/setup-node"), "after setup-node, so it replaces the npm the publish runs");
   assert.ok(install.index < npmJob.search(/\n\s+npm publish /), "before the publish");
-  assert.match(npmJob, /\n\s+npm publish [^\n]*--provenance/, "the publish still asks for provenance, for the token fallback");
+  assert.match(npmJob, /\n\s+npm publish [^\n]*--provenance/, "the publish asks for provenance");
+  // The stored npm token was removed after 0.3.1, so no step may fall back on one.
+  const steps = npmJob.split("\n").filter((line) => !line.trimStart().startsWith("#")).join("\n");
+  assert.doesNotMatch(steps, /NODE_AUTH_TOKEN|NPM_TOKEN/, "no stored npm token to fall back on");
 });
 
 test("every package release.yml publishes gives this repository as its repository.url", () => {
