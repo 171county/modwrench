@@ -16,7 +16,8 @@ requirements, keyless Nexus search, the pages, and Patch Day for GTA V. The defa
   or GTA V folder; the tests build their own. GTA V's checks were built from logs players
   have posted.
 - **Real clients.** The Crash Whisperer page has run in Claude Desktop and MCP Inspector,
-  and the deck in MCP Inspector and in VS Code's Copilot Chat. The other pages haven't been
+  and the deck in MCP Inspector and in VS Code's Copilot Chat. The Patch Day page has shown a
+  check that couldn't run in VS Code, but not a full report. The other pages haven't been
   opened in a real client yet. What each client does is written into TRUST.md as it's tried.
 
 ## Next
