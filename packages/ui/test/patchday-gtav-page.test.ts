@@ -69,3 +69,16 @@ test("a GTA V report where the build covers the game, and one without Script Hoo
     { tone: "info", text: "–Script Hook Vnot installed (for information)" },
   ]);
 });
+
+test("a failed check suggests a version of its own game in the what-if box: GTA V's for a GTA V check, Skyrim's otherwise", async () => {
+  const placeholder = (page: ReturnType<typeof loadPage>): string | undefined => (page.el("whatif") as unknown as { placeholder?: string }).placeholder;
+
+  const gta = loadPage(renderPatchDayApp());
+  await gta.show({ ok: false, kind: "gtav", error: "Couldn't find GTA V Legacy in any Steam library.", supportedGames: ["gta5", "gta5enhanced"] });
+  assert.equal(gta.el("problem").hidden, false);
+  assert.equal(placeholder(gta), "1.0.1158.16");
+
+  const skyrim = loadPage(renderPatchDayApp());
+  await skyrim.show({ ok: false, error: "Couldn't find Skyrim Special Edition or Fallout 4 in any Steam library.", supportedGames: ["skyrimspecialedition", "fallout4", "gta5", "gta5enhanced"] });
+  assert.equal(placeholder(skyrim), "1.7.104");
+});

@@ -554,11 +554,14 @@ const SCRIPT = String.raw`
     show('where', true);
   }
 
+  // A version to suggest in the what-if box: the game's own kind of number. A failed GTA V check says it is one too.
+  function exampleVersion(r) { return isGta(r) ? '1.0.1158.16' : xse(r) === 'F4SE' ? '1.11.240' : '1.7.104'; }
+
   function renderControls(r) {
     var checked = r.checked || {};
     var whatIf = checked.source === 'targetVersion';
     var input = el('whatif');
-    input.placeholder = isGta(r) ? '1.0.1158.16' : xse(r) === 'F4SE' ? '1.11.240' : '1.7.104';
+    input.placeholder = exampleVersion(r);
     if (whatIf) input.value = tidy(state.args.targetVersion !== undefined ? state.args.targetVersion : checked.version, 24);
     el('btn-installed').hidden = !whatIf;
     show('controls', true);
@@ -659,7 +662,10 @@ const SCRIPT = String.raw`
     state.text = firstText(result);
     var data = result.structuredContent;
     if (data && typeof data === 'object' && data.ok === true) showReport(data);
-    else if (data && typeof data === 'object' && data.ok === false) showProblem("Patch Day couldn't run.", data.error, data.hint);
+    else if (data && typeof data === 'object' && data.ok === false) {
+      el('whatif').placeholder = exampleVersion(data);
+      showProblem("Patch Day couldn't run.", data.error, data.hint);
+    }
     else if (result.isError) showProblem("Patch Day couldn't run.", state.text);
     else if (state.text) showTextOnly(state.text);
     else showProblem('The check returned nothing this page can show.');

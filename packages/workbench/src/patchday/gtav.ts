@@ -101,6 +101,8 @@ export type GtaPatchDayReport = {
 
 export type GtaPatchDayError = {
   ok: false;
+  /** Tells the Patch Day page this was a GTA V check, so its what-if box suggests a GTA V version. */
+  kind: "gtav";
   error: string;
   hint?: string;
   supportedGames: string[];
@@ -230,7 +232,7 @@ function mtimeOf(path: string): number | null {
 // ─── The check ───────────────────────────────────────────────────────────────
 
 function fail(error: string, hint?: string): GtaPatchDayError {
-  return { ok: false, error, ...(hint ? { hint } : {}), supportedGames: GTA_PATCH_DAY_GAMES };
+  return { ok: false, kind: "gtav", error, ...(hint ? { hint } : {}), supportedGames: GTA_PATCH_DAY_GAMES };
 }
 
 /** True when the request is about GTA V: its game id, or a gamePath holding one of its executables. */

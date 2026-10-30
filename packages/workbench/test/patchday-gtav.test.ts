@@ -388,6 +388,9 @@ test("errors: not in Steam, the wrong edition in gamePath, no executable, an edi
   const bogus = checkGtaPatchDay({ gameId: "gta4" });
   assert.equal(bogus.ok, false);
   if (!bogus.ok) assert.match(bogus.hint ?? "", /gta5enhanced/);
+
+  // Every failed GTA V check says it was one, so the page's what-if box can suggest a GTA V version.
+  for (const r of [none, wrong, nothing, bogus]) assert.equal(r.kind, "gtav");
 });
 
 test("isGtaPatchDayRequest: GTA V by its game id or by an executable in gamePath, nothing else", () => {
@@ -426,7 +429,7 @@ test("the text answer: the verdict first, then how sure, why, the setup line, th
   assert.match(text, /\nWhat this can't tell you:\n- It checks Script Hook V only/);
   assert.match(text, /Not yet checked on a real install/);
 
-  const failed = summarizeGtaPatchDay({ ok: false, error: "Nope.", hint: "Try this.", supportedGames: ["gta5", "gta5enhanced"] });
+  const failed = summarizeGtaPatchDay({ ok: false, kind: "gtav", error: "Nope.", hint: "Try this.", supportedGames: ["gta5", "gta5enhanced"] });
   assert.equal(failed, "Patch Day couldn't run: Nope.\nTry this.\nGames it covers: gta5, gta5enhanced.");
 });
 

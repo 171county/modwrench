@@ -10,6 +10,16 @@ This document is maintained by hand.
 
 ## [Unreleased]
 
+### Fixed
+- **The server's start line says which version is running.** The
+  `modwrench.started` line in the log now carries `version`, so a client's MCP
+  output shows the build without a trip to the command line.
+- **A failed GTA V check suggests a GTA V version.** When Patch Day couldn't run
+  a GTA V check (no GTA V found, a wrong folder), its page still offered
+  `1.7.104`, a Skyrim version, in the "What if I update to" box. A failed GTA V
+  check now says it was one (`kind: "gtav"`), and the box suggests
+  `1.0.1158.16`.
+
 ## [0.3.1] — unreleased
 
 Patch Day for GTA V, the ModWrench logo as the server's icon, the trademark
