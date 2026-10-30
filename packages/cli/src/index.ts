@@ -302,6 +302,7 @@ async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   log("info", "modwrench.started", {
+    version: PKG_VERSION,
     loaded: activeAtBoot.map((p) => ({
       platform: p.platformId,
       tools: p.toolCount,

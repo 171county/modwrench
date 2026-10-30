@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 // ─── What the CLI does with an argument a person typed ───────────────────────
@@ -135,6 +136,12 @@ test("NO arguments still starts the MCP server — this is how every client laun
   );
   // The logo travels in the handshake itself, so a client showing it fetches nothing.
   assert.match(parsed.result?.serverInfo?.icons?.[0]?.src ?? "", /^data:image\/png;base64,/, "the server's logo is missing from its handshake");
+
+  // The start line on stderr names the version, so a log shows which build is running.
+  const started = stderr.split("\n").find((l) => l.includes('"modwrench.started"'));
+  assert.ok(started, `no modwrench.started line on stderr: ${stderr.slice(0, 400)}`);
+  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
+  assert.equal((JSON.parse(started) as { version?: string }).version, pkg.version);
 
   // Usage text on stdout would corrupt the JSON-RPC stream a client is reading.
   assert.doesNotMatch(stdout, /claude mcp add/, "usage text leaked into the JSON-RPC stream");
