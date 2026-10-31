@@ -1118,7 +1118,7 @@ function nextStepsFor(a: {
   }
   if (!a.whatIf && a.steam?.updatePending) {
     steps.push(
-      "Steam has an update waiting. If you aren't ready, game Properties → Updates lets you set it to update only when you launch. ModWrench never changes Steam settings. Once you know the new version number, run this again with targetVersion to see what it would do."
+      "Steam has an update waiting. If you aren't ready, game Properties → Updates lets you set it to update only when you launch. ModWrench never changes Steam settings. Once you know the new version number, run this again with targetVersion to see what it would do. To read what the update changes, mw_news can fetch the game's latest announcements and patch notes from Steam; it asks first."
     );
   }
   if (!a.whatIf && (!a.log || !a.log.found || !a.log.fresh)) {

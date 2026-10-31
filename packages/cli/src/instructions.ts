@@ -1,6 +1,6 @@
 // ─── What the server tells a client about itself ─────────────────────────────
 // MCP's `instructions` field: the client may put it in the model's context, so it
-// says which tool answers which question, across the 57. Some clients show only the
+// says which tool answers which question, across the 58. Some clients show only the
 // start, so the first paragraph (under 512 characters, a test holds it there) stands
 // on its own. Every tool named here is checked against the real catalog.
 
@@ -16,9 +16,10 @@ export const SERVER_INSTRUCTIONS = [
     "wants the parsed fields. The mw_ tools never write. Most read only this computer's files, but " +
     "mw_query_mod_metadata asks Nexus and mod.io, mw_check_known_conflicts, mw_diagnose_crash " +
     "with a gameId and mw_loot_requirements (what LOOT says the active plugins need) fetch LOOT's " +
-    "public list from GitHub, attributeSuspects asks Nexus, and mw_pulse asks Thunderstore, but " +
-    "sends nothing without confirm: show the user its plan and pass confirm=true only after they " +
-    "say yes. Every tool reads " +
+    "public list from GitHub, attributeSuspects asks Nexus, mw_pulse asks Thunderstore and mw_news " +
+    "(what's new for a game: its Steam announcements and its tools' GitHub releases) asks Steam " +
+    "and GitHub, but those two send nothing without confirm: show the user the plan and pass " +
+    "confirm=true only after they say yes. Every tool reads " +
     "except nexus_endorse_mod: call it without confirm for a preview, and pass confirm=true only " +
     "after the user says yes. Nexus and mod.io tools are there only once connected; " +
     "mw_activate_platform connects one mid-session and mw_deck shows which are connected.",
