@@ -39,10 +39,13 @@ and Patch Day for GTA V. The default install (`@modwrench/cli`, the `latest` tag
   4. **The Steam Deck and Linux:** the launch-option override each edition's loader needs.
 - **Community feeds,** read-only and asked for first, the way Pulse asks before it checks
   Thunderstore. In this order:
-  1. **Steam news:** the patch notes and announcements Steam publishes for each game. It's
-     public and needs no key, so Patch Day can say what a waiting update changes.
-  2. **Tool releases on GitHub:** new builds of ScriptHookVDotNet, CodeWalker and the other
-     modding tools released there.
+  1. **Steam news:** built as `mw_news`, for the next beta: the announcements and patch notes
+     each game's publisher posts on Steam. It's public and needs no key, and Patch Day points
+     to it when Steam has an update waiting.
+  2. **Tool releases on GitHub:** built into the same tool: the latest releases of LOOT,
+     xEdit, Mod Organizer 2, BepInEx, MelonLoader, r2modman and ScriptHookVDotNet.
+     CodeWalker isn't in it, because it publishes no GitHub releases; ScriptHookVDotNet's
+     Enhanced fork joins once where it releases is confirmed.
   3. **Reddit:** posts about a mod or a game update in that game's modding subreddits,
      linked back to Reddit. Since late 2025 every app needs Reddit's approval before it can
      read anything, so this is built only once Reddit approves ModWrench. Everyone using
