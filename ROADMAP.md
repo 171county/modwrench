@@ -7,11 +7,11 @@ order it differently, [open an issue](https://github.com/171county/modwrench/iss
 
 ## Now: the 0.3 beta
 
-0.3.1 is on npm as `beta` (`npx -y @modwrench/cli@beta`), and 0.3.2, with two small
-fixes, comes next. The 0.3 betas carry Patch Day, Crash Whisperer, the Doctors, Pulse, Crew
-Check, the Trust Card, LOOT's conditions and requirements, keyless Nexus search, the pages,
-and Patch Day for GTA V. The default install (`@modwrench/cli`, the `latest` tag) is still
-0.2.4. Before the beta becomes the default:
+0.3.2 is on npm as `beta` (`npx -y @modwrench/cli@beta`), and 0.3.3, with News, comes
+next. The 0.3 betas carry Patch Day, Crash Whisperer, the Doctors, Pulse, Crew Check, the
+Trust Card, LOOT's conditions and requirements, keyless Nexus search, the pages, and Patch
+Day for GTA V. The default install (`@modwrench/cli`, the `latest` tag) is still 0.2.4.
+Before the beta becomes the default:
 
 - **A real game install.** Nothing has run against a real Skyrim Special Edition, Fallout 4
   or GTA V folder; the tests build their own. GTA V's checks were built from logs players

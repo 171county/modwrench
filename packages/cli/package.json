@@ -1,6 +1,6 @@
 {
   "name": "@modwrench/cli",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "mcpName": "io.github.171county/modwrench",
   "description": "ModWrench \u2014 one MCP entry, every mod platform. Bundles all installed @modwrench/* platform packages into a single combined MCP server.",
   "keywords": [
@@ -49,12 +49,12 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.0",
-    "@modwrench/core": "0.3.2",
-    "@modwrench/modio": "0.3.2",
-    "@modwrench/nexus": "0.3.2",
-    "@modwrench/thunderstore": "0.3.2",
-    "@modwrench/ui": "0.3.2",
-    "@modwrench/workbench": "0.3.2",
+    "@modwrench/core": "0.3.3",
+    "@modwrench/modio": "0.3.3",
+    "@modwrench/nexus": "0.3.3",
+    "@modwrench/thunderstore": "0.3.3",
+    "@modwrench/ui": "0.3.3",
+    "@modwrench/workbench": "0.3.3",
     "zod": "^4.6.6"
   },
   "engines": {

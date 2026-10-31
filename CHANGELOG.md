@@ -10,6 +10,11 @@ This document is maintained by hand.
 
 ## [Unreleased]
 
+## [0.3.3] — unreleased
+
+News, a game's official Steam announcements and its modding tools' GitHub
+releases, on top of the 0.3.2 beta.
+
 ### Added
 - **News: `mw_news` — "what's new for my game?"** A game's latest official
   announcements on Steam, with patch notes marked, and the latest releases on
