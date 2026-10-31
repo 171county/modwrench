@@ -10,6 +10,20 @@ This document is maintained by hand.
 
 ## [Unreleased]
 
+### Added
+- **News: `mw_news` — "what's new for my game?"** A game's latest official
+  announcements on Steam, with patch notes marked, and the latest releases on
+  GitHub of the modding tools its players use: LOOT, xEdit and Mod Organizer 2
+  for the Bethesda games; BepInEx or MelonLoader, and r2modman, for the
+  Thunderstore games; ScriptHookVDotNet for GTA V Legacy. Neither needs a key.
+  Like Pulse, the first call sends nothing and answers with what a check would
+  send and to which hosts; only a call with `confirm=true` sends it. Steam is
+  asked for the publisher's own feed only, not press articles. The publishers'
+  text is flattened to one line and cut short, and a link is shown only when
+  it points at Steam or GitHub. `STEAM_API_BASE_URL` and `GITHUB_API_BASE_URL`
+  point it elsewhere, to watch what it sends. When Steam has an update
+  waiting, Patch Day's next steps now mention it.
+
 ## [0.3.2] — unreleased
 
 Two small fixes on top of the 0.3.1 beta, and releases that publish only

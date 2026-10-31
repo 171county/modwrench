@@ -51,6 +51,7 @@ import { isFolderName, isNetworkPath } from "./localpath.js";
 import { runPulse, summarizePulse } from "./pulse/index.js";
 import { CREW_MAX_CHARS, CREW_MAX_LISTS, runCrewCheck, summarizeCrewCheck } from "./crew/index.js";
 import { runTrustCard, summarizeTrustCard } from "./trustcard/index.js";
+import { runNews, summarizeNews } from "./news/index.js";
 import { crashFace, crewFace, noteFace, patchFace, setupFace, updatesFace } from "./faces.js";
 
 export { deckFaces, FACE_JOBS, type Face, type FaceJob } from "./faces.js";
@@ -1126,5 +1127,39 @@ export function registerWorkbenchTools(server: McpServer): {
     })
   );
 
-  return { toolCount: 13 };
+  // ─── Tool 14: mw_news ───────────────────────────────────────────────────────
+  // "What's new for this game and its modding tools?" The game's official Steam
+  // announcements and its tools' GitHub releases. The first call sends nothing and
+  // answers with the plan; only a call with confirm=true asks (see news/index.ts).
+
+  server.registerTool(
+    "mw_news",
+    {
+      title: "What's new for my game",
+      description:
+        "News: \"what's new for this game and its modding tools?\" The game's latest official announcements on Steam, patch notes among them, and the latest releases on GitHub of the modding tools its players use: LOOT, xEdit and Mod Organizer 2 for Bethesda games; BepInEx or MelonLoader, and r2modman, for Thunderstore games; ScriptHookVDotNet for GTA V Legacy. Neither needs a key. Behave like this: call it once WITHOUT confirm. That sends nothing and answers with what a check would send and to which hosts. Show that to the user, and call again with confirm=true only after they say yes. Never pass confirm=true on the first call. Read-only: it never downloads or installs anything, and it doesn't say whether an update breaks mods (mw_patch_day does). Use when the user asks \"what's new for my game\", \"what did the last update change\" or \"is there a new LOOT\", or after mw_patch_day says Steam has an update waiting.",
+      inputSchema: {
+        gameId: z
+          .string()
+          .max(100)
+          .describe("Canonical game ID, e.g. 'skyrimspecialedition', 'fallout4', 'lethalcompany', 'valheim', 'gta5' (Legacy) or 'gta5enhanced'. mw_detect_environment lists the games on this computer."),
+        confirm: z
+          .boolean()
+          .optional()
+          .describe("true sends the requests. Leave it out on the first call, which only says what would be sent; pass true only after the user has said yes to that."),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    guarded("mw_news", [], async ({ gameId, confirm }) => {
+      const result = await runNews({ gameId, ...(confirm !== undefined ? { confirm } : {}) });
+      return { content: [{ type: "text", text: summarizeNews(result) }], ...(result.ok ? {} : { isError: true as const }) };
+    })
+  );
+
+  return { toolCount: 14 };
 }

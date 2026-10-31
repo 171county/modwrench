@@ -53,11 +53,11 @@ class MockMcpServer {
 
 // ─── Registration smoke tests ───────────────────────────────────────────────
 
-test("registerWorkbenchTools: registers 13 tools", () => {
+test("registerWorkbenchTools: registers 14 tools", () => {
   const server = new MockMcpServer();
   const result = registerWorkbenchTools(server as unknown as never);
-  assert.equal(result.toolCount, 13);
-  assert.equal(server.tools.size, 13);
+  assert.equal(result.toolCount, 14);
+  assert.equal(server.tools.size, 14);
 });
 
 test("registerWorkbenchTools: every expected tool is present", () => {
@@ -246,7 +246,7 @@ test("every path argument of every tool is in the list the next test checks", as
   const { client, close } = await connected();
   try {
     const { tools } = await client.listTools();
-    assert.equal(tools.length, 13);
+    assert.equal(tools.length, 14);
     const listed = new Set(PATH_ARGS.map(([tool, arg]) => `${tool}.${arg}`));
     for (const t of tools) {
       for (const arg of Object.keys(t.inputSchema.properties ?? {})) {
@@ -500,7 +500,7 @@ test("a handler that hits an error it didn't plan for answers in one sentence, w
     assert.doesNotMatch(text, /Jane|Doe|Users|MO2 Portable|modlist/, `${name}: ${text}`);
     checked++;
   }
-  assert.equal(checked, 12);
+  assert.equal(checked, 13);
 });
 
 test("through the real SDK, a tool whose arguments are all optional answers a call that leaves arguments out", async () => {
